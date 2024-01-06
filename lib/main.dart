@@ -35,7 +35,7 @@ Future<void> main() async {
   //   MobileAds.instance.initialize();
   // }
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  if (Platform.isAndroid || Platform.isIOS) {
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
     MobileAds.instance.initialize();
   }
   final pref = await SharedPreferences.getInstance();

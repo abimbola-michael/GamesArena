@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:gamesarena/blocs/firebase_service.dart';
 import 'package:gamesarena/extensions/extensions.dart';
 import 'package:flutter/material.dart';
@@ -457,6 +458,8 @@ const int maxGameTime = 20 * 60;
 const int maxPlayerTime = 30;
 const int maxChessDraughtTime = 10 * 60;
 const int maxAdsTime = 60 * 5;
-final adUnitId = Platform.isAndroid
-    ? 'ca-app-pub-3940256099942544/1033173712'
-    : 'ca-app-pub-3940256099942544/4411468910';
+final adUnitId = kIsWeb
+    ? ""
+    : Platform.isAndroid
+        ? 'ca-app-pub-3940256099942544/1033173712'
+        : 'ca-app-pub-3940256099942544/4411468910';
