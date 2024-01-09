@@ -39,6 +39,8 @@ dependencies:
   firebase_auth:
   firebase_messaging:
   firebase_database:
+  firebase_crashlytics:
+  #firebase_analytics:
   flutter_local_notifications:
   google_sign_in:
   #just_audio:

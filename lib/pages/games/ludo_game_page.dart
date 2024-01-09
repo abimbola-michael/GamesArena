@@ -51,6 +51,7 @@ class LudoGamePage extends StatefulWidget {
 
 class _LudoGamePageState extends State<LudoGamePage>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  bool played = false;
   LudoDetails? prevDetails;
   double gridLength = 0, houseLength = 0, cellSize = 0;
   bool started = false;
@@ -78,7 +79,7 @@ class _LudoGamePageState extends State<LudoGamePage>
   bool paused = true,
       finishedRound = false,
       checkout = false,
-      completedPlayertime = false;
+      pausePlayerTime = false;
   InterstitialAd? _interstitialAd;
   double padding = 0;
   FirebaseService fs = FirebaseService();
@@ -235,7 +236,7 @@ class _LudoGamePageState extends State<LudoGamePage>
   }
 
   void startTimer() {
-    completedPlayertime = false;
+    pausePlayerTime = false;
     paused = false;
     timer?.cancel();
     perTimer?.cancel();
@@ -244,22 +245,23 @@ class _LudoGamePageState extends State<LudoGamePage>
     perTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       this.timer = timer;
       if (!mounted) return;
-      if (!completedPlayertime) {
-        if (playerTime <= 0) {
-          playerTime = maxPlayerTime;
-          if (gameId != "" &&
-              playing.isNotEmpty &&
-              playing.indexWhere((element) => element.id == currentPlayerId) ==
-                  -1) {
-            getNextPlayer();
-            return;
-          }
-          playIfTimeOut();
-          setState(() {});
-        } else {
-          playerTime--;
-        }
+      //if (!pausePlayerTime) {
+      if (playerTime <= 0) {
+        playerTime = maxPlayerTime;
+        // if (gameId != "" &&
+        //     //currentPlayerId == myId &&
+        //     playing.isNotEmpty &&
+        //     playing.indexWhere((element) => element.id == currentPlayerId) ==
+        //         -1) {
+        //   getNextPlayer();
+        //   return;
+        // }
+        playIfTimeOut();
+        setState(() {});
+      } else {
+        playerTime--;
       }
+      //}
       if (adsTime >= maxAdsTime) {
         loadAd();
         adsTime = 0;
@@ -272,13 +274,14 @@ class _LudoGamePageState extends State<LudoGamePage>
     });
   }
 
-  void changePlayerIfTimeOut() {
+  void changePlayerIfTimeOut() async {
     if (gameId != "") {
-      completedPlayertime = true;
+      //pausePlayerTime = true;
       if (currentPlayerId == myId) {
         updateDiceDetails(0, 0);
       }
     } else {
+      diceValues = [0, 0];
       showRollDice = true;
       selectedLudoTile = null;
       selectedLudo = null;
@@ -287,47 +290,58 @@ class _LudoGamePageState extends State<LudoGamePage>
   }
 
   void playIfTimeOut() async {
-    if (showRollDice) {
-      changePlayerIfTimeOut();
-    } else {
-      final dice1 = diceValues[0];
-      final dice2 = diceValues[1];
-      final totalDice = dice1 + dice2;
-      final playerLudos = activeLudos[currentPlayer]
-          .where((element) => (element.step + totalDice) < 56)
-          .toList();
-      if (playerLudos.isNotEmpty) {
-        final index = Random().nextInt(playerLudos.length);
-        final ludo = playerLudos[index];
-        final pos = convertToPosition([ludo.x, ludo.y], 6);
-        final houseIndex = ludo.currentHouseIndex;
-        if (gameId != "") {
-          completedPlayertime = true;
-          if (currentPlayerId == myId) {
-            await updateDetails(houseIndex, pos, false);
-            if (hintPositions.isNotEmpty) {
-              final posEntry = hintPositions.entries.last;
-              updateDetails(posEntry.key, posEntry.value.last, false);
-            }
-          } else {
-            playLudo(houseIndex, pos);
-            if (hintPositions.isNotEmpty) {
-              final posEntry = hintPositions.entries.last;
-              playLudo(posEntry.key, posEntry.value.last);
-            }
-          }
-        }
-      } else {
-        changePlayerIfTimeOut();
-        // if (dice1 == 6 || dice2 == 6) {
-        //   final secondDice = dice1 == 6 ? dice2 : dice1;
-        //   final houses = playersHouseIndices[currentPlayer];
-        //   int houseIndex = 0;
-        // } else {
-        //   changePlayerIfTimeOut();
-        // }
-      }
-    }
+    changePlayerIfTimeOut();
+    // if (showRollDice) {
+    //   changePlayerIfTimeOut();
+    // } else {
+    //   final dice1 = diceValues[0];
+    //   final dice2 = diceValues[1];
+    //   final totalDice = dice1 + dice2;
+    //   final playerLudos = activeLudos[currentPlayer]
+    //       .where((element) => (element.step + totalDice) < 56)
+    //       .toList();
+    //   if (playerLudos.isNotEmpty) {
+    //     final index = Random().nextInt(playerLudos.length);
+    //     final ludo = playerLudos[index];
+    //     final pos = convertToPosition([ludo.x, ludo.y], 6);
+    //     final houseIndex = ludo.currentHouseIndex;
+    //     //if (gameId != "") {
+    //     pausePlayerTime = true;
+    //     if (gameId != "") {
+    //       if (currentPlayerId == myId) {
+    //         if (hintPositions.isNotEmpty) {
+    //           final posEntry = hintPositions.entries.last;
+    //           await updateDetails(houseIndex, pos, false);
+    //           await updateDetails(posEntry.key, posEntry.value.last, false);
+    //         } else {
+    //           changePlayerIfTimeOut();
+    //         }
+    //       }
+    //     } else {
+    //       if (hintPositions.isNotEmpty) {
+    //         playLudo(houseIndex, pos);
+    //         final positions = getHighestPosition(houseIndex);
+    //         final newHouseIndex = positions[0];
+    //         final newPos = positions[1];
+    //         print("newHouseIndex: $newHouseIndex, newPos: $newPos");
+    //         playLudo(newHouseIndex, newPos);
+    //       } else {
+    //         print("empty hint positions");
+    //         changePlayerIfTimeOut();
+    //       }
+    //     }
+    //     //}
+    //   } else {
+    //     changePlayerIfTimeOut();
+    //     // if (dice1 == 6 || dice2 == 6) {
+    //     //   final secondDice = dice1 == 6 ? dice2 : dice1;
+    //     //   final houses = playersHouseIndices[currentPlayer];
+    //     //   int houseIndex = 0;
+    //     // } else {
+    //     //   changePlayerIfTimeOut();
+    //     // }
+    //   }
+    // }
   }
 
   void loadAd() async {
@@ -383,7 +397,7 @@ class _LudoGamePageState extends State<LudoGamePage>
 
   void addInitialLudos() {
     getCurrentPlayer();
-    completedPlayertime = false;
+    pausePlayerTime = false;
     finishedRound = false;
     hintPositions.clear();
     ludoTiles.clear();
@@ -498,6 +512,8 @@ class _LudoGamePageState extends State<LudoGamePage>
 
       detailsSub = fs.getLudoDetails(gameId).listen((details) async {
         if (details != null) {
+          played = false;
+          pausePlayerTime = false;
           final playPos = details.playPos;
           final playHouseIndex = details.playHouseIndex;
           final selectedFromHouse = details.selectedFromHouse;
@@ -520,15 +536,17 @@ class _LudoGamePageState extends State<LudoGamePage>
               updateDice();
             }
           }
-          completedPlayertime = false;
+          pausePlayerTime = false;
           setState(() {});
         }
       });
     }
   }
 
-  void updateDiceDetails(int dice1, int dice2) {
+  Future updateDiceDetails(int dice1, int dice2) async {
     if (matchId != "" && gameId != "" && users != null) {
+      if (played) return;
+      played = true;
       final details = LudoDetails(
         currentPlayerId: myId,
         dice1: dice1,
@@ -539,7 +557,7 @@ class _LudoGamePageState extends State<LudoGamePage>
         enteredHouse: false,
         ludoIndices: "",
       );
-      fs.setLudoDetails(
+      await fs.setLudoDetails(
         gameId,
         details,
         prevDetails,
@@ -550,6 +568,8 @@ class _LudoGamePageState extends State<LudoGamePage>
 
   void updateEnterHouseDetails() {
     if (matchId != "" && gameId != "" && users != null) {
+      if (played) return;
+      played = true;
       final details = LudoDetails(
         currentPlayerId: myId,
         enteredHouse: true,
@@ -572,6 +592,8 @@ class _LudoGamePageState extends State<LudoGamePage>
   Future updateDetails(
       int playHouseIndex, int playPos, bool selectedFromHouse) async {
     if (matchId != "" && gameId != "" && users != null) {
+      if (played) return;
+      played = true;
       final details = LudoDetails(
         currentPlayerId: myId,
         playPos: playPos,
@@ -848,6 +870,29 @@ class _LudoGamePageState extends State<LudoGamePage>
       getHintPositions(houseIndex, index);
     }
     setState(() {});
+  }
+
+  List<int> getHighestPosition(int houseIndex) {
+    if (hintPositions[houseIndex] == null) {
+      houseIndex = nextLudoHouseIndex(houseIndex);
+    }
+    while (hintPositions[houseIndex] != null) {
+      houseIndex = nextLudoHouseIndex(houseIndex);
+    }
+    // final largestHouseIndex =
+    //     hintPositions.keys.toList().sortedList((val) => val, false).last;
+    // final largestPos =
+    //     hintPositions[largestHouseIndex]!.sortedList((val) => val, false).last;
+    // for(final entry in hintPositions.entries){
+    //   final houseIndex = entry.key;
+    //   final positions = entry.value;
+    //   for(int i = 0; i < positions.length; i++){
+    //     final pos = positions[i];
+    //     f
+
+    //   }
+    // }
+    return [houseIndex, hintPositions[houseIndex]!.last];
   }
 
   void getHintPositions(int houseIndex, int pos) {
@@ -1142,6 +1187,7 @@ class _LudoGamePageState extends State<LudoGamePage>
     int dice2 = diceValues[1];
     if (this.selectedLudo != null) {
       if (this.selectedLudo!.houseIndex != houseIndex && (pos < 16)) {
+        //checking if it is selected from and placed in the right the right house
         changeSelectionIfAnother(ludoTile, pos);
         return;
       }
@@ -1167,10 +1213,12 @@ class _LudoGamePageState extends State<LudoGamePage>
         x == 0 &&
         houseIndex == selectedLudo.houseIndex &&
         selectedLudo.step == -1) {
+      //checking if coming out and not starting from the first position
       changeSelectionIfAnother(ludoTile, pos);
       return;
     }
     if (y == 1 && x != 0 && houseIndex != selectedLudo.houseIndex) {
+      //making sure that the ludo is not going to the wrong path and about to enter the house
       changeSelectionIfAnother(ludoTile, pos);
       return;
     }
@@ -1190,7 +1238,9 @@ class _LudoGamePageState extends State<LudoGamePage>
       totalStepCount += count;
     } else {
       final prevHouse = prevLudoHouseIndex(selectedHouseIndex);
-      if (prevHouse == houseIndex) {
+      if (prevHouse == houseIndex ||
+          prevLudoHouseIndex(prevHouse) == houseIndex) {
+        //check for backward movement
         changeSelectionIfAnother(ludoTile, pos);
         return;
       }
@@ -1198,6 +1248,7 @@ class _LudoGamePageState extends State<LudoGamePage>
       if (houseIndex == nextHouse) {
         if (selectedHouseIndex == selectedLudo.houseIndex &&
             selectedLudo.step >= 44) {
+          //checking for maximum length of possible next house movement
           changeSelectionIfAnother(ludoTile, pos);
           return;
         }
@@ -1421,7 +1472,7 @@ class _LudoGamePageState extends State<LudoGamePage>
       playersScores[currentPlayer]++;
       updateMatchRecord();
       roundsCount++;
-      completedPlayertime = true;
+      pausePlayerTime = true;
       finishedRound = true;
       hintPositions.clear();
       toastWinner(currentPlayer);
@@ -1474,6 +1525,17 @@ class _LudoGamePageState extends State<LudoGamePage>
     } else {
       currentPlayer = nextIndex(playersSize, currentPlayer);
     }
+  }
+
+  int getPartnerPlayer() {
+    if (playersSize == 2) return -1;
+    return myPlayer == 0
+        ? 1
+        : myPlayer == 1
+            ? 0
+            : myPlayer == 2
+                ? 3
+                : 2;
   }
 
   void getCurrentPlayer() {
@@ -1577,97 +1639,105 @@ class _LudoGamePageState extends State<LudoGamePage>
                               //         !landScape) ...[
                               //       const SizedBox(width: 80),
                               //     ],
-                              Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SizedBox(
-                                    height: 70,
-                                    child: Text(
-                                      '${playersScores[index]}',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 60,
-                                          color: darkMode
-                                              ? Colors.white.withOpacity(0.5)
-                                              : Colors.black.withOpacity(0.5)),
-                                      textAlign: TextAlign.center,
+                              RotatedBox(
+                                quarterTurns: gameId != "" &&
+                                        myPlayer != index &&
+                                        getPartnerPlayer() != index
+                                    ? 2
+                                    : 0,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      height: 70,
+                                      child: Text(
+                                        '${playersScores[index]}',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 60,
+                                            color: darkMode
+                                                ? Colors.white.withOpacity(0.5)
+                                                : Colors.black
+                                                    .withOpacity(0.5)),
+                                        textAlign: TextAlign.center,
+                                      ),
                                     ),
-                                  ),
-                                  GameTimer(
-                                    timerStream: timerController.stream,
-                                  ),
-                                  // if (currentPlayer == index
-                                  //     //&&
-                                  //     //showRollDice &&
-                                  //     //!roll
-                                  //     ) ...[
-                                  //   const SizedBox(height: 4),
-                                  //   GestureDetector(
-                                  //       behavior: HitTestBehavior.opaque,
-                                  //       onTap: () {
-                                  //         if (gameId != "" &&
-                                  //             currentPlayerId != myId) {
-                                  //           showToast(playerIndex,
-                                  //               "Its ${getUsername(currentPlayerId)}'s turn");
-                                  //           return;
-                                  //         }
-                                  //         rollDice();
-                                  //       },
-                                  //       child: BlinkingBorderContainer(
-                                  //         blink: firstTime &&
-                                  //             hintRollDice &&
-                                  //             showRollDice,
-                                  //         width: minSize / 2,
-                                  //         height: 40,
-                                  //         alignment: Alignment.center,
-                                  //         decoration: BoxDecoration(
-                                  //             border: Border.all(
-                                  //                 color: darkMode
-                                  //                     ? Colors.white
-                                  //                     : Colors.black,
-                                  //                 width: 1.5),
-                                  //             color: darkMode
-                                  //                 ? lightestWhite
-                                  //                 : lightestBlack,
-                                  //             borderRadius:
-                                  //                 BorderRadius.circular(
-                                  //                     30)),
-                                  //         child: StreamBuilder<int>(
-                                  //             stream:
-                                  //                 timerController.stream,
-                                  //             builder: (context, snapshot) {
-                                  //               return Text(
-                                  //                 "Roll Dice - $playerTime",
-                                  //                 style: TextStyle(
-                                  //                     fontSize: 18,
-                                  //                     color: darkMode
-                                  //                         ? Colors.white
-                                  //                         : Colors.black),
-                                  //                 textAlign:
-                                  //                     TextAlign.center,
-                                  //               );
-                                  //             }),
-                                  //       )),
-                                  // ],
-                                  if (currentPlayer == index &&
-                                      !showRollDice) ...[
-                                    const SizedBox(height: 4),
-                                    StreamBuilder<int>(
-                                        stream: timerController.stream,
-                                        builder: (context, snapshot) {
-                                          return Text(
-                                            "Your Turn - $playerTime",
-                                            style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 18,
-                                                color: darkMode
-                                                    ? Colors.white
-                                                    : Colors.black),
-                                            textAlign: TextAlign.center,
-                                          );
-                                        }),
+                                    GameTimer(
+                                      timerStream: timerController.stream,
+                                    ),
+                                    // if (currentPlayer == index
+                                    //     //&&
+                                    //     //showRollDice &&
+                                    //     //!roll
+                                    //     ) ...[
+                                    //   const SizedBox(height: 4),
+                                    //   GestureDetector(
+                                    //       behavior: HitTestBehavior.opaque,
+                                    //       onTap: () {
+                                    //         if (gameId != "" &&
+                                    //             currentPlayerId != myId) {
+                                    //           showToast(playerIndex,
+                                    //               "Its ${getUsername(currentPlayerId)}'s turn");
+                                    //           return;
+                                    //         }
+                                    //         rollDice();
+                                    //       },
+                                    //       child: BlinkingBorderContainer(
+                                    //         blink: firstTime &&
+                                    //             hintRollDice &&
+                                    //             showRollDice,
+                                    //         width: minSize / 2,
+                                    //         height: 40,
+                                    //         alignment: Alignment.center,
+                                    //         decoration: BoxDecoration(
+                                    //             border: Border.all(
+                                    //                 color: darkMode
+                                    //                     ? Colors.white
+                                    //                     : Colors.black,
+                                    //                 width: 1.5),
+                                    //             color: darkMode
+                                    //                 ? lightestWhite
+                                    //                 : lightestBlack,
+                                    //             borderRadius:
+                                    //                 BorderRadius.circular(
+                                    //                     30)),
+                                    //         child: StreamBuilder<int>(
+                                    //             stream:
+                                    //                 timerController.stream,
+                                    //             builder: (context, snapshot) {
+                                    //               return Text(
+                                    //                 "Roll Dice - $playerTime",
+                                    //                 style: TextStyle(
+                                    //                     fontSize: 18,
+                                    //                     color: darkMode
+                                    //                         ? Colors.white
+                                    //                         : Colors.black),
+                                    //                 textAlign:
+                                    //                     TextAlign.center,
+                                    //               );
+                                    //             }),
+                                    //       )),
+                                    // ],
+                                    if (currentPlayer == index &&
+                                        !showRollDice) ...[
+                                      const SizedBox(height: 4),
+                                      StreamBuilder<int>(
+                                          stream: timerController.stream,
+                                          builder: (context, snapshot) {
+                                            return Text(
+                                              "Your Turn - $playerTime",
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 18,
+                                                  color: darkMode
+                                                      ? Colors.white
+                                                      : Colors.black),
+                                              textAlign: TextAlign.center,
+                                            );
+                                          }),
+                                    ],
                                   ],
-                                ],
+                                ),
                               ),
                               // if (currentPlayer == index &&
                               //     showRollDice &&
@@ -1731,18 +1801,25 @@ class _LudoGamePageState extends State<LudoGamePage>
                               Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    users != null
-                                        ? users![index]?.username ?? ""
-                                        : "Player ${index + 1}",
-                                    style: TextStyle(
-                                        fontSize: 20,
-                                        color: currentPlayer == index
-                                            ? Colors.blue
-                                            : darkMode
-                                                ? Colors.white
-                                                : Colors.black),
-                                    textAlign: TextAlign.center,
+                                  RotatedBox(
+                                    quarterTurns: gameId != "" &&
+                                            myPlayer != index &&
+                                            getPartnerPlayer() != index
+                                        ? 2
+                                        : 0,
+                                    child: Text(
+                                      users != null
+                                          ? users![index]?.username ?? ""
+                                          : "Player ${index + 1}",
+                                      style: TextStyle(
+                                          fontSize: 20,
+                                          color: currentPlayer == index
+                                              ? Colors.blue
+                                              : darkMode
+                                                  ? Colors.white
+                                                  : Colors.black),
+                                      textAlign: TextAlign.center,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1942,16 +2019,19 @@ class _LudoGamePageState extends State<LudoGamePage>
                                               gridDelegate:
                                                   const SliverGridDelegateWithFixedCrossAxisCount(
                                                       crossAxisCount: 2),
-                                              children: List.generate(
-                                                  playersWonLudos[index].length,
+                                              children: List.generate(4,
+                                                  // playersWonLudos[index].length,
                                                   (lindex) {
                                                 return Container(
-                                                  key: Key(
-                                                      playersWonLudos[index]
-                                                              [lindex]
-                                                          .id),
+                                                  key: Key(lindex.toString()),
+                                                  // key: Key(
+                                                  //     playersWonLudos[index]
+                                                  //             [lindex]
+                                                  //         .id),
                                                   width: houseLength / 2,
                                                   height: houseLength / 2,
+                                                  margin:
+                                                      const EdgeInsets.all(8),
                                                   alignment: lindex == 0
                                                       ? Alignment.topLeft
                                                       : lindex == 1
@@ -1961,17 +2041,49 @@ class _LudoGamePageState extends State<LudoGamePage>
                                                                   .bottomLeft
                                                               : Alignment
                                                                   .bottomRight,
-                                                  child: Padding(
-                                                    padding: EdgeInsets.all(
-                                                        ((houseLength / 4) /
-                                                                2) -
-                                                            cellSize / 2),
-                                                    child: LudoDisc(
-                                                        size: cellSize
-                                                            .percentValue(60),
-                                                        color: convertToColor(
-                                                            colors[index])),
-                                                  ),
+                                                  child: lindex <
+                                                          playersWonLudos[index]
+                                                              .length
+                                                      ? LudoDisc(
+                                                          size: cellSize
+                                                              .percentValue(60),
+                                                          color: convertToColor(
+                                                              colors[index]))
+                                                      : null,
+                                                  // child: Container(
+                                                  //   height: houseLength / 4,
+                                                  //   width: houseLength / 4,
+                                                  //   // decoration: BoxDecoration(
+                                                  //   //     color: Theme.of(context)
+                                                  //   //         .scaffoldBackgroundColor,
+                                                  //   //     borderRadius:
+                                                  //   //         BorderRadius
+                                                  //   //             .circular(
+                                                  //   //                 houseLength /
+                                                  //   //                     8),
+                                                  //   //     border: Border.all(
+                                                  //   //         color: darkMode
+                                                  //   //             ? Colors.white
+                                                  //   //             : Colors.black,
+                                                  //   //         width: 2)),
+                                                  //   padding: EdgeInsets.all(
+                                                  //       ((houseLength / 4) /
+                                                  //               2) -
+                                                  //           cellSize / 2),
+                                                  //   child: lindex <
+                                                  //           playersWonLudos[
+                                                  //                   index]
+                                                  //               .length
+                                                  //       ? LudoDisc(
+                                                  //           size: cellSize
+                                                  //               .percentValue(
+                                                  //                   60),
+                                                  //           color:
+                                                  //               convertToColor(
+                                                  //                   colors[
+                                                  //                       index]))
+                                                  //       : null,
+                                                  // ),
                                                 );
                                               }),
                                             ),
@@ -1979,30 +2091,49 @@ class _LudoGamePageState extends State<LudoGamePage>
                                           Container(
                                             width: gridLength,
                                             height: gridLength,
+                                            padding: const EdgeInsets.all(8),
                                             decoration: BoxDecoration(
-                                              border: Border.all(
-                                                  color: darkMode
-                                                      ? Colors.white
-                                                      : Colors.black,
-                                                  width: 2),
-                                              color:
-                                                  convertToColor(colors[index]),
-                                            ),
+                                                border: Border.all(
+                                                    color: darkMode
+                                                        ? Colors.white
+                                                        : Colors.black,
+                                                    width: 2),
+                                                color: Theme.of(context)
+                                                    .scaffoldBackgroundColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                        gridLength / 2)
+                                                // color:
+                                                //     convertToColor(colors[index]),
+                                                ),
                                             child: GridView(
                                               padding: EdgeInsets.zero,
                                               shrinkWrap: true,
                                               gridDelegate:
                                                   const SliverGridDelegateWithFixedCrossAxisCount(
                                                       crossAxisCount: 2),
-                                              children: List.generate(
-                                                  ludos[index].length,
+                                              children: List.generate(4,
+                                                  //ludos[index].length,
                                                   (lindex) {
+                                                // final ludo =
+                                                //     ludos[index][lindex];
+
+                                                final ludoIndex = ludos[index]
+                                                    .indexWhere((ludo) =>
+                                                        (index * 4) + lindex ==
+                                                        int.parse(ludo.id));
+                                                if (ludoIndex == -1) {
+                                                  return SizedBox(
+                                                    width: cellSize,
+                                                    height: cellSize,
+                                                  );
+                                                }
+
                                                 final ludo =
-                                                    ludos[index][lindex];
+                                                    ludos[index][ludoIndex];
                                                 final player = getPlayer(index);
                                                 return GestureDetector(
-                                                  key: Key(
-                                                      ludos[index][lindex].id),
+                                                  key: Key(ludo.id),
                                                   behavior:
                                                       HitTestBehavior.opaque,
                                                   onTap: () {
@@ -2033,10 +2164,10 @@ class _LudoGamePageState extends State<LudoGamePage>
                                                         dice2 == 6) {
                                                       if (gameId != "") {
                                                         updateDetails(index,
-                                                            lindex, true);
+                                                            ludoIndex, true);
                                                       } else {
                                                         selectLudo(
-                                                            index, lindex);
+                                                            index, ludoIndex);
                                                       }
                                                     }
                                                   },
@@ -2049,10 +2180,17 @@ class _LudoGamePageState extends State<LudoGamePage>
                                                             .contains(index),
                                                     width: cellSize,
                                                     height: cellSize,
+                                                    decoration: BoxDecoration(
+                                                        color:
+                                                            selectedLudo == ludo
+                                                                ? Colors.purple
+                                                                : null,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(
+                                                                    cellSize /
+                                                                        2)),
                                                     alignment: Alignment.center,
-                                                    color: selectedLudo == ludo
-                                                        ? Colors.purple
-                                                        : null,
                                                     child: LudoDisc(
                                                         size: cellSize
                                                             .percentValue(60),

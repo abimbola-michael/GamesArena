@@ -8,7 +8,7 @@ Map<String, AppInfo> appInfos = {
       subInfos: [
         SubInfo(title: "Use of the App", texts: [
           "The App, Games Arena, including its games (Chess, Ludo, Whot, Draught, Xs and Os), is provided for entertainment purposes only.",
-          //"You must be of legal age in your jurisdiction or have parental consent to use the App."
+          "You must be of legal age in your jurisdiction or have parental consent to use the App."
         ]),
         SubInfo(title: "User Accounts", texts: [
           "To access certain features of the App, you may be required to create a user account.",
@@ -47,7 +47,7 @@ Map<String, AppInfo> appInfos = {
   "Privacy Policy": AppInfo(
       name: "Privacy Policy",
       intro:
-          "Thank you for choosing Games Arena (\"the App\"). This Privacy Policy outlines how we collect, use, and safeguard your personal information. By using the App, you agree to the terms outlined in this policy.",
+          "Thank you for choosing Games Arena (\"the App\"). This Privacy Policy outlines how we collect, use, and safeguard your personal information.\nLast Updated: 8/1/2024\n By using the App, you agree to the terms outlined in this policy.",
       subInfos: [
         SubInfo(title: "Information We Collect", texts: [
           "User Account Information: When you create an account, we may collect your username, email address, and other relevant information.",
@@ -71,9 +71,9 @@ Map<String, AppInfo> appInfos = {
         SubInfo(title: "Security", texts: [
           "We implement security measures to protect your information, but no method of transmission over the internet is 100% secure."
         ]),
-        // SubInfo(title: "Children’s Privacy", texts: [
-        //   "The App is not intended for individuals under the age of 13. We do not knowingly collect personal information from children."
-        // ]),
+        SubInfo(title: "Children’s Privacy", texts: [
+          "The App is not intended for individuals under the age of 13. We do not knowingly collect personal information from children."
+        ]),
         SubInfo(title: "Changes to this Privacy Policy", texts: [
           "We may update this Privacy Policy periodically. The date at the top of the policy indicates the last revision. Please review the policy regularly."
         ]),
@@ -82,7 +82,7 @@ Map<String, AppInfo> appInfos = {
         ]),
       ],
       outro:
-          "By using the Games Arena App, you agree to the terms of this Privacy Policy. If you do not agree with this policy, please refrain from using the App.\nThank you for trusting Games Arena with your information."),
+          "By using the Games Arena App, you agree to the terms of this Privacy Policy. If you do not agree with this policy, please refrain from using the App.\nLast Updated: 8/1/2024\nThank you for trusting Games Arena with your information."),
   "About Us": AppInfo(
       name: "About Us",
       intro:

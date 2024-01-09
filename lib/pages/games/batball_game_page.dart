@@ -38,6 +38,7 @@ class _BatballGamePageState extends State<BatballGamePage>
         TickerProviderStateMixin,
         WidgetsBindingObserver,
         AutomaticKeepAliveClientMixin {
+  bool played = false;
   BatBallDetails? prevDetails;
   double width = 0;
   double height = 0;
@@ -101,7 +102,7 @@ class _BatballGamePageState extends State<BatballGamePage>
   bool paused = true,
       finishedRound = false,
       checkout = false,
-      completedPlayertime = false;
+      pausePlayerTime = false;
   int myPlayer = 0;
   String currentPlayerId = "";
   int currentPlayerIndex = 0;
@@ -271,6 +272,7 @@ class _BatballGamePageState extends State<BatballGamePage>
 
       detailsSub = fs.getBatBallDetails(gameId).listen((details) async {
         if (details != null) {
+          played = false;
           final angle = details.angle;
           final speed = details.speed;
           // final vDir = details.vDir;
@@ -306,7 +308,7 @@ class _BatballGamePageState extends State<BatballGamePage>
           }
           move(true, player1BatX, player1BatY);
           move(false, player2BatX, player2BatY);
-          completedPlayertime = false;
+          pausePlayerTime = false;
         }
       });
     }
@@ -938,7 +940,7 @@ class _BatballGamePageState extends State<BatballGamePage>
   }
 
   void startTimer() async {
-    completedPlayertime = false;
+    pausePlayerTime = false;
     setState(() {
       gameMode = GameMode.loading;
     });
@@ -1080,6 +1082,7 @@ class _BatballGamePageState extends State<BatballGamePage>
       //     .getGameDetails(gameId, matchId, opponent_id)
       //     .listen((details) async {
       //   if (details != null) {
+      played = false;
       //     player2BatX = width - details.dx;
       //     player2BatY = details.dy;
       //     speed = details.speed;

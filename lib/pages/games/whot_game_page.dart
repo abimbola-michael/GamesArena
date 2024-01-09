@@ -47,6 +47,7 @@ class WhotGamePage extends StatefulWidget {
 
 class _WhotGamePageState extends State<WhotGamePage>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  bool played = false;
   WhotDetails? prevDetails;
   List<Whot> whots = [], playedWhots = [], newWhots = [];
   List<List<Whot>> playersWhots = [];
@@ -60,7 +61,7 @@ class _WhotGamePageState extends State<WhotGamePage>
       whot_height = 0,
       whot_needshape_width = 0,
       whot_needshape_height = 0;
-  int startCards = 4;
+  int startCards = 5;
   WhotCardShape? shapeNeeded;
   bool awaiting = false;
   bool needShape = false;
@@ -74,7 +75,7 @@ class _WhotGamePageState extends State<WhotGamePage>
   bool paused = true,
       finishedRound = false,
       checkout = false,
-      completedPlayertime = false;
+      pausePlayerTime = false;
   InterstitialAd? _interstitialAd;
   double padding = 0;
   String matchId = "";
@@ -220,7 +221,7 @@ class _WhotGamePageState extends State<WhotGamePage>
   }
 
   void startTimer() {
-    completedPlayertime = false;
+    pausePlayerTime = false;
     paused = false;
     timer?.cancel();
     perTimer?.cancel();
@@ -232,29 +233,29 @@ class _WhotGamePageState extends State<WhotGamePage>
       if (gameTime <= 0) {
         tenderCards();
       } else {
-        if (!completedPlayertime && !awaiting) {
-          if (playerTime <= 0) {
-            playerTime = maxPlayerTime;
-            if (gameId != "" &&
-                playing.isNotEmpty &&
-                playing.indexWhere(
-                        (element) => element.id == currentPlayerId) ==
-                    -1) {
-              getNextPlayer();
-              return;
-            }
-            playIfTimeOut();
-            setState(() {});
-          } else {
-            playerTime--;
+        if (awaiting) return;
+        //if (!pausePlayerTime && !awaiting) {
+        if (playerTime <= 0) {
+          playerTime = maxPlayerTime;
+          if (gameId != "" &&
+              playing.isNotEmpty &&
+              playing.indexWhere((element) => element.id == currentPlayerId) ==
+                  -1) {
+            getNextPlayer();
+            return;
           }
-          if (adsTime >= maxAdsTime) {
-            loadAd();
-            adsTime = 0;
-          } else {
-            adsTime++;
-          }
+          playIfTimeOut();
+          setState(() {});
+        } else {
+          playerTime--;
         }
+        if (adsTime >= maxAdsTime) {
+          loadAd();
+          adsTime = 0;
+        } else {
+          adsTime++;
+        }
+        //}
         gameTime--;
       }
       timerController.sink.add(gameTime);
@@ -264,7 +265,7 @@ class _WhotGamePageState extends State<WhotGamePage>
 
   void playIfTimeOut() {
     if (gameId != "") {
-      completedPlayertime = true;
+      pausePlayerTime = true;
       if (currentPlayerId == myId) {
         if (needShape && shapeNeeded == null) {
           final index = Random().nextInt(5);
@@ -379,7 +380,7 @@ class _WhotGamePageState extends State<WhotGamePage>
       }
     }
     awaiting = false;
-    completedPlayertime = false;
+    pausePlayerTime = false;
 
     message = "";
     setState(() {});
@@ -977,7 +978,7 @@ class _WhotGamePageState extends State<WhotGamePage>
     }
     roundsCount++;
     finishedRound = true;
-    completedPlayertime = true;
+    pausePlayerTime = true;
     hintPositions.clear();
     setState(() {});
   }
@@ -1133,6 +1134,8 @@ class _WhotGamePageState extends State<WhotGamePage>
       readPlaying();
       detailsSub = fs.getWhotDetails(gameId).listen((details) async {
         if (details != null) {
+          played = false;
+          pausePlayerTime = false;
           final playPos = details.playPos;
           final shapeNeeded = details.shapeNeeded;
           if (playPos != -1) {
@@ -1147,7 +1150,7 @@ class _WhotGamePageState extends State<WhotGamePage>
               if (indices.isNotEmpty && !whotIndices.equals(indices)) {
                 whotIndices = indices;
                 if (!finishedRound) {
-                  completedPlayertime = false;
+                  pausePlayerTime = false;
                   updateNewWhots(indices);
                 }
               }
@@ -1156,7 +1159,7 @@ class _WhotGamePageState extends State<WhotGamePage>
               }
             }
           }
-          completedPlayertime = false;
+          pausePlayerTime = false;
           setState(() {});
         }
       });
@@ -1165,6 +1168,8 @@ class _WhotGamePageState extends State<WhotGamePage>
 
   void updateDetails(int playPos, int shapeNeeded, String whotIndices) {
     if (matchId != "" && gameId != "" && users != null) {
+      if (played) return;
+      played = true;
       final details = WhotDetails(
         currentPlayerId: myId,
         playPos: playPos,
@@ -1432,28 +1437,98 @@ class _WhotGamePageState extends State<WhotGamePage>
                                 : index == 3
                                     ? 1
                                     : 0,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              height: 70,
-                              child: Text(
-                                '${playersScores[index]}',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 60,
-                                    color: darkMode
-                                        ? Colors.white.withOpacity(0.5)
-                                        : Colors.black.withOpacity(0.5)),
-                              ),
+                        child: RotatedBox(
+                          quarterTurns:
+                              gameId != "" && myPlayer != index ? 2 : 0,
+                          child: Padding(
+                            padding: const EdgeInsets.only(
+                                left: 8.0, right: 8.0, bottom: 24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  height: 70,
+                                  child: Text(
+                                    '${playersScores[index]}',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 60,
+                                        color: darkMode
+                                            ? Colors.white.withOpacity(0.5)
+                                            : Colors.black.withOpacity(0.5)),
+                                  ),
+                                ),
+                                GameTimer(
+                                  timerStream: timerController.stream,
+                                ),
+                              ],
                             ),
-                            GameTimer(
-                              timerStream: timerController.stream,
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ));
+              }),
+              ...List.generate(playersSize, (index) {
+                return Positioned(
+                  top: index == 0 ||
+                          (!landScape && index == 1 && playersSize > 2)
+                      ? 0
+                      : null,
+                  bottom: (index == 1 && playersSize == 2) ||
+                          index == 2 ||
+                          (!landScape && index == 3)
+                      ? 0
+                      : null,
+                  left: index == 3 || (landScape && index == 0) ? 0 : null,
+                  right: (index == 1 && playersSize > 2) ||
+                          (landScape &&
+                              ((index == 1 && playersSize == 2) || index == 2))
+                      ? 0
+                      : null,
+                  child: RotatedBox(
+                    quarterTurns: index == 0
+                        ? 2
+                        : index == 1 && playersSize > 2
+                            ? 3
+                            : index == 3
+                                ? 1
+                                : 0,
+                    child: Container(
+                      width: (landScape &&
+                                  ((index == 1 && playersSize > 2) ||
+                                      index == 3)) ||
+                              (!landScape &&
+                                  (index == 0 ||
+                                      index == 2 ||
+                                      (index == 1 && playersSize == 2)))
+                          ? minSize
+                          : padding,
+                      alignment: Alignment.center,
+                      child: RotatedBox(
+                        quarterTurns: gameId != "" && myPlayer != index ? 2 : 0,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              users != null
+                                  ? users![index]?.username ?? ""
+                                  : "Player ${index + 1}",
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  color: currentPlayer == index
+                                      ? Colors.blue
+                                      : darkMode
+                                          ? Colors.white
+                                          : Colors.black),
+                              textAlign: TextAlign.center,
+                            ),
+                            WhotCountWidget(count: playersWhots[index].length)
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
               }),
               ...List.generate(playersSize + 1, (index) {
                 bool isEdgeTilt = gameId != "" &&
@@ -1643,23 +1718,54 @@ class _WhotGamePageState extends State<WhotGamePage>
                                         });
                                   }))
                             ],
-                            StreamBuilder<int>(
-                                stream: currentPlayer == index
-                                    ? timerController.stream
-                                    : null,
-                                builder: (context, snapshot) {
-                                  return Text(
-                                    getMessage(index),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                      color: darkMode
-                                          ? Colors.white
-                                          : Colors.black,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  );
-                                }),
+                            RotatedBox(
+                              quarterTurns:
+                                  gameId != "" && myPlayer != index ? 2 : 0,
+                              child: StreamBuilder<int>(
+                                  stream: currentPlayer == index
+                                      ? timerController.stream
+                                      : null,
+                                  builder: (context, snapshot) {
+                                    return Text(
+                                      getMessage(index),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                        color: darkMode
+                                            ? Colors.white
+                                            : Colors.black,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    );
+                                  }),
+                            ),
+                            // Container(
+                            //   width: minSize,
+                            //   alignment: (landScape &&
+                            //               (index == 0 || index == 2)) ||
+                            //           (!landScape &&
+                            //               ((index == 1 && playersSize > 2) ||
+                            //                   index == 3))
+                            //       ? Alignment.centerLeft
+                            //       : Alignment.center,
+                            //   child: StreamBuilder<int>(
+                            //       stream: currentPlayer == index
+                            //           ? timerController.stream
+                            //           : null,
+                            //       builder: (context, snapshot) {
+                            //         return Text(
+                            //           getMessage(index),
+                            //           style: TextStyle(
+                            //             fontWeight: FontWeight.bold,
+                            //             fontSize: 18,
+                            //             color: darkMode
+                            //                 ? Colors.white
+                            //                 : Colors.black,
+                            //           ),
+                            //           textAlign: TextAlign.center,
+                            //         );
+                            //       }),
+                            // ),
                             Stack(
                               alignment: Alignment.center,
                               children: [
@@ -1667,86 +1773,106 @@ class _WhotGamePageState extends State<WhotGamePage>
                                   height: whot_height,
                                   width: minSize,
                                   alignment: Alignment.center,
-                                  child: ListView.builder(
-                                      shrinkWrap: true,
-                                      primary:
-                                          (gameId != "" && index == myPlayer) ||
-                                              (gameId == "" &&
-                                                  index == currentPlayer),
-                                      scrollDirection: Axis.horizontal,
-                                      itemCount: playersWhots[index].length,
-                                      itemBuilder: ((context, whotindex) {
-                                        final whot =
-                                            playersWhots[index][whotindex];
-                                        return WhotCard(
-                                          blink: firstTime &&
-                                              index == currentPlayer &&
-                                              hintPositions
-                                                  .contains(whotindex) &&
-                                              !needShape &&
-                                              !awaiting,
-                                          key: Key(whot.id),
-                                          height: whot_height,
-                                          width: whot_width,
-                                          whot: whot,
-                                          isBackCard: cardVisibilities[index] ==
-                                              WhotCardVisibility.turned,
-                                          onLongPressed: () {
-                                            flipCards(index);
-                                          },
-                                          onPressed: () {
-                                            if (gameId != "" &&
-                                                index != myPlayer) {
-                                              Fluttertoast.showToast(
-                                                  msg:
-                                                      "You can't flip your opponent's card");
-                                              return;
-                                            }
-                                            if (gameId == "" &&
-                                                currentPlayer != index) {
-                                              showToast(index,
-                                                  "Its ${users != null ? users![currentPlayer]!.username : "Player ${currentPlayer + 1}"}'s turn");
-                                              return;
-                                            }
-                                            if (cardVisibilities[index] ==
-                                                WhotCardVisibility.turned) {
-                                              cardVisibilities[index] =
-                                                  WhotCardVisibility.visible;
-                                              getHintPositions();
-                                              setState(() {});
-                                              return;
-                                            }
-                                            if (gameId != "" &&
-                                                currentPlayerId != myId) {
-                                              showToast(myPlayer,
-                                                  "Its ${getUsername(currentPlayerId)}'s turn");
-                                              return;
-                                            }
+                                  margin: EdgeInsets.only(
+                                      left: 24,
+                                      right: 24,
+                                      bottom: (landScape &&
+                                                  (index == 1 || index == 3) &&
+                                                  playersSize > 2) ||
+                                              (!landScape &&
+                                                  (index == 0 ||
+                                                      (index == 2 &&
+                                                          playersSize > 2) ||
+                                                      (index == 1 &&
+                                                          playersSize == 2)))
+                                          ? 20
+                                          : 8),
+                                  child: SizedBox(
+                                    height: whot_height,
+                                    child: ListView.builder(
+                                        padding: EdgeInsets.zero,
+                                        shrinkWrap: true,
+                                        primary: (gameId != "" &&
+                                                index == myPlayer) ||
+                                            (gameId == "" &&
+                                                index == currentPlayer),
+                                        scrollDirection: Axis.horizontal,
+                                        itemCount: playersWhots[index].length,
+                                        itemBuilder: ((context, whotindex) {
+                                          final whot =
+                                              playersWhots[index][whotindex];
+                                          return WhotCard(
+                                            blink: firstTime &&
+                                                index == currentPlayer &&
+                                                hintPositions
+                                                    .contains(whotindex) &&
+                                                !needShape &&
+                                                !awaiting,
+                                            key: Key(whot.id),
+                                            height: whot_height,
+                                            width: whot_width,
+                                            whot: whot,
+                                            isBackCard:
+                                                cardVisibilities[index] ==
+                                                    WhotCardVisibility.turned,
+                                            onLongPressed: () {
+                                              flipCards(index);
+                                            },
+                                            onPressed: () {
+                                              if (gameId != "" &&
+                                                  index != myPlayer) {
+                                                Fluttertoast.showToast(
+                                                    msg:
+                                                        "You can't flip your opponent's card");
+                                                return;
+                                              }
+                                              if (gameId == "" &&
+                                                  currentPlayer != index) {
+                                                showToast(index,
+                                                    "Its ${users != null ? users![currentPlayer]!.username : "Player ${currentPlayer + 1}"}'s turn");
+                                                return;
+                                              }
+                                              if (cardVisibilities[index] ==
+                                                  WhotCardVisibility.turned) {
+                                                cardVisibilities[index] =
+                                                    WhotCardVisibility.visible;
+                                                getHintPositions();
+                                                setState(() {});
+                                                return;
+                                              }
+                                              if (gameId != "" &&
+                                                  currentPlayerId != myId) {
+                                                showToast(myPlayer,
+                                                    "Its ${getUsername(currentPlayerId)}'s turn");
+                                                return;
+                                              }
 
-                                            final currentNumber =
-                                                playedWhots.first.number;
-                                            if (currentNumber == 14 &&
-                                                pickPlayer != -1 &&
-                                                pickPlayer != currentPlayer) {
-                                              showToast(
-                                                  index, "Pick General Market");
-                                              return;
-                                            }
-                                            if (currentNumber == 2 &&
-                                                pickPlayer != -1 &&
-                                                pickPlayer == currentPlayer) {
-                                              showToast(
-                                                  index, "Pick 2 From Market");
-                                              return;
-                                            }
-                                            if (gameId != "") {
-                                              updateDetails(whotindex, -1, "");
-                                            } else {
-                                              playWhot(whotindex);
-                                            }
-                                          },
-                                        );
-                                      })),
+                                              final currentNumber =
+                                                  playedWhots.first.number;
+                                              if (currentNumber == 14 &&
+                                                  pickPlayer != -1 &&
+                                                  pickPlayer != currentPlayer) {
+                                                showToast(index,
+                                                    "Pick General Market");
+                                                return;
+                                              }
+                                              if (currentNumber == 2 &&
+                                                  pickPlayer != -1 &&
+                                                  pickPlayer == currentPlayer) {
+                                                showToast(index,
+                                                    "Pick 2 From Market");
+                                                return;
+                                              }
+                                              if (gameId != "") {
+                                                updateDetails(
+                                                    whotindex, -1, "");
+                                              } else {
+                                                playWhot(whotindex);
+                                              }
+                                            },
+                                          );
+                                        })),
+                                  ),
                                 ),
                                 if (playersToasts[index] != "") ...[
                                   Align(
@@ -1762,26 +1888,26 @@ class _WhotGamePageState extends State<WhotGamePage>
                                 ],
                               ],
                             ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  users != null
-                                      ? users![index]?.username ?? ""
-                                      : "Player ${index + 1}",
-                                  style: TextStyle(
-                                      fontSize: 18,
-                                      color: currentPlayer == index
-                                          ? Colors.blue
-                                          : darkMode
-                                              ? Colors.white
-                                              : Colors.black),
-                                  textAlign: TextAlign.center,
-                                ),
-                                WhotCountWidget(
-                                    count: playersWhots[index].length)
-                              ],
-                            ),
+                            // Row(
+                            //   mainAxisSize: MainAxisSize.min,
+                            //   children: [
+                            //     Text(
+                            //       users != null
+                            //           ? users![index]?.username ?? ""
+                            //           : "Player ${index + 1}",
+                            //       style: TextStyle(
+                            //           fontSize: 18,
+                            //           color: currentPlayer == index
+                            //               ? Colors.blue
+                            //               : darkMode
+                            //                   ? Colors.white
+                            //                   : Colors.black),
+                            //       textAlign: TextAlign.center,
+                            //     ),
+                            //     WhotCountWidget(
+                            //         count: playersWhots[index].length)
+                            //   ],
+                            // ),
                           ],
                         ),
                       ),

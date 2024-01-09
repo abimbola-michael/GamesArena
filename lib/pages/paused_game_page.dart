@@ -259,7 +259,7 @@ class _PausedGamePageState extends State<PausedGamePage> {
                               ),
                             ],
                             SizedBox(
-                              height: 180,
+                              //height: 180,
                               child: Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceEvenly,

@@ -40,6 +40,7 @@ class XandOGamePage extends StatefulWidget {
 
 class _XandOGamePageState extends State<XandOGamePage>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  bool played = false;
   XandODetails? prevDetails;
   int gridSize = 3;
   List<List<XandO>> xandos = [];
@@ -85,7 +86,7 @@ class _XandOGamePageState extends State<XandOGamePage>
   bool paused = true,
       finishedRound = false,
       checkout = false,
-      completedPlayertime = false;
+      pausePlayerTime = false;
   InterstitialAd? _interstitialAd;
   double padding = 0;
   bool firstTime = false, seenFirstHint = false, readAboutGame = false;
@@ -179,7 +180,7 @@ class _XandOGamePageState extends State<XandOGamePage>
   }
 
   void startTimer() {
-    completedPlayertime = false;
+    pausePlayerTime = false;
     paused = false;
     timer?.cancel();
     perTimer?.cancel();
@@ -191,21 +192,21 @@ class _XandOGamePageState extends State<XandOGamePage>
       if (gameTime <= 0) {
         updateWingame();
       } else {
-        if (!completedPlayertime) {
-          if (playerTime <= 0) {
-            playerTime = maxPlayerTime;
-            if (gameId != "") {
-              if (currentPlayerId == myId) {
-                updateDetails(-1);
-              }
-            } else {
-              changePlayer();
+        //if (!pausePlayerTime) {
+        if (playerTime <= 0) {
+          playerTime = maxPlayerTime;
+          if (gameId != "") {
+            if (currentPlayerId == myId) {
+              updateDetails(-1);
             }
-            setState(() {});
           } else {
-            playerTime--;
+            changePlayer();
           }
+          setState(() {});
+        } else {
+          playerTime--;
         }
+        //}
         if (adsTime >= maxAdsTime) {
           loadAd();
           adsTime = 0;
@@ -227,7 +228,7 @@ class _XandOGamePageState extends State<XandOGamePage>
     pauseGame();
     roundsCount++;
     updateMatchRecord();
-    completedPlayertime = true;
+    pausePlayerTime = true;
     finishedRound = true;
     setState(() {});
   }
@@ -411,6 +412,8 @@ class _XandOGamePageState extends State<XandOGamePage>
       detailsSub = fs.getXandODetails(gameId).listen((details) async {
         if (!mounted) return;
         if (details != null) {
+          played = false;
+          pausePlayerTime = false;
           if (details.currentPlayerId == updatePlayerId) {
             return;
           }
@@ -421,7 +424,7 @@ class _XandOGamePageState extends State<XandOGamePage>
           } else {
             changePlayer();
           }
-          completedPlayertime = false;
+          pausePlayerTime = false;
           setState(() {});
         }
       });
@@ -447,6 +450,8 @@ class _XandOGamePageState extends State<XandOGamePage>
 
   void updateDetails(int playPos) {
     if (matchId != "" && gameId != "" && users != null) {
+      if (played) return;
+      played = true;
       final details = XandODetails(playPos: playPos, currentPlayerId: myId);
       fs.setXandODetails(
         gameId,
@@ -705,7 +710,7 @@ class _XandOGamePageState extends State<XandOGamePage>
   }
 
   void initGrids() {
-    completedPlayertime = false;
+    pausePlayerTime = false;
     finishedRound = false;
     xandos = List.generate(
         gridSize,
@@ -778,64 +783,76 @@ class _XandOGamePageState extends State<XandOGamePage>
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        SizedBox(
-                                          height: 70,
-                                          child: Text(
-                                            '${playersScores[index]}',
-                                            style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 60,
-                                                color: darkMode
-                                                    ? Colors.white
-                                                        .withOpacity(0.5)
-                                                    : Colors.black
-                                                        .withOpacity(0.5)),
-                                            textAlign: TextAlign.center,
+                                    RotatedBox(
+                                      quarterTurns:
+                                          gameId != "" && myPlayer != index
+                                              ? 2
+                                              : 0,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          SizedBox(
+                                            height: 70,
+                                            child: Text(
+                                              '${playersScores[index]}',
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 60,
+                                                  color: darkMode
+                                                      ? Colors.white
+                                                          .withOpacity(0.5)
+                                                      : Colors.black
+                                                          .withOpacity(0.5)),
+                                              textAlign: TextAlign.center,
+                                            ),
                                           ),
-                                        ),
-                                        GameTimer(
-                                          timerStream: timerController.stream,
-                                        ),
-                                        if (currentPlayer == index) ...[
-                                          const SizedBox(
-                                            height: 4,
+                                          GameTimer(
+                                            timerStream: timerController.stream,
                                           ),
-                                          StreamBuilder<int>(
-                                              stream: timerController.stream,
-                                              builder: (context, snapshot) {
-                                                return Text(
-                                                  "$message - $playerTime",
-                                                  style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 20,
-                                                      color: darkMode
-                                                          ? Colors.white
-                                                          : Colors.black),
-                                                  textAlign: TextAlign.center,
-                                                );
-                                              }),
+                                          if (currentPlayer == index) ...[
+                                            const SizedBox(
+                                              height: 4,
+                                            ),
+                                            StreamBuilder<int>(
+                                                stream: timerController.stream,
+                                                builder: (context, snapshot) {
+                                                  return Text(
+                                                    "$message - $playerTime",
+                                                    style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 20,
+                                                        color: darkMode
+                                                            ? Colors.white
+                                                            : Colors.black),
+                                                    textAlign: TextAlign.center,
+                                                  );
+                                                }),
+                                          ],
                                         ],
-                                      ],
+                                      ),
                                     ),
                                     Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text(
-                                          users != null
-                                              ? users![index]?.username ?? ""
-                                              : "Player ${index + 1}",
-                                          style: TextStyle(
-                                              fontSize: 20,
-                                              color: currentPlayer == index
-                                                  ? Colors.blue
-                                                  : darkMode
-                                                      ? Colors.white
-                                                      : Colors.black),
-                                          textAlign: TextAlign.center,
+                                        RotatedBox(
+                                           quarterTurns:
+                                          gameId != "" && myPlayer != index
+                                              ? 2
+                                              : 0,
+                                          child: Text(
+                                            users != null
+                                                ? users![index]?.username ?? ""
+                                                : "Player ${index + 1}",
+                                            style: TextStyle(
+                                                fontSize: 20,
+                                                color: currentPlayer == index
+                                                    ? Colors.blue
+                                                    : darkMode
+                                                        ? Colors.white
+                                                        : Colors.black),
+                                            textAlign: TextAlign.center,
+                                          ),
                                         ),
                                       ],
                                     ),

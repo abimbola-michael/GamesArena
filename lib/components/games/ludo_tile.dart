@@ -99,6 +99,7 @@ class LudoDisc extends StatelessWidget {
           shape: BoxShape.circle,
           color: color,
         ),
+        alignment: Alignment.center,
         child: ludosSize != null && ludosSize! > 1
             ? Text(
                 "$ludosSize",

@@ -9,7 +9,7 @@ class BlinkingBorderContainer extends StatefulWidget {
   final BoxDecoration? decoration;
   final EdgeInsets? margin;
   final EdgeInsets? padding;
-  final int? radius;
+  final double? radius;
   final Widget? child;
   final Color? color;
   final Alignment? alignment;

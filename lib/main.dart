@@ -12,29 +12,23 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 //import 'package:provider/provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 FirebaseService fs = FirebaseService();
 int themeValue = 1;
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // if (kIsWeb) {
-  //   await Firebase.initializeApp(
-  //     options: const FirebaseOptions(
-  //         apiKey: "AIzaSyB79lpHD9LyYySmTS4iuVoh89_B7JVVU4Y",
-  //         authDomain: "games-arena-dbc67.firebaseapp.com",
-  //         databaseURL: "https://games-arena-dbc67-default-rtdb.firebaseio.com",
-  //         projectId: "games-arena-dbc67",
-  //         storageBucket: "games-arena-dbc67.appspot.com",
-  //         messagingSenderId: "182221656090",
-  //         appId: "1:182221656090:web:e4ccb6f62d8f1c41ad41a3",
-  //         measurementId: "G-S79G6MVH39"),
-  //   );
-  // } else {
-  //   await Firebase.initializeApp();
-  //   MobileAds.instance.initialize();
-  // }
+
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  FlutterError.onError = (errorDetails) {
+    FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+  };
+  // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
     MobileAds.instance.initialize();
   }

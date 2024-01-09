@@ -44,27 +44,39 @@ class _WhotCardState extends State<WhotCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Hero(
-      tag: widget.whot.id,
-      child: GestureDetector(
-        onTap: widget.onPressed,
-        onLongPress: widget.onLongPressed,
-        child: BlinkingBorderContainer(
-            blink: widget.blink,
-            width: widget.width,
-            height: widget.height,
-            padding: EdgeInsets.all(paddingSize),
-            margin: EdgeInsets.all(paddingSize),
-            decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(radiusSize),
-                color: widget.isBackCard ? cardColor : Colors.white,
-                border: Border.all(color: cardColor, width: 1)),
-            child: widget.isBackCard
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
+    return GestureDetector(
+      onTap: widget.onPressed,
+      onLongPress: widget.onLongPressed,
+      child: BlinkingBorderContainer(
+          blink: widget.blink,
+          width: widget.width,
+          height: widget.height,
+          padding: EdgeInsets.all(paddingSize),
+          margin: EdgeInsets.all(paddingSize),
+          decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(radiusSize),
+              color: widget.isBackCard ? cardColor : Colors.white,
+              border: Border.all(color: cardColor, width: 1)),
+          child: widget.isBackCard
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "Whot",
+                      style: TextStyle(
+                        fontSize: fontSize,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: "Bookman",
+                      ),
+                    ),
+                    SizedBox(
+                      height: paddingSize,
+                    ),
+                    RotatedBox(
+                      quarterTurns: 2,
+                      child: Text(
                         "Whot",
                         style: TextStyle(
                           fontSize: fontSize,
@@ -73,55 +85,40 @@ class _WhotCardState extends State<WhotCard> {
                           fontFamily: "Bookman",
                         ),
                       ),
-                      SizedBox(
-                        height: paddingSize,
-                      ),
-                      RotatedBox(
-                        quarterTurns: 2,
-                        child: Text(
-                          "Whot",
-                          style: TextStyle(
-                            fontSize: fontSize,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: "Bookman",
-                          ),
-                        ),
-                      )
-                    ],
-                  )
-                : Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Container(
-                          width: double.infinity,
-                          alignment: Alignment.topLeft,
-                          child: widget.whot.number == -1
-                              ? null
-                              : WhotShapeWithText(
+                    )
+                  ],
+                )
+              : Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                        width: double.infinity,
+                        alignment: Alignment.topLeft,
+                        child: widget.whot.number == -1
+                            ? null
+                            : WhotShapeWithText(
+                                whot: widget.whot,
+                                width: widget.width,
+                              )),
+                    Center(
+                        child: getWhotIconWidget(
+                            widget.whot,
+                            widget.whot.shape == 5 ? fontSize : iconSize,
+                            "Whot")),
+                    Container(
+                        alignment: Alignment.bottomRight,
+                        width: double.infinity,
+                        child: widget.whot.number == -1
+                            ? null
+                            : RotatedBox(
+                                quarterTurns: 2,
+                                child: WhotShapeWithText(
                                   whot: widget.whot,
                                   width: widget.width,
-                                )),
-                      Center(
-                          child: getWhotIconWidget(
-                              widget.whot,
-                              widget.whot.shape == 5 ? fontSize : iconSize,
-                              "Whot")),
-                      Container(
-                          alignment: Alignment.bottomRight,
-                          width: double.infinity,
-                          child: widget.whot.number == -1
-                              ? null
-                              : RotatedBox(
-                                  quarterTurns: 2,
-                                  child: WhotShapeWithText(
-                                    whot: widget.whot,
-                                    width: widget.width,
-                                  ),
-                                )),
-                    ],
-                  )),
-      ),
+                                ),
+                              )),
+                  ],
+                )),
     );
   }
 }

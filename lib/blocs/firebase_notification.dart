@@ -59,7 +59,7 @@ Future initPushNotification() async {
           androidChannel.id,
           androidChannel.name,
           channelDescription: androidChannel.description,
-          icon: '@mipmap/ic_launcher',
+          icon: '@mipmap/launcher_icon',
           // importance: Importance.max,
           // priority: Priority.max,
           playSound: true,

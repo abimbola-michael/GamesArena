@@ -104,7 +104,7 @@ class _OnlinePlayersSelectionPageState
   String searchString = "";
   String? group_id;
   String? game;
-  bool creating = false;
+  bool creating = false, loading = true;
   TextEditingController controller = TextEditingController();
   List<User> prevUsers = [], users = [], selectedUsers = [];
   FirebaseService fs = FirebaseService();
@@ -138,19 +138,19 @@ class _OnlinePlayersSelectionPageState
       child: Scaffold(
         appBar: AppBar(
           title: Text(
-              "${type == "group" ? "Add" :type == "oneonone" ? "Search" : "Select"}  Player${maxPlayers == 2 ? "" : "s"}"),
+              "${type == "group" ? "Add" : type == "oneonone" ? "Search" : "Select"}  Player${maxPlayers == 2 ? "" : "s"}"),
         ),
-        body: creating
-            ? const Center(
+        body: creating || loading
+            ? Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(),
+                    const CircularProgressIndicator(),
                     Padding(
-                      padding: EdgeInsets.all(8.0),
+                      padding: const EdgeInsets.all(8.0),
                       child: Text(
-                        "Creating game...",
-                        style: TextStyle(
+                        loading ? "Loading Players" : "Creating game...",
+                        style: const TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold),
                         textAlign: TextAlign.center,
                       ),
@@ -173,7 +173,6 @@ class _OnlinePlayersSelectionPageState
                               child: SizedBox(
                                 height: 50,
                                 child: TextField(
-                       
                                   controller: controller,
                                   onChanged: (text) {
                                     searchString = text;
@@ -369,6 +368,8 @@ class _OnlinePlayersSelectionPageState
     if (searchString != "") {
       searchRecords();
     }
+    if (!mounted) return;
+    loading = false;
     setState(() {});
   }
 
