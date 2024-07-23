@@ -27,10 +27,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.macOS:
         return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -45,13 +42,13 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyB79lpHD9LyYySmTS4iuVoh89_B7JVVU4Y',
-    appId: '1:182221656090:web:e4ccb6f62d8f1c41ad41a3',
+    appId: '1:182221656090:web:9ec9dc205e1a6299ad41a3',
     messagingSenderId: '182221656090',
     projectId: 'games-arena-dbc67',
     authDomain: 'games-arena-dbc67.firebaseapp.com',
     databaseURL: 'https://games-arena-dbc67-default-rtdb.firebaseio.com',
     storageBucket: 'games-arena-dbc67.appspot.com',
-    measurementId: 'G-S79G6MVH39',
+    measurementId: 'G-ZY3PP8HB5S',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -77,13 +74,25 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyACVTudVydWnw829Wrr3zQzYDISMxot9DE',
-    appId: '1:182221656090:ios:873f3c31a9373998ad41a3',
+    appId: '1:182221656090:ios:09cfd0a8ddbaafd0ad41a3',
     messagingSenderId: '182221656090',
     projectId: 'games-arena-dbc67',
     databaseURL: 'https://games-arena-dbc67-default-rtdb.firebaseio.com',
     storageBucket: 'games-arena-dbc67.appspot.com',
     androidClientId: '182221656090-shbjksn4n6qci7jm3nd58i5bq8sk54t6.apps.googleusercontent.com',
-    iosClientId: '182221656090-238fmsos42ct12alsb86edh3l6le028k.apps.googleusercontent.com',
-    iosBundleId: 'com.hms.gamesarena.RunnerTests',
+    iosClientId: '182221656090-7pe7uevjqa9ick5udqnhgch2vt2rjvso.apps.googleusercontent.com',
+    iosBundleId: 'com.hms.gamesarena',
   );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyB79lpHD9LyYySmTS4iuVoh89_B7JVVU4Y',
+    appId: '1:182221656090:web:9ec9dc205e1a6299ad41a3',
+    messagingSenderId: '182221656090',
+    projectId: 'games-arena-dbc67',
+    authDomain: 'games-arena-dbc67.firebaseapp.com',
+    databaseURL: 'https://games-arena-dbc67-default-rtdb.firebaseio.com',
+    storageBucket: 'games-arena-dbc67.appspot.com',
+    measurementId: 'G-ZY3PP8HB5S',
+  );
+
 }

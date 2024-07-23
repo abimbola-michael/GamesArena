@@ -1,4 +1,3 @@
-
 enum Direction { up, down, left, right }
 
 enum DraughtDirection {
@@ -93,8 +92,6 @@ enum LudoHousePosition {
 }
 
 enum XandOChar { x, o, empty }
-
-enum XandOWinDirection { vertical, horizontal, lowerDiagonal, upperDiagonal }
 
 enum LineDirection { vertical, horizontal, lowerDiagonal, upperDiagonal }
 
