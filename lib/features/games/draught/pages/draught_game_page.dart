@@ -96,19 +96,30 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
     showPossiblePlayPositions();
   }
 
-  // void updateDetails(int playPos) {
-  //   if (matchId != "" && gameId != "" && users != null) {
-  //     if (played) return;
-  //     played = true;
-  //     final details = DraughtDetails(currentPlayerId: myId, playPos: playPos);
-  //     setDraughtDetails(
-  //       gameId,
-  //       details,
-  //       prevDetails,
-  //     );
-  //     prevDetails = details;
-  //   }
-  // }
+  Future updateDetails(List<int> playPos) async {
+    // if (matchId != "" && gameId != "" && users != null) {
+    //   if (played) return;
+    //   played = true;
+    //   final details = DraughtDetails(currentPlayerId: myId, playPos: playPos);
+    //   setDraughtDetails(
+    //     gameId,
+    //     details,
+    //     prevDetails,
+    //   );
+    //   prevDetails = details;
+    // }
+    if (!awaiting && gameId.isNotEmpty && currentPlayerId == myId) {
+      awaiting = true;
+      final details = DraughtDetails(
+          currentPlayerId: currentPlayerId,
+          startPos: selectedDraughtPos,
+          endPos: playPos);
+      awaiting = true;
+      await setGameDetails(gameId, details.toMap());
+      awaiting = false;
+      awaiting = false;
+    }
+  }
 
   int convertPos(int pos, String userId) {
     if (userId == myId) return pos;
@@ -354,19 +365,13 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
   }
 
   void moveMultipleDraughts([bool isClick = true]) async {
-    if (isClick && gameId.isNotEmpty && currentPlayerId == myId) {
-      awaiting = true;
-      final details = DraughtDetails(
-          currentPlayerId: currentPlayerId,
-          startPos: selectedDraughtPos,
-          endPos: playPositions);
-      await setGameDetails(gameId, details.toMap());
-      awaiting = false;
+    if (isClick) {
+      await updateDetails(playPositions);
     }
 
     for (int i = 0; i < playPositions.length; i++) {
       final index = playPositions[i];
-      moveDraught(index, isClick);
+      moveDraught(index, false);
       if (i != playPositions.length - 1) {
         await Future.delayed(const Duration(milliseconds: 500));
       }
@@ -393,14 +398,8 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
   }
 
   void moveDraught(int pos, [bool isClick = true]) async {
-    if (isClick && gameId.isNotEmpty && currentPlayerId == myId) {
-      awaiting = true;
-      final details = DraughtDetails(
-          currentPlayerId: currentPlayerId,
-          startPos: selectedDraughtPos,
-          endPos: [pos]);
-      await setGameDetails(gameId, details.toMap());
-      awaiting = false;
+    if (isClick) {
+      await updateDetails([pos]);
     }
 
     final draughtTile = draughtTiles[pos];
@@ -426,6 +425,8 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
         final playerDraughts = playersDraughts[opponentIndex];
         final playerWonDraughts = playersWonDraughts[playerIndex];
         playerWonDraughts.add(foundDraught);
+        updateCount(playerIndex, playerWonDraughts.length);
+
         playerDraughts.removeWhere((element) => element.id == foundDraught.id);
         foundDraughtTile.draught = null;
       }
@@ -1499,6 +1500,7 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
 
   @override
   void onStart() {
+    setInitialCount(0);
     initDraughtGrids();
   }
 

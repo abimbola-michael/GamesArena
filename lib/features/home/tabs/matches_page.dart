@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../game/services.dart';
 import '../../game/widgets/game_list_item.dart';
 import '../../../shared/models/models.dart';
+import '../../onboarding/pages/auth_page.dart';
 import '../../onboarding/pages/login_page.dart';
 
 class MatchesPage extends StatefulWidget {
@@ -38,9 +39,7 @@ class _MatchesPageState extends State<MatchesPage> {
             "Login",
             onPressed: () {
               Navigator.of(context).push(MaterialPageRoute(
-                builder: (context) => const LoginPage(
-                  login: true,
-                ),
+                builder: (context) => const AuthPage(),
               ));
             },
             wrap: true,

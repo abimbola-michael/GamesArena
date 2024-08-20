@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:gamesarena/main.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/theme/colors.dart';
 
@@ -18,19 +19,101 @@ Duration getDuration(DurationLength durationLength) {
   int seconds = 2;
   switch (durationLength) {
     case DurationLength.long:
-      seconds = 3;
+      seconds = 4;
       break;
     case DurationLength.short:
       seconds = 2;
       break;
     case DurationLength.veryLong:
-      seconds = 5;
+      seconds = 6;
       break;
     case DurationLength.veryShort:
       seconds = 1;
       break;
   }
   return Duration(seconds: seconds);
+}
+
+Future? showLoading(
+    {bool transparent = true,
+    Color? backgroundColor,
+    String? message,
+    Duration? duration,
+    DisplayType displayType = DisplayType.dialog,
+    DurationLength durationLength = DurationLength.short}) {
+  return navigatorKey.currentContext?.showLoading(
+      transparent: transparent,
+      backgroundColor: backgroundColor,
+      message: message,
+      duration: duration,
+      displayType: displayType,
+      durationLength: durationLength);
+}
+
+Future? showMessage(String message,
+    {String? action,
+    Color? backgroundColor,
+    Duration? duration,
+    DisplayType displayType = DisplayType.dialog,
+    VoidCallback? onPressed,
+    bool isError = false,
+    DurationLength durationLength = DurationLength.short}) {
+  return navigatorKey.currentContext?.showMessage(
+    message,
+    action: action,
+    backgroundColor: backgroundColor,
+    duration: duration,
+    displayType: displayType,
+    onPressed: onPressed,
+    isError: isError,
+    durationLength: durationLength,
+  );
+}
+
+Future? showToast(String message,
+    {DurationLength durationLength = DurationLength.long}) {
+  return navigatorKey.currentContext
+      ?.showToast(message, durationLength: durationLength);
+}
+
+Future? showErrorToast(String message,
+    {DurationLength durationLength = DurationLength.long}) {
+  return navigatorKey.currentContext
+      ?.showErrorToast(message, durationLength: durationLength);
+}
+
+Future? showSuccessToast(String message,
+    {DurationLength durationLength = DurationLength.long}) {
+  return navigatorKey.currentContext
+      ?.showSuccessToast(message, durationLength: durationLength);
+}
+
+Future? showSnackbar(String message,
+    {DurationLength durationLength = DurationLength.long,
+    String? action,
+    VoidCallback? onPressed}) {
+  return navigatorKey.currentContext?.showSnackbar(message,
+      durationLength: durationLength, action: action, onPressed: onPressed);
+}
+
+Future? showErrorSnackbar(String message,
+    {DurationLength durationLength = DurationLength.long,
+    String? action,
+    VoidCallback? onPressed}) {
+  return navigatorKey.currentContext?.showErrorSnackbar(message,
+      durationLength: durationLength, action: action, onPressed: onPressed);
+}
+
+Future? showSuccessSnackbar(String message,
+    {DurationLength durationLength = DurationLength.long,
+    String? action,
+    VoidCallback? onPressed}) {
+  return navigatorKey.currentContext?.showSuccessSnackbar(message,
+      durationLength: durationLength, action: action, onPressed: onPressed);
+}
+
+Future? hideDialog() {
+  return navigatorKey.currentContext?.hideDialog();
 }
 
 extension SpecialContextExtensions on BuildContext {
@@ -197,13 +280,9 @@ extension SpecialContextExtensions on BuildContext {
       result = ScaffoldMessenger.of(this).showSnackBar(
         SnackBar(
           duration: duration!,
-          content: Row(
-            children: [
-              Text(
-                message,
-                style: bodySmall?.copyWith(color: white),
-              ),
-            ],
+          content: Text(
+            message,
+            style: bodySmall?.copyWith(color: white),
           ),
           backgroundColor:
               backgroundColor ?? (isError ? Colors.red : primaryColor),
@@ -229,9 +308,11 @@ extension SpecialContextExtensions on BuildContext {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    message,
-                    style: bodySmall?.copyWith(color: white),
+                  Flexible(
+                    child: Text(
+                      message,
+                      style: bodySmall?.copyWith(color: white),
+                    ),
                   ),
                   if (action != null && onPressed != null) ...[
                     const SizedBox(
@@ -247,7 +328,7 @@ extension SpecialContextExtensions on BuildContext {
                     TextButton(
                       onPressed: onPressed,
                       child: Text(
-                        message,
+                        action,
                         style: bodySmall?.copyWith(
                             color: white, fontWeight: FontWeight.w500),
                       ),

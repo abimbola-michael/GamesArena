@@ -208,8 +208,9 @@ String getActionMessage(List<Playing> prevPlaying, List<Playing> newPlaying,
   for (int i = 0; i < playing.length; i++) {
     final value = playing[i];
     final toValue = toPlaying[i];
-    final username =
-        users.firstWhere((element) => element.user_id == value.id).username;
+    final username = users.isEmpty
+        ? ""
+        : users.firstWhere((element) => element.user_id == value.id).username;
     if (value.id != toValue.id) {
       return "$username $action";
     }
@@ -260,7 +261,7 @@ String getActionString(String action) {
               : action;
 }
 
-void updateAction(
+Future updateAction(
     BuildContext context,
     List<Playing> playing,
     List<User?> users,
@@ -289,8 +290,10 @@ void updateAction(
     List<User> waitingUsers = [];
     for (int i = 0; i < othersWithDiffAction.length; i++) {
       final player = othersWithDiffAction[i];
-      final user = users.firstWhere(
-          (element) => element != null && element.user_id == player.id);
+      final user = users.isEmpty
+          ? null
+          : users.firstWhere(
+              (element) => element != null && element.user_id == player.id);
       if (user != null) {
         waitingUsers.add(user);
       }
@@ -301,11 +304,6 @@ void updateAction(
   }
 }
 
-// String getUsername(List<User?> users, String userId) =>
-//     users
-//         .firstWhere((element) => element != null && element.user_id == userId)
-//         ?.username ??
-//     "";
 List<int> convertToGrid(int pos, int gridSize) {
   return [pos % gridSize, pos ~/ gridSize];
 }

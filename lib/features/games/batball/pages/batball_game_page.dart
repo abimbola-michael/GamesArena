@@ -366,7 +366,7 @@
 
 //   String getUsername(String userId) =>
 //       users
-//           ?.firstWhere(
+//           ?.firstWhereNullable(
 //               (element) => element != null && element.user_id == userId)
 //           ?.username ??
 //       "";

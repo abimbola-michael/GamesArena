@@ -105,7 +105,7 @@ class _PausedGamePageState extends State<PausedGamePage> {
         child: Padding(
           padding: changeGameMode
               ? EdgeInsets.zero
-              : const EdgeInsets.symmetric(vertical: 20),
+              : const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
           child: ConstrainedBox(
             constraints: changeGameMode
                 ? const BoxConstraints.expand()

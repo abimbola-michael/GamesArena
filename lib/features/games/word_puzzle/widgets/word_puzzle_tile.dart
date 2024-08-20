@@ -26,7 +26,7 @@ class WordPuzzleTile extends StatelessWidget {
         width: double.infinity,
         height: double.infinity,
         decoration: BoxDecoration(
-          border: Border.all(width: 0.5, color: tint),
+          // border: Border.all(width: 0.5, color: tint),
           color: highLight ? Colors.purple : null,
           // border: Border(
           //     right: BorderSide(color: Colors.white, width: 3),

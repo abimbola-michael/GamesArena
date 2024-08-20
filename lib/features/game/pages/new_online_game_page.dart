@@ -246,6 +246,9 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
                   textColor: darkMode ? white : black,
                 ),
                 if (!creatorIsMe) ...[
+                  const SizedBox(
+                    width: 20,
+                  ),
                   ActionButton(
                     "Join",
                     onPressed: () {
@@ -283,8 +286,8 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
       Fluttertoast.showToast(msg: "Need at least 2 players to play");
       return;
     }
-    gotoGamePage(
-        context, game, gameId, matchId, users, playersSize, indices, 0);
+    gotoGamePage(context, game, gameId, matchId, users, playing, playersSize,
+        indices, 0);
     //gotoOnlineGamePage(context, game, gameId, matchId, users, indices, 0);
   }
 

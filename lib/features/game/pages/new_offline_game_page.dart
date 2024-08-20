@@ -40,7 +40,7 @@ class _NewOfflineGamePageState extends State<NewOfflineGamePage> {
   }
 
   void gotoGame() {
-    gotoGamePage(context, game, "", "", null, playersSize, null, 0);
+    gotoGamePage(context, game, "", "", null, null, playersSize, null, 0);
     // Widget widget = const BatballGamePage();
     // if (game == batballGame) {
     //   widget = const BatballGamePage();

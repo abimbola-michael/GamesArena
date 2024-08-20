@@ -80,16 +80,18 @@ class AppButton extends StatelessWidget {
                     width: 15,
                   ),
                 if (title != null)
-                  Text(
-                    title ?? "",
-                    style: textStyle ??
-                        TextStyle(
-                            fontSize: fontSize,
-                            color: color ?? white,
-                            fontWeight: FontWeight.w500,
-                            decoration: TextDecoration.none),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Flexible(
+                    child: Text(
+                      title ?? "",
+                      style: textStyle ??
+                          TextStyle(
+                              fontSize: fontSize,
+                              color: color ?? white,
+                              fontWeight: FontWeight.w500,
+                              decoration: TextDecoration.none),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   )
               ],
             ),

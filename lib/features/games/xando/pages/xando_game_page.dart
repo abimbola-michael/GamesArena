@@ -73,10 +73,15 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
     final colindex = coordinates[1];
     final xando = xandos[colindex][rowindex];
     if (xando.char == XandOChar.empty) {
-      if (isClick && gameId.isNotEmpty && currentPlayerId == myId) {
+      if (isClick &&
+          !awaiting &&
+          gameId.isNotEmpty &&
+          currentPlayerId == myId) {
         awaiting = true;
         final details = XandODetails(playPos: index, currentPlayerId: myId);
+        awaiting = true;
         await setGameDetails(gameId, details.toMap());
+        awaiting = false;
         awaiting = false;
       }
       xandos[colindex][rowindex].char = getChar(currentPlayer);
@@ -169,6 +174,7 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
       if (foundMatch) {
         winChar = xando.char;
         message = "You Won";
+        incrementCount(currentPlayer);
         //Fluttertoast.showToast(msg: "Player ${xando.char.name.capitalize} Won");
         // playersScores[currentPlayer]++;
         // updateMatchRecord();
@@ -470,7 +476,7 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
   String gameName = xandoGame;
 
   @override
-  int maxGameTime = 20.minToSec;
+  int maxGameTime = 15.minToSec;
 
   @override
   void onConcede(int index) {
@@ -521,6 +527,7 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
 
   @override
   void onStart() {
+    setInitialCount(0);
     initGrids();
   }
 
@@ -531,7 +538,8 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
 
   @override
   void onTimeEnd() {
-    // TODO: implement onTimeEnd
+    updateTie(getHighestCountPlayer());
+    setInitialCount(0);
   }
 
   @override

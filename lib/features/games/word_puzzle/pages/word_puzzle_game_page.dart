@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:gamesarena/features/games/word_puzzle/widgets/match_lines_paint.dart';
 import 'package:gamesarena/features/games/word_puzzle/widgets/word_puzzle_tile.dart';
+import 'package:gamesarena/shared/services.dart';
 import 'package:gamesarena/shared/widgets/app_container.dart';
 import 'package:gamesarena/features/games/word_puzzle/models/match_line.dart';
 import 'package:gamesarena/features/games/word_puzzle/models/word_puzzle.dart';
@@ -52,6 +54,8 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
   Map<String, String> charMap = {};
   String matchedString = "";
   int? player1Pos, player2Pos;
+  int? player1SelectedPos, player2SelectedPos;
+
   Offset? player1SelectedOffest, player2SelectedOffest;
 
   int wordsLength = 15;
@@ -88,6 +92,21 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
     for (int i = 0; i < wordsLength; i++) {
       player1Words.add(getRandomWord());
       player2Words.add(getRandomWord());
+    }
+  }
+
+  void generateRandomWordsForPlayer(int player) {
+    if (player == 0) {
+      player1Words.clear();
+    } else {
+      player2Words.clear();
+    }
+    for (int i = 0; i < wordsLength; i++) {
+      if (player == 0) {
+        player1Words.add(getRandomWord());
+      } else {
+        player2Words.add(getRandomWord());
+      }
     }
   }
 
@@ -223,21 +242,83 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
   }
 
   void initGrids() {
-    showMessage = false;
-    generateRandomWords();
+    // showMessage = false;
+    // generateRandomWords();
 
+    // matchLines.clear();
+    // draggedMatchLines.clear();
+
+    // player1WordPuzzles.clear();
+    // player2WordPuzzles.clear();
+
+    // Map<String, String> player1CharMap = {};
+    // Map<String, String> player2CharMap = {};
+
+    // for (int i = 0; i < wordsLength; i++) {
+    //   addWordToGrid(player1Words[i], player1CharMap, 0, i);
+    //   addWordToGrid(player2Words[i], player2CharMap, 1, i);
+    // }
+
+    // final rand = Random();
+    // final halfSize = gridSize ~/ 2;
+
+    // for (int colindex = 0; colindex < halfSize; colindex++) {
+    //   final List<WordPuzzle> player1Puzzles = [];
+    //   final List<WordPuzzle> player2Puzzles = [];
+
+    //   for (int rowindex = 0; rowindex < gridSize; rowindex++) {
+    //     final pos = convertToPosition([rowindex, colindex], gridSize);
+    //     String? char1 = player1CharMap["$rowindex:$colindex"] ??
+    //         String.fromCharCode(rand.nextInt(26) + 65);
+    //     player1Puzzles
+    //         .add(WordPuzzle(x: rowindex, y: colindex, char: char1, pos: pos));
+
+    //     String? char2 = player2CharMap["$rowindex:$colindex"] ??
+    //         String.fromCharCode(rand.nextInt(26) + 65);
+    //     player2Puzzles
+    //         .add(WordPuzzle(x: rowindex, y: colindex, char: char2, pos: pos));
+    //   }
+
+    //   player1WordPuzzles.add(player1Puzzles);
+    //   player2WordPuzzles.add(player2Puzzles);
+    // }
+
+    // if (!mounted) return;
+    // setState(() {});
     matchLines.clear();
     draggedMatchLines.clear();
-
     player1WordPuzzles.clear();
     player2WordPuzzles.clear();
+    player1Words.clear();
+    player2Words.clear();
 
-    Map<String, String> player1CharMap = {};
-    Map<String, String> player2CharMap = {};
+    if (gameId.isEmpty) {
+      getPlayerPuzzleGrids(myPlayer == 0 ? 1 : 0);
+    }
+    getPlayerPuzzleGrids(myPlayer);
+  }
+
+  void getPlayerPuzzleGrids(int player) async {
+    showMessage = false;
+    generateRandomWordsForPlayer(player);
+
+    matchLines.removeWhere((element) => element.player == player);
+    draggedMatchLines.removeWhere((element) => element.player == player);
+
+    if (player == 0) {
+      player1WordPuzzles.clear();
+    } else {
+      player2WordPuzzles.clear();
+    }
+
+    Map<String, String> playerCharMap = {};
 
     for (int i = 0; i < wordsLength; i++) {
-      addWordToGrid(player1Words[i], player1CharMap, 0, i);
-      addWordToGrid(player2Words[i], player2CharMap, 1, i);
+      if (player == 0) {
+        addWordToGrid(player1Words[i], playerCharMap, 0, i);
+      } else {
+        addWordToGrid(player2Words[i], playerCharMap, 1, i);
+      }
     }
 
     final rand = Random();
@@ -248,51 +329,58 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
       final List<WordPuzzle> player2Puzzles = [];
 
       for (int rowindex = 0; rowindex < gridSize; rowindex++) {
-        String? char1 = player1CharMap["$rowindex:$colindex"] ??
-            String.fromCharCode(rand.nextInt(26) + 65);
-        player1Puzzles.add(WordPuzzle(x: rowindex, y: colindex, char: char1));
-
-        String? char2 = player2CharMap["$rowindex:$colindex"] ??
-            String.fromCharCode(rand.nextInt(26) + 65);
-        player2Puzzles.add(WordPuzzle(x: rowindex, y: colindex, char: char2));
+        final pos = convertToPosition([rowindex, colindex], gridSize);
+        if (player == 0) {
+          String? char1 = playerCharMap["$rowindex:$colindex"] ??
+              String.fromCharCode(rand.nextInt(26) + 65);
+          player1Puzzles
+              .add(WordPuzzle(x: rowindex, y: colindex, char: char1, pos: pos));
+        } else {
+          String? char2 = playerCharMap["$rowindex:$colindex"] ??
+              String.fromCharCode(rand.nextInt(26) + 65);
+          player2Puzzles
+              .add(WordPuzzle(x: rowindex, y: colindex, char: char2, pos: pos));
+        }
       }
-
-      player1WordPuzzles.add(player1Puzzles);
-      player2WordPuzzles.add(player2Puzzles);
+      if (player == 0) {
+        player1WordPuzzles.add(player1Puzzles);
+      } else {
+        player2WordPuzzles.add(player2Puzzles);
+      }
     }
-
-    // player1WordPuzzles = List.generate(
-    //     gridSize ~/ 2,
-    //     (colindex) => List.generate(gridSize, (rowindex) {
-    //           String? char = player1CharMap["$rowindex:$colindex"] ??
-    //               String.fromCharCode(rand.nextInt(26) + 65);
-    //           return WordPuzzle(x: rowindex, y: colindex, char: char);
-    //         }));
-
-    // player2WordPuzzles = List.generate(
-    //     gridSize ~/ 2,
-    //     (colindex) => List.generate(gridSize, (rowindex) {
-    //           //final index = convertToPosition([rowindex, colindex], gridSize);
-    //           String? char = player2CharMap["$rowindex:$colindex"] ??
-    //               String.fromCharCode(rand.nextInt(26) + 65);
-    //           return WordPuzzle(x: rowindex, y: colindex, char: char);
-    //         }));
+    if (player == myPlayer) {
+      await updateGridDetails(player2Words, player2WordPuzzles);
+    }
 
     if (!mounted) return;
     setState(() {});
   }
 
-  void updateDetails(int playPos) {
+  Future updateGridDetails(List<String> playerWords,
+      List<List<WordPuzzle>> playerWordPuzzles) async {
+    if (gameId.isEmpty || currentPlayerId != myId) return;
     if (matchId != "" && gameId != "" && users != null) {
-      //   if (played) return;
-      //   played = true;
-      //   final details = XandODetails(playPos: playPos, currentPlayerId: myId);
-      //   fs.setXandODetails(
-      //     gameId,
-      //     details,
-      //     prevDetails,
-      //   );
-      //   prevDetails = details;
+      final details = WordPuzzleDetails(
+        currentPlayerId: currentPlayerId,
+        playerWords: jsonEncode(playerWords),
+        playerPuzzles: jsonEncode(playerWordPuzzles),
+      );
+      awaiting = true;
+      await setGameDetails(gameId, details.toMap());
+      awaiting = false;
+    }
+  }
+
+  Future updateDetails(int playPos) async {
+    if (gameId.isEmpty || currentPlayerId != myId) return;
+    if (matchId != "" && gameId != "" && users != null) {
+      final details = WordPuzzleDetails(
+          currentPlayerId: currentPlayerId,
+          startPos: player2SelectedPos!,
+          endPos: playPos);
+      awaiting = true;
+      await setGameDetails(gameId, details.toMap());
+      awaiting = false;
     }
   }
 
@@ -351,8 +439,10 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
   void startDrawingLine(DragStartDetails details, int player) {
     if (player == 0 && player1SelectedOffest != null) {
       player1SelectedOffest = null;
+      player1SelectedPos = null;
     } else if (player == 1 && player2SelectedOffest != null) {
       player2SelectedOffest = null;
+      player2SelectedPos = null;
     }
     final startOffset = details.localPosition;
     final pos = getTouchPos(startOffset);
@@ -392,7 +482,8 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
     }
   }
 
-  void playChar(int pos, int player, bool dragging) {
+  void playChar(int pos, int player, bool dragging,
+      [bool isClick = true]) async {
     if (awaiting) return;
     bool isPlayerOne = player == 0;
     final wordIndex = isPlayerOne
@@ -410,8 +501,10 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
     if (selectedOffset == null) {
       if (isPlayerOne) {
         player1SelectedOffest = offset;
+        player1SelectedPos = pos;
       } else {
         player2SelectedOffest = offset;
+        player2SelectedPos = pos;
       }
       if (dragging) {
         draggedMatchLines.add(
@@ -427,8 +520,10 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
         if (!dragging) {
           if (isPlayerOne) {
             player1SelectedOffest = null;
+            player1SelectedPos = null;
           } else {
             player2SelectedOffest = null;
+            player2SelectedPos = null;
           }
         }
       } else {
@@ -459,25 +554,34 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
                 line.start == selectedOffset &&
                 line.end == offset);
             if (matchLineIndex != -1) {
-              showToast(player, "Word already found! Try another");
+              if (!dragging) {
+                showToast(player, "Word already found! Try another");
+              }
             } else {
               final word = getWord(selectedOffset, offset, isPlayerOne);
               final words = isPlayerOne ? player1Words : player2Words;
 
               if (words.contains(word)) {
-                if (matchLineIndex == -1) {
-                  matchLines.add(
-                    MatchLine(
-                      start: Offset(selectedOffset.dx, selectedOffset.dy),
-                      end: Offset(offset.dx, offset.dy),
-                      player: player,
-                      wordIndex: wordIndex,
-                    ),
-                  );
+                if (isClick) {
+                  await updateDetails(pos);
                 }
+                // if (matchLineIndex == -1) {
+
+                // }
+                matchLines.add(
+                  MatchLine(
+                    start: Offset(selectedOffset.dx, selectedOffset.dy),
+                    end: Offset(offset.dx, offset.dy),
+                    player: player,
+                    wordIndex: wordIndex,
+                  ),
+                );
                 words.remove(word);
+                updateCount(player, words.length);
               } else {
-                showToast(player, "Invalid word! Try again");
+                if (!dragging) {
+                  showToast(player, "Invalid word! Try again");
+                }
               }
 
               if (words.isEmpty) {
@@ -486,13 +590,17 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
             }
             if (isPlayerOne) {
               player1SelectedOffest = null;
+              player1SelectedPos = null;
             } else {
               player2SelectedOffest = null;
+              player2SelectedPos = null;
             }
           }
         } else {
-          showToast(player,
-              "Wrong Direction! Can only go vertically, horizantally and diagonally");
+          if (!dragging) {
+            showToast(player,
+                "Wrong Direction! Can only go vertically, horizantally and diagonally");
+          }
         }
       }
 
@@ -530,12 +638,32 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
   String gameName = wordPuzzleGame;
 
   @override
-  int maxGameTime = 20.minToSec;
+  int maxGameTime = 15.minToSec;
 
   @override
   void onDetailsChange(Map<String, dynamic>? map) {
-    // TODO: implement onDetailsChange
+    if (map != null) {
+      final details = WordPuzzleDetails.fromMap(map);
+      final startPos = details.startPos;
+      final endPos = details.endPos;
+      final playerWords = details.playerWords;
+      final playerPuzzles = details.playerPuzzles;
+      if (startPos != null && endPos != null) {
+        playChar(startPos, 0, false, false);
+        playChar(endPos, 0, false, false);
+      } else if (playerWords != null && playerPuzzles != null) {
+        if (myPlayer == 0) {
+          player2Words = jsonDecode(playerWords);
+          player2WordPuzzles = jsonDecode(playerPuzzles);
+        } else {
+          player1Words = jsonDecode(playerWords);
+          player1WordPuzzles = jsonDecode(playerPuzzles);
+        }
+        setState(() {});
+      }
+    }
   }
+
   @override
   void onSpaceBarPressed() {}
 
@@ -560,6 +688,7 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
 
   @override
   void onStart() {
+    setInitialCount(wordsLength);
     initGrids();
   }
 
@@ -644,11 +773,11 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
                                           "Its ${getUsername(currentPlayerId)}'s turn");
                                       return;
                                     }
-                                    if (gameId != "") {
-                                      updateDetails(index);
-                                    } else {
-                                      playChar(index, pindex, false);
-                                    }
+                                    // if (gameId != "") {
+                                    //   updateDetails(index);
+                                    // } else {
+                                    playChar(index, pindex, false);
+                                    //  }
                                   },
                                   blink: false);
                             }),

@@ -11,6 +11,7 @@ import '../games/whot/services.dart';
 import '../games/word_puzzle/pages/word_puzzle_game_page.dart';
 import '../games/xando/pages/xando_game_page.dart';
 import '../user/models/user.dart';
+import 'models/playing.dart';
 
 void gotoGamePage(
     BuildContext context,
@@ -18,6 +19,7 @@ void gotoGamePage(
     String gameId,
     String matchId,
     List<User?>? users,
+    List<Playing>? playing,
     int playersSize,
     String? indices,
     int id,
@@ -31,33 +33,12 @@ void gotoGamePage(
   // }
   // Widget? widget;
   int idCount = id++;
-  // switch (game) {
-  //   case batballGame:
-  //     //widget =const BatballGamePage();
-  //     break;
-  //   case whotGame:
-  //     widget = const WhotGamePage();
-  //     break;
-  //   case ludoGame:
-  //     widget = const LudoGamePage();
-  //     break;
-  //   case draughtGame:
-  //     widget = const DraughtGamePage();
-  //     break;
-  //   case chessGame:
-  //     widget = const ChessGamePage();
-  //     break;
-  //   case xandoGame:
-  //     widget = const XandOGamePage();
-  //     break;
-  //   case wordPuzzleGame:
-  //     widget = const WordPuzzleGamePage();
-  //     break;
-  // }
+
   final args = {
     "matchId": matchId,
     "gameId": gameId,
     "users": users,
+    "playing": playing,
     "playersSize": users?.length ?? playersSize,
     "id": idCount,
     "indices": indices,

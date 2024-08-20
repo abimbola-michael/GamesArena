@@ -30,7 +30,10 @@ extension QueryExtension on Query {
   Query getQuery(List<dynamic>? where, List<dynamic>? order,
       List<dynamic>? start, List<dynamic>? end, List<dynamic>? limit) {
     Query query = this;
-    if (where != null && where.isNotEmpty && where[0] != null) {
+    if (where != null &&
+        where.isNotEmpty &&
+        where[0] != null &&
+        where.length % 3 == 0) {
       int times = (where.length / 3).floor();
       for (int i = 0; i < times; i++) {
         final j = i * 3;
@@ -55,7 +58,7 @@ extension QueryExtension on Query {
     }
     if (order != null && order.isNotEmpty && order[0] != null) {
       String orderName = order[0];
-      bool desc = order[1] ?? false;
+      bool desc = order.length == 1 ? false : order[1];
       query = query.orderBy(orderName, descending: desc);
     }
     if (start != null && start.isNotEmpty && start[0] != null) {

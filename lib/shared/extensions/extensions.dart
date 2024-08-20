@@ -101,14 +101,14 @@ extension ContextExtensions on BuildContext {
     );
   }
 
-  Future showSnackBar(String message, [bool isError = true]) async {
-    ScaffoldMessenger.of(this).showSnackBar(SnackBar(
-        content: Text(
-          message,
-          style: bodySmall?.copyWith(color: white),
-        ),
-        backgroundColor: isError ? Colors.red : primaryColor));
-  }
+  // Future showSnackBar(String message, [bool isError = true]) async {
+  //   ScaffoldMessenger.of(this).showSnackBar(SnackBar(
+  //       content: Text(
+  //         message,
+  //         style: bodySmall?.copyWith(color: white),
+  //       ),
+  //       backgroundColor: isError ? Colors.red : primaryColor));
+  // }
 }
 
 extension DoubleExtensions on double {
@@ -422,10 +422,28 @@ extension StringExtensions on String {
   }
 }
 
+extension ListNullableExtensions<T, U> on List<T?> {
+  T? firstWhereNullableNullable(bool Function(T? t) callback, [int start = 0]) {
+    final index = indexWhere(callback, start);
+    if (index != -1) {
+      return this[index];
+    }
+    return null;
+  }
+}
+
 extension ListExtensions<T, U> on List<T> {
   T? get lastOrNull => isEmpty ? null : last;
   T? get firstOrNull => isEmpty ? null : first;
   T? valueOrNull(int index) => isEmpty ? null : this[index];
+
+  T? firstWhereNullableNullable(bool Function(T t) callback, [int start = 0]) {
+    final index = indexWhere(callback, start);
+    if (index != -1) {
+      return this[index];
+    }
+    return null;
+  }
 
   bool equals(List<T> other) {
     if (length != other.length) return false;

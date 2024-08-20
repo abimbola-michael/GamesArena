@@ -11,6 +11,7 @@ import '../../game/widgets/game_item.dart';
 import '../../../shared/utils/constants.dart';
 import '../../../shared/utils/utils.dart';
 import '../../games/pages.dart';
+import '../../onboarding/pages/auth_page.dart';
 
 class GamesPage extends StatefulWidget {
   final bool isTab;
@@ -356,7 +357,7 @@ class GamesPageState extends State<GamesPage> {
   void gotoSelectPlayers() async {
     final players = (await Navigator.of(context).push(MaterialPageRoute(
         builder: (context) => FirebaseAuth.instance.currentUser == null
-            ? const LoginPage(login: true)
+            ? const AuthPage()
             : OnlinePlayersSelectionPage(
                 type: "",
                 game: games[game],
@@ -371,7 +372,7 @@ class GamesPageState extends State<GamesPage> {
 
   void gotoGame() {
     final game = games[this.game];
-    gotoGamePage(context, game, "", "", null, playersSize, null, 0,
+    gotoGamePage(context, game, "", "", null, null, playersSize, null, 0,
         result: true);
     // Widget widget = const BatballGamePage();
     // if (game == "Bat Ball") {

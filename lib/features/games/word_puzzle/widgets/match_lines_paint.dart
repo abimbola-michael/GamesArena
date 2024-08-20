@@ -49,7 +49,7 @@ class MatchLinesPainter extends CustomPainter {
       // final color = line.player == 1 ? Colors.blue : Colors.red;
       final color =
           line.wordIndex == -1 ? Colors.purple : pathColors[line.wordIndex];
-      double lineHeight = size - 12;
+      double lineHeight = size - 4;
       Paint paint = Paint()
         ..color = color.withOpacity(0.3)
         ..strokeWidth = lineHeight

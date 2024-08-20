@@ -1,14 +1,18 @@
+import 'package:gamesarena/features/profile/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/features/onboarding/pages/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 import '../../../core/firebase/firebase_methods.dart';
+import '../../../core/firebase/storage_methods.dart';
 import '../../../shared/services.dart';
 import '../../../shared/widgets/action_button.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../../theme/colors.dart';
 import '../../../shared/utils/utils.dart';
 import '../../group/services.dart';
+import '../../onboarding/pages/auth_page.dart';
 import '../../user/services.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -21,26 +25,58 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  String name = "", email = "", phone = "";
-  String type = "", id = "", myId = "";
+  String name = "", email = "", phone = "", profilePhoto = "";
+  String type = "", id = "";
   FirebaseMethods fm = FirebaseMethods();
+  StorageMethods sm = StorageMethods();
   List<String> options = ["Username", "Email", "Phone", "Password"];
   BuildContext? bottomSheetContext;
 
   GlobalKey<ScaffoldState> scaffoldStateKey = GlobalKey<ScaffoldState>();
+  String? filePath;
+  bool uploading = false;
+  bool removing = false;
 
   @override
   void initState() {
     super.initState();
     type = widget.type;
     id = widget.id;
-    myId = myId;
     readUser();
   }
 
   @override
   void dispose() {
     super.dispose();
+  }
+
+  void pickPhoto() {}
+  void removePhoto() async {
+    setState(() {
+      removing = true;
+    });
+    await removeProfilePhoto();
+    setState(() {
+      removing = false;
+      profilePhoto = "";
+      filePath = null;
+    });
+  }
+
+  void uploadPhoto() {
+    if (filePath == null) return;
+    setState(() {
+      uploading = true;
+    });
+    sm.uploadFile(["users", myId, "profile_photo"], filePath!, "photo",
+        onComplete: (url, thumbnail) async {
+      await updateProfilePhoto(url);
+      setState(() {
+        profilePhoto = url;
+        uploading = false;
+        filePath = null;
+      });
+    });
   }
 
   @override
@@ -62,6 +98,43 @@ class _ProfilePageState extends State<ProfilePage> {
               name.firstChar ?? "",
               style: const TextStyle(fontSize: 30, color: Colors.blue),
             ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (profilePhoto.isNotEmpty) ...[
+                if (removing)
+                  const CircularProgressIndicator()
+                else
+                  AppButton(
+                    title: "Remove Photo",
+                    wrapped: true,
+                    bgColor: lightestTint,
+                    color: tint,
+                    onPressed: removePhoto,
+                  ),
+                const SizedBox(width: 10),
+              ],
+              AppButton(
+                title: "Add Photo",
+                wrapped: true,
+                onPressed: pickPhoto,
+              ),
+              if (filePath != null) ...[
+                const SizedBox(width: 10),
+                if (uploading)
+                  const CircularProgressIndicator()
+                else
+                  AppButton(
+                    title: "Upload Photo",
+                    wrapped: true,
+                    bgColor: lightestTint,
+                    color: tint,
+                    onPressed: uploadPhoto,
+                  ),
+                const SizedBox(width: 10),
+              ],
+            ],
           ),
           const SizedBox(
             height: 16,
@@ -93,6 +166,7 @@ class _ProfilePageState extends State<ProfilePage> {
       bottomNavigationBar: id != myId
           ? null
           : ActionButton(
+              margin: 20,
               "Logout",
               onPressed: () {
                 logOut();
@@ -130,8 +204,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void logOut() {
     fm.logOut().then((value) {
       Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-              builder: ((context) => const LoginPage(login: true))),
+          MaterialPageRoute(builder: ((context) => const AuthPage())),
           (route) => false);
     }).onError((error, stackTrace) {
       Fluttertoast.showToast(msg: "Unable to logout");
@@ -144,6 +217,7 @@ class _ProfilePageState extends State<ProfilePage> {
       name = user.username;
       email = user.email;
       phone = user.phone;
+      profilePhoto = user.profile_photo ?? "";
     }
     setState(() {});
   }
@@ -389,8 +463,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   void logOut() {
     fm.logOut().then((value) {
       Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-              builder: ((context) => const LoginPage(login: true))),
+          MaterialPageRoute(builder: ((context) => const AuthPage())),
           (route) => false);
     }).onError((error, stackTrace) {
       Fluttertoast.showToast(msg: "Unable to logout");

@@ -60,27 +60,23 @@ class Whot {
 
 class WhotDetails {
   String currentPlayerId;
-  String whotIndices;
-  int playPos;
-  int shapeNeeded;
+  String? whotIndices;
+  int? playPos;
   WhotDetails({
     required this.currentPlayerId,
-    required this.whotIndices,
-    required this.playPos,
-    required this.shapeNeeded,
+    this.whotIndices,
+    this.playPos,
   });
 
   WhotDetails copyWith({
     String? currentPlayerId,
     String? whotIndices,
     int? playPos,
-    int? shapeNeeded,
   }) {
     return WhotDetails(
       currentPlayerId: currentPlayerId ?? this.currentPlayerId,
       whotIndices: whotIndices ?? this.whotIndices,
       playPos: playPos ?? this.playPos,
-      shapeNeeded: shapeNeeded ?? this.shapeNeeded,
     );
   }
 
@@ -89,16 +85,15 @@ class WhotDetails {
       'currentPlayerId': currentPlayerId,
       'whotIndices': whotIndices,
       'playPos': playPos,
-      'shapeNeeded': shapeNeeded,
     };
   }
 
   factory WhotDetails.fromMap(Map<String, dynamic> map) {
     return WhotDetails(
-      currentPlayerId: (map["currentPlayerId"] ?? '') as String,
-      whotIndices: (map["whotIndices"] ?? '') as String,
-      playPos: (map["playPos"] ?? 0) as int,
-      shapeNeeded: (map["shapeNeeded"] ?? 0) as int,
+      currentPlayerId: map['currentPlayerId'] as String,
+      whotIndices:
+          map['whotIndices'] != null ? map['whotIndices'] as String : null,
+      playPos: map['playPos'] != null ? map['playPos'] as int : null,
     );
   }
 
@@ -108,9 +103,8 @@ class WhotDetails {
       WhotDetails.fromMap(json.decode(source) as Map<String, dynamic>);
 
   @override
-  String toString() {
-    return 'WhotDetails(currentPlayerId: $currentPlayerId, whotIndices: $whotIndices, playPos: $playPos, shapeNeeded: $shapeNeeded)';
-  }
+  String toString() =>
+      'WhotDetails(currentPlayerId: $currentPlayerId, whotIndices: $whotIndices, playPos: $playPos)';
 
   @override
   bool operator ==(covariant WhotDetails other) {
@@ -118,15 +112,10 @@ class WhotDetails {
 
     return other.currentPlayerId == currentPlayerId &&
         other.whotIndices == whotIndices &&
-        other.playPos == playPos &&
-        other.shapeNeeded == shapeNeeded;
+        other.playPos == playPos;
   }
 
   @override
-  int get hashCode {
-    return currentPlayerId.hashCode ^
-        whotIndices.hashCode ^
-        playPos.hashCode ^
-        shapeNeeded.hashCode;
-  }
+  int get hashCode =>
+      currentPlayerId.hashCode ^ whotIndices.hashCode ^ playPos.hashCode;
 }

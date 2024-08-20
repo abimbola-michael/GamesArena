@@ -22,13 +22,15 @@ Future setGameDetails(String gameId, Map<String, dynamic> map) async {
 
 Stream<List<ValueChange<Map<String, dynamic>>>> getGameDetailsChange(
     String gameId) async* {
-  yield* fm.getValuesChangeStream((map) => map, ["games", gameId, "details"]);
+  yield* fm.getValuesChangeStream((map) => map, ["games", gameId, "details"],
+      where: ["currentPlayerId", "!=", myId]);
 }
 
 Future sendPushNotificationToPlayers(String game, List<String> players) async {
   final users = await playersToUsers(players);
-  String creatorName =
-      users.firstWhere((element) => element.user_id == myId).username;
+  String creatorName = users.isEmpty
+      ? ""
+      : users.firstWhere((element) => element.user_id == myId).username;
   players.remove(myId);
   users.removeWhere((element) => element.user_id == myId);
   for (int i = 0; i < players.length; i++) {

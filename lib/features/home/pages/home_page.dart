@@ -218,7 +218,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 onPressed: () {
                   Navigator.of(context).push(MaterialPageRoute(
                       builder: (context) => myId == ""
-                          ? const LoginPage(login: true)
+                          ? const AuthPage()
                           : const OnlinePlayersSelectionPage(
                               type: "oneonone")));
                 },

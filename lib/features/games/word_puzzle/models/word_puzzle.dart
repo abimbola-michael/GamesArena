@@ -47,7 +47,8 @@ class WordPuzzle {
 
   String toJson() => json.encode(toMap());
 
-  factory WordPuzzle.fromJson(String source) => WordPuzzle.fromMap(json.decode(source) as Map<String, dynamic>);
+  factory WordPuzzle.fromJson(String source) =>
+      WordPuzzle.fromMap(json.decode(source) as Map<String, dynamic>);
 
   @override
   String toString() {
@@ -57,56 +58,44 @@ class WordPuzzle {
   @override
   bool operator ==(covariant WordPuzzle other) {
     if (identical(this, other)) return true;
-  
-    return 
-      other.pos == pos &&
-      other.x == x &&
-      other.y == y &&
-      other.char == char;
+
+    return other.pos == pos &&
+        other.x == x &&
+        other.y == y &&
+        other.char == char;
   }
 
   @override
   int get hashCode {
-    return pos.hashCode ^
-      x.hashCode ^
-      y.hashCode ^
-      char.hashCode;
+    return pos.hashCode ^ x.hashCode ^ y.hashCode ^ char.hashCode;
   }
 }
 
 class WordPuzzleDetails {
   String currentPlayerId;
-  String player1Puzzles;
-  String player2Puzzles;
-  String player1Words;
-  String player2Words;
-  int startPos;
-  int endPos;
+  String? playerPuzzles;
+  String? playerWords;
+  int? startPos;
+  int? endPos;
   WordPuzzleDetails({
     required this.currentPlayerId,
-    required this.player1Puzzles,
-    required this.player2Puzzles,
-    required this.player1Words,
-    required this.player2Words,
-    required this.startPos,
-    required this.endPos,
+    this.playerPuzzles,
+    this.playerWords,
+    this.startPos,
+    this.endPos,
   });
 
   WordPuzzleDetails copyWith({
     String? currentPlayerId,
-    String? player1Puzzles,
-    String? player2Puzzles,
-    String? player1Words,
-    String? player2Words,
+    String? playerPuzzles,
+    String? playerWords,
     int? startPos,
     int? endPos,
   }) {
     return WordPuzzleDetails(
       currentPlayerId: currentPlayerId ?? this.currentPlayerId,
-      player1Puzzles: player1Puzzles ?? this.player1Puzzles,
-      player2Puzzles: player2Puzzles ?? this.player2Puzzles,
-      player1Words: player1Words ?? this.player1Words,
-      player2Words: player2Words ?? this.player2Words,
+      playerPuzzles: playerPuzzles ?? this.playerPuzzles,
+      playerWords: playerWords ?? this.playerWords,
       startPos: startPos ?? this.startPos,
       endPos: endPos ?? this.endPos,
     );
@@ -115,10 +104,8 @@ class WordPuzzleDetails {
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'currentPlayerId': currentPlayerId,
-      'player1Puzzles': player1Puzzles,
-      'player2Puzzles': player2Puzzles,
-      'player1Words': player1Words,
-      'player2Words': player2Words,
+      'playerPuzzles': playerPuzzles,
+      'playerWords': playerWords,
       'startPos': startPos,
       'endPos': endPos,
     };
@@ -127,12 +114,12 @@ class WordPuzzleDetails {
   factory WordPuzzleDetails.fromMap(Map<String, dynamic> map) {
     return WordPuzzleDetails(
       currentPlayerId: map['currentPlayerId'] as String,
-      player1Puzzles: map['player1Puzzles'] as String,
-      player2Puzzles: map['player2Puzzles'] as String,
-      player1Words: map['player1Words'] as String,
-      player2Words: map['player2Words'] as String,
-      startPos: map['startPos'] as int,
-      endPos: map['endPos'] as int,
+      playerPuzzles:
+          map['playerPuzzles'] != null ? map['playerPuzzles'] as String : null,
+      playerWords:
+          map['playerWords'] != null ? map['playerWords'] as String : null,
+      startPos: map['startPos'] != null ? map['startPos'] as int : null,
+      endPos: map['endPos'] != null ? map['endPos'] as int : null,
     );
   }
 
@@ -143,7 +130,7 @@ class WordPuzzleDetails {
 
   @override
   String toString() {
-    return 'WordPuzzleDetails(currentPlayerId: $currentPlayerId, player1Puzzles: $player1Puzzles, player2Puzzles: $player2Puzzles, player1Words: $player1Words, player2Words: $player2Words, startPos: $startPos, endPos: $endPos)';
+    return 'WordPuzzleDetails(currentPlayerId: $currentPlayerId, playerPuzzles: $playerPuzzles, playerWords: $playerWords, startPos: $startPos, endPos: $endPos)';
   }
 
   @override
@@ -151,10 +138,8 @@ class WordPuzzleDetails {
     if (identical(this, other)) return true;
 
     return other.currentPlayerId == currentPlayerId &&
-        other.player1Puzzles == player1Puzzles &&
-        other.player2Puzzles == player2Puzzles &&
-        other.player1Words == player1Words &&
-        other.player2Words == player2Words &&
+        other.playerPuzzles == playerPuzzles &&
+        other.playerWords == playerWords &&
         other.startPos == startPos &&
         other.endPos == endPos;
   }
@@ -162,10 +147,8 @@ class WordPuzzleDetails {
   @override
   int get hashCode {
     return currentPlayerId.hashCode ^
-        player1Puzzles.hashCode ^
-        player2Puzzles.hashCode ^
-        player1Words.hashCode ^
-        player2Words.hashCode ^
+        playerPuzzles.hashCode ^
+        playerWords.hashCode ^
         startPos.hashCode ^
         endPos.hashCode;
   }

@@ -180,39 +180,61 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
     });
   }
 
-  // void updateDetails(int playPos) {
-  //   if (matchId != "" && gameId != "" && users != null) {
-  //     if (played) return;
-  //     played = true;
-  //     final details = ChessDetails(
-  //       currentPlayerId: myId,
-  //       playPos: playPos,
-  //     );
-  //     setChessDetails(
-  //       gameId,
-  //       details,
-  //       prevDetails,
-  //     );
-  //     prevDetails = details;
-  //   }
-  // }
+  Future updateDetails(int playPos) async {
+    // if (matchId != "" && gameId != "" && users != null) {
+    //   if (played) return;
+    //   played = true;
+    //   final details = ChessDetails(
+    //     currentPlayerId: myId,
+    //     playPos: playPos,
+    //   );
+    //   setChessDetails(
+    //     gameId,
+    //     details,
+    //     prevDetails,
+    //   );
+    //   prevDetails = details;
+    // }
+    if (!awaiting && gameId.isNotEmpty && currentPlayerId == myId) {
+      awaiting = true;
+      final details = ChessDetails(
+          currentPlayerId: currentPlayerId,
+          startPos: selectedChessPos,
+          endPos: playPos);
+      awaiting = true;
+      await setGameDetails(gameId, details.toMap());
+      awaiting = false;
+      awaiting = false;
+    }
+  }
 
-  // void updatePawnPromotionDetails(int pawnPromotionIndex) {
-  //   if (matchId != "" && gameId != "" && users != null) {
-  //     if (played) return;
-  //     played = true;
-  //     final details = ChessDetails(
-  //       currentPlayerId: myId,
-  //       playPos: pawnPromotionIndex,
-  //     );
-  //     setChessDetails(
-  //       gameId,
-  //       details,
-  //       prevDetails,
-  //     );
-  //     prevDetails = details;
-  //   }
-  // }
+  Future updatePawnPromotionDetails(int pawnPromotionIndex) async {
+    // if (matchId != "" && gameId != "" && users != null) {
+    //   if (played) return;
+    //   played = true;
+    //   final details = ChessDetails(
+    //     currentPlayerId: myId,
+    //     playPos: pawnPromotionIndex,
+    //   );
+    //   setChessDetails(
+    //     gameId,
+    //     details,
+    //     prevDetails,
+    //   );
+    //   prevDetails = details;
+    // }
+    if (!awaiting && gameId.isNotEmpty && currentPlayerId == myId) {
+      awaiting = true;
+      final details = ChessDetails(
+          currentPlayerId: currentPlayerId,
+          startPos: pawnPromotionIndex,
+          endPos: -1);
+      awaiting = true;
+      await setGameDetails(gameId, details.toMap());
+      awaiting = false;
+      awaiting = false;
+    }
+  }
 
   int convertPos(int pos, String userId) {
     if (userId == myId) return pos;
@@ -228,12 +250,8 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
       showToast(currentPlayer, "Its ${getUsername(currentPlayerId)}'s turn");
       return;
     }
-    if (isClick && gameId.isNotEmpty && currentPlayerId == myId) {
-      awaiting = true;
-      final details = ChessDetails(
-          currentPlayerId: currentPlayerId, startPos: index, endPos: -1);
-      await setGameDetails(gameId, details.toMap());
-      awaiting = false;
+    if (isClick) {
+      await updatePawnPromotionDetails(index);
     }
     final selectedChessShape = chessPromotionShapes[index];
     choosePawnPromotion = false;
@@ -381,14 +399,8 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
   }
 
   void moveChess(int pos, [bool isClick = true]) async {
-    if (isClick && gameId.isNotEmpty && currentPlayerId == myId) {
-      awaiting = true;
-      final details = ChessDetails(
-          currentPlayerId: currentPlayerId,
-          startPos: selectedChessPos,
-          endPos: pos);
-      await setGameDetails(gameId, details.toMap());
-      awaiting = false;
+    if (isClick) {
+      await updateDetails(pos);
     }
     final chessTile = chessTiles[pos];
     final coordinates = convertToGrid(pos, gridSize);
@@ -567,6 +579,7 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
         playerWonChesses.add(chessTile.chess!);
         playerChesses
             .removeWhere((element) => element.id == chessTile.chess!.id);
+        updateCount(currentPlayerIndex, playerWonChesses.length);
 
         chessTile.chess = null;
         drawMoveCount = 0;
@@ -2048,10 +2061,10 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
       final details = ChessDetails.fromMap(map);
       final startPos = details.startPos;
       final endPos = details.endPos;
+      if (selectedChessPos != -1) {
+        selectedChessPos = -1;
+      }
       if (endPos != -1) {
-        if (selectedChessPos != -1) {
-          selectedChessPos = -1;
-        }
         playChess(startPos, false);
         playChess(endPos, false);
       } else {
@@ -2115,6 +2128,7 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
 
   @override
   void onStart() {
+    setInitialCount(0);
     initChessGrids();
     showPossiblePlayPositions();
   }

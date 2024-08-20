@@ -165,6 +165,7 @@ class _AuthPageState extends State<AuthPage> {
       authMethods.logOut();
       mode = AuthMode.login;
       clearControllers();
+      setState(() {});
     }).onError((error, stackTrace) {
       context.showErrorSnackbar(error.toString().onlyErrorMessage,
           onPressed: createAccount);
@@ -330,6 +331,7 @@ class _AuthPageState extends State<AuthPage> {
             child: SizedBox(
               width: 350,
               child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
                 child: Form(
                   key: formStateKey,
                   child: Column(
@@ -378,11 +380,15 @@ class _AuthPageState extends State<AuthPage> {
                                 });
                               },
                             ),
-                            TextButton(
-                              onPressed: gotoTermsAndConditions,
-                              child: const Text(
-                                "Accept Terms, Conditions and Privacy Policy",
-                                style: TextStyle(color: Colors.blue),
+                            Flexible(
+                              child: TextButton(
+                                style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero),
+                                onPressed: gotoTermsAndConditions,
+                                child: const Text(
+                                  "Accept Terms, Conditions and Privacy Policy",
+                                  style: TextStyle(color: Colors.blue),
+                                ),
                               ),
                             ),
                           ],

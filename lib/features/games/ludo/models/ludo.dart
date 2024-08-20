@@ -184,26 +184,26 @@ class LudoTile {
 
 class LudoDetails {
   String currentPlayerId;
-  String ludoIndices;
-  int startPos;
-  int endPos;
-  int startPosHouse;
-  int endPosHouse;
-  int dice1;
-  int dice2;
-  bool selectedFromHouse;
-  bool enteredHouse;
+  String? ludoIndices;
+  int? startPos;
+  int? endPos;
+  int? startPosHouse;
+  int? endPosHouse;
+  int? dice1;
+  int? dice2;
+  bool? selectedFromHouse;
+  bool? enteredHouse;
   LudoDetails({
     required this.currentPlayerId,
-    required this.ludoIndices,
-    required this.startPos,
-    required this.endPos,
-    required this.startPosHouse,
-    required this.endPosHouse,
-    required this.dice1,
-    required this.dice2,
-    required this.selectedFromHouse,
-    required this.enteredHouse,
+    this.ludoIndices,
+    this.startPos,
+    this.endPos,
+    this.startPosHouse,
+    this.endPosHouse,
+    this.dice1,
+    this.dice2,
+    this.selectedFromHouse,
+    this.enteredHouse,
   });
 
   LudoDetails copyWith({
@@ -250,15 +250,21 @@ class LudoDetails {
   factory LudoDetails.fromMap(Map<String, dynamic> map) {
     return LudoDetails(
       currentPlayerId: map['currentPlayerId'] as String,
-      ludoIndices: map['ludoIndices'] as String,
-      startPos: map['startPos'] as int,
-      endPos: map['endPos'] as int,
-      startPosHouse: map['startPosHouse'] as int,
-      endPosHouse: map['endPosHouse'] as int,
-      dice1: map['dice1'] as int,
-      dice2: map['dice2'] as int,
-      selectedFromHouse: map['selectedFromHouse'] as bool,
-      enteredHouse: map['enteredHouse'] as bool,
+      ludoIndices:
+          map['ludoIndices'] != null ? map['ludoIndices'] as String : null,
+      startPos: map['startPos'] != null ? map['startPos'] as int : null,
+      endPos: map['endPos'] != null ? map['endPos'] as int : null,
+      startPosHouse:
+          map['startPosHouse'] != null ? map['startPosHouse'] as int : null,
+      endPosHouse:
+          map['endPosHouse'] != null ? map['endPosHouse'] as int : null,
+      dice1: map['dice1'] != null ? map['dice1'] as int : null,
+      dice2: map['dice2'] != null ? map['dice2'] as int : null,
+      selectedFromHouse: map['selectedFromHouse'] != null
+          ? map['selectedFromHouse'] as bool
+          : null,
+      enteredHouse:
+          map['enteredHouse'] != null ? map['enteredHouse'] as bool : null,
     );
   }
 

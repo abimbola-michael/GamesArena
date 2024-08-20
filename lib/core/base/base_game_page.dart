@@ -183,6 +183,7 @@ abstract class BaseGamePageState<T extends BaseGamePage> extends State<T>
         matchId = context.args["matchId"] ?? "";
         gameId = context.args["gameId"] ?? "";
         users = context.args["users"];
+        playing = context.args["playing"] ?? [];
         playersSize = context.args["playersSize"] ?? 2;
         indices = context.args["indices"];
         id = context.args["id"] ?? 0;
@@ -383,10 +384,7 @@ abstract class BaseGamePageState<T extends BaseGamePage> extends State<T>
             users.indexWhere((element) => element?.user_id == value.id);
         final username =
             userIndex == -1 ? "" : users[userIndex]?.username ?? "";
-        if (playingChange.added) {
-          playing.add(value);
-          Fluttertoast.showToast(msg: "$username joined");
-        } else if (playingChange.modified) {
+        if (playingChange.added || playingChange.modified) {
           if (playingIndex != -1) {
             playing[playingIndex] = value;
             final message = value.game != gameName
@@ -397,6 +395,9 @@ abstract class BaseGamePageState<T extends BaseGamePage> extends State<T>
             if (message.isNotEmpty) {
               Fluttertoast.showToast(msg: "$username $message");
             }
+          } else {
+            Fluttertoast.showToast(msg: "$username joined");
+            playing.add(value);
           }
         } else if (playingChange.removed) {
           Fluttertoast.showToast(msg: "$username left");
@@ -531,7 +532,7 @@ abstract class BaseGamePageState<T extends BaseGamePage> extends State<T>
     initPlayersCounts();
     initToasts();
     getCurrentPlayer();
-    start();
+    start(true);
     readDetails();
   }
 
@@ -601,7 +602,7 @@ abstract class BaseGamePageState<T extends BaseGamePage> extends State<T>
   }
 
   void resetIfPlayerLeave() {
-    if (users != null) {
+    if (users != null && users!.isNotEmpty && playing.isNotEmpty) {
       final playersToRemove = getPlayersToRemove(users!, playing);
       if (playersToRemove.isNotEmpty) {
         for (int i = 0; i < playersToRemove.length; i++) {
@@ -614,6 +615,56 @@ abstract class BaseGamePageState<T extends BaseGamePage> extends State<T>
         }
       }
     }
+  }
+
+  void incrementCount(int player, [int count = 1]) {
+    playersCounts[player] += count;
+  }
+
+  void decrementCount(int player, [int count = 1]) {
+    playersCounts[player] -= count;
+  }
+
+  void updateCount(int player, int count) {
+    playersCounts[player] = count;
+  }
+
+  void setInitialCount(int count) {
+    playersCounts = List.generate(playersSize, (index) => count);
+  }
+
+  List<int> getLowestCountPlayer() {
+    Map<int, List<int>> map = {};
+    int lowestCount = playersCounts[0];
+    for (var i = 0; i < playersCounts.length; i++) {
+      final count = playersCounts[i];
+      if (count < lowestCount) {
+        lowestCount = count;
+      }
+      if (map[count] != null) {
+        map[count]!.add(i);
+      } else {
+        map[count] = [i];
+      }
+    }
+    return map[lowestCount]!;
+  }
+
+  List<int> getHighestCountPlayer() {
+    Map<int, List<int>> map = {};
+    int highestCount = playersCounts[0];
+    for (var i = 0; i < playersCounts.length; i++) {
+      final count = playersCounts[i];
+      if (count > highestCount) {
+        highestCount = count;
+      }
+      if (map[count] != null) {
+        map[count]!.add(i);
+      } else {
+        map[count] = [i];
+      }
+    }
+    return map[highestCount]!;
   }
 
   void initPlayersCounts() {
@@ -673,6 +724,12 @@ abstract class BaseGamePageState<T extends BaseGamePage> extends State<T>
   }
 
   void updateTie(List<int> players, {String? reason}) {
+    if (players.length == 1) {
+      return updateWin(players.first, reason: reason);
+    }
+    if (players.length == playersSize) {
+      return updateDraw(reason: reason);
+    }
     reason ??= this.reason;
     finishedRound = true;
     updateRecord();
@@ -771,12 +828,13 @@ abstract class BaseGamePageState<T extends BaseGamePage> extends State<T>
     return grids[0] + (grids[1] * gridSize);
   }
 
-  String getUsername(String userId) =>
-      users
-          ?.firstWhere(
-              (element) => element != null && element.user_id == userId)
-          ?.username ??
-      "";
+  String getUsername(String userId) => users == null || users!.isEmpty
+      ? ""
+      : users
+              ?.firstWhere(
+                  (element) => element != null && element.user_id == userId)
+              ?.username ??
+          "";
 
   void startOrRestart(bool start) {
     if (gameId != "" && matchId != "") {
@@ -875,22 +933,25 @@ abstract class BaseGamePageState<T extends BaseGamePage> extends State<T>
       if (gameId != "") {
         resetIfPlayerLeave();
       }
-      gotoGamePage(context, game, gameId, matchId, users,
+      gotoGamePage(context, game, gameId, matchId, users, playing,
           users?.length ?? playersSize, null, id);
     } else {
       changeGame(game, gameId, matchId, playing, id, maxGameTime - gameTime);
     }
   }
 
-  void leave([bool act = false]) {
+  void leave([bool act = false]) async {
     onLeave(pauseIndex);
     if (act || gameId == "") {
       if (players.length == 2) {}
       context.pop();
     } else {
       if (gameId != "" && matchId != "") {
-        leaveGame(gameId, matchId, playing, gameTime < maxGameTime, id,
+        await leaveGame(gameId, matchId, playing, gameTime < maxGameTime, id,
             maxGameTime - gameTime);
+        onLeave(pauseIndex);
+        if (!mounted) return;
+        context.pop();
       }
     }
   }
@@ -1489,7 +1550,7 @@ abstract class BaseGamePageState<T extends BaseGamePage> extends State<T>
                                                             playersSize > 2) ||
                                                         (index == 1 &&
                                                             playersSize == 2)))
-                                            ? 20
+                                            ? 30
                                             : 8),
                                     child: buildBottomOrLeftChild(index),
                                   ),
@@ -1625,8 +1686,8 @@ abstract class BaseGamePageState<T extends BaseGamePage> extends State<T>
                     return Positioned(
                       left: 0,
                       right: 0,
-                      bottom: playerIndex == 1 ? 0 : null,
-                      top: playerIndex == 0 ? 0 : null,
+                      bottom: playerIndex == 1 ? 30 : null,
+                      top: playerIndex == 0 ? 30 : null,
                       child: RotatedBox(
                         quarterTurns: playerIndex == 0 ? 2 : 0,
                         child: Align(
@@ -1680,6 +1741,7 @@ abstract class BaseGamePageState<T extends BaseGamePage> extends State<T>
                       height: double.infinity,
                       width: double.infinity,
                       color: lighterBlack,
+                      padding: const EdgeInsets.all(20),
                       alignment: Alignment.center,
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,

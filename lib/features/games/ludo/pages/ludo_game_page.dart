@@ -31,7 +31,6 @@ class LudoGamePage extends BaseGamePage {
 }
 
 class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
-  bool played = false;
   LudoDetails? prevDetails;
   double gridLength = 0, houseLength = 0, cellSize = 0;
   bool started = false;
@@ -105,101 +104,68 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
   // }
 
   void changePlayerIfTimeOut() async {
-    if (gameId != "") {
-      //pausePlayerTime = true;
-      if (currentPlayerId == myId) {
-        updateDiceDetails(0, 0);
-      }
-    } else {
-      diceValues = [0, 0];
-      showRollDice = true;
-      selectedLudoTile = null;
-      selectedLudo = null;
-      changePlayer();
-    }
+    // if (gameId != "") {
+    //   //pausePlayerTime = true;
+    //   if (currentPlayerId == myId) {
+    //     updateDiceDetails(0, 0);
+    //   }
+    // } else {
+    diceValues = [0, 0];
+    showRollDice = true;
+    selectedLudoTile = null;
+    selectedLudo = null;
+    changePlayer();
+    //}
   }
 
   void playIfTimeOut() async {
     if (showRollDice) {
       rollDice();
     } else {
-      bool playHouse =
-          hintHouse && (hintPositions.isNotEmpty || Random().nextBool());
-      if (playHouse) {
-        final houseIndices = playersHouseIndices[currentPlayer];
+      if (diceValues[0] == 0 && diceValues[1] == 0) {
+        changePlayerIfTimeOut();
+
+        return;
+      }
+      if (hintPositions.isNotEmpty) {
+        final housePositions = hintPositions.keys.toList();
         final selectedHouse =
-            houseIndices[Random().nextInt(houseIndices.length)];
-        final ludoIndices = ludos[selectedHouse];
-        final selectedPos = Random().nextInt(ludoIndices.length);
-        selectHouseLudo(selectedHouse, selectedPos);
-      } else {
+            housePositions[Random().nextInt(housePositions.length)];
+        final selectedPos = hintPositions[selectedHouse]!.first;
+        playLudo(selectedHouse, selectedPos);
         if (hintPositions.isNotEmpty) {
           final housePositions = hintPositions.keys.toList();
           final selectedHouse =
               housePositions[Random().nextInt(housePositions.length)];
-          final selectedPos = housePositions[selectedHouse];
+          final selectedPos = hintPositions[selectedHouse]!.first;
           playLudo(selectedHouse, selectedPos);
-          if (diceValues[0] != 0 || diceValues[1] != 0) {
-            playIfTimeOut();
+        } else {
+          changePlayerIfTimeOut();
+        }
+      } else {
+        final houseIndices = playersHouseIndices[currentPlayer];
+        final housesWithLudos =
+            houseIndices.where((index) => ludos[index].isNotEmpty).toList();
+        if (housesWithLudos.isNotEmpty) {
+          final selectedHouse =
+              housesWithLudos[Random().nextInt(housesWithLudos.length)];
+          final ludoIndices = ludos[selectedHouse];
+          final selectedPos = Random().nextInt(ludoIndices.length);
+          selectHouseLudo(selectedHouse, selectedPos);
+          if (hintPositions.isNotEmpty) {
+            final housePositions = hintPositions.keys.toList();
+            final selectedHouse =
+                housePositions[Random().nextInt(housePositions.length)];
+            final selectedPos = hintPositions[selectedHouse]!.first;
+            playLudo(selectedHouse, selectedPos);
+          } else {
+            changePlayerIfTimeOut();
           }
         } else {
           changePlayerIfTimeOut();
         }
       }
     }
-    //changePlayerIfTimeOut();
-
-    // if (showRollDice) {
-    //   changePlayerIfTimeOut();
-    // } else {
-    //   final dice1 = diceValues[0];
-    //   final dice2 = diceValues[1];
-    //   final totalDice = dice1 + dice2;
-    //   final playerLudos = activeLudos[currentPlayer]
-    //       .where((element) => (element.step + totalDice) < 56)
-    //       .toList();
-    //   if (playerLudos.isNotEmpty) {
-    //     final index = Random().nextInt(playerLudos.length);
-    //     final ludo = playerLudos[index];
-    //     final pos = convertToPosition([ludo.x, ludo.y], 6);
-    //     final houseIndex = ludo.currentHouseIndex;
-    //     //if (gameId != "") {
-    //     pausePlayerTime = true;
-    //     if (gameId != "") {
-    //       if (currentPlayerId == myId) {
-    //         if (hintPositions.isNotEmpty) {
-    //           final posEntry = hintPositions.entries.last;
-    //           await updateDetails(houseIndex, pos, false);
-    //           await updateDetails(posEntry.key, posEntry.value.last, false);
-    //         } else {
-    //           changePlayerIfTimeOut();
-    //         }
-    //       }
-    //     } else {
-    //       if (hintPositions.isNotEmpty) {
-    //         playLudo(houseIndex, pos);
-    //         final positions = getHighestPosition(houseIndex);
-    //         final newHouseIndex = positions[0];
-    //         final newPos = positions[1];
-    //         print("newHouseIndex: $newHouseIndex, newPos: $newPos");
-    //         playLudo(newHouseIndex, newPos);
-    //       } else {
-    //         print("empty hint positions");
-    //         changePlayerIfTimeOut();
-    //       }
-    //     }
-    //     //}
-    //   } else {
-    //     changePlayerIfTimeOut();
-    //     // if (dice1 == 6 || dice2 == 6) {
-    //     //   final secondDice = dice1 == 6 ? dice2 : dice1;
-    //     //   final houses = playersHouseIndices[currentPlayer];
-    //     //   int houseIndex = 0;
-    //     // } else {
-    //     //   changePlayerIfTimeOut();
-    //     // }
-    //   }
-    // }
   }
 
   void addInitialLudos() {
@@ -240,72 +206,87 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
   }
 
   Future updateDiceDetails(int dice1, int dice2) async {
-    if (matchId != "" && gameId != "" && users != null) {
-      if (played) return;
-      played = true;
+    if (!awaiting && gameId.isNotEmpty && currentPlayerId == myId) {
       final details = LudoDetails(
         currentPlayerId: myId,
         dice1: dice1,
         dice2: dice2,
-        playPos: -1,
-        playHouseIndex: -1,
-        selectedFromHouse: false,
-        enteredHouse: false,
-        ludoIndices: "",
+        // startPos: -1,
+        // endPos: -1,
+        // startPosHouse: -1,
+        // endPosHouse: -1,
+        // playPos: -1,
+        // playHouseIndex: -1,
+        // selectedFromHouse: false,
+        // enteredHouse: false,
+        // ludoIndices: "",
       );
-      await setLudoDetails(
-        gameId,
-        details,
-        prevDetails,
-      );
-      prevDetails = details;
+      // await setLudoDetails(
+      //   gameId,
+      //   details,
+      //   prevDetails,
+      // );
+      //prevDetails = details;
+      awaiting = true;
+      await setGameDetails(gameId, details.toMap());
+      awaiting = false;
     }
   }
 
-  void updateEnterHouseDetails() {
-    if (matchId != "" && gameId != "" && users != null) {
-      if (played) return;
-      played = true;
+  void updateEnterHouseDetails() async {
+    if (!awaiting && gameId.isNotEmpty && currentPlayerId == myId) {
       final details = LudoDetails(
         currentPlayerId: myId,
         enteredHouse: true,
-        selectedFromHouse: false,
-        playPos: -1,
-        playHouseIndex: -1,
-        dice1: diceValues.first,
-        dice2: diceValues.second ?? 0,
-        ludoIndices: "",
+        // selectedFromHouse: false,
+        startPos: selectedLudoTile!.id.toInt,
+        startPosHouse: selectedLudoTile!.houseIndex,
+        // endPos: -1,
+        // endPosHouse: -1,
+        // playPos: -1,
+        // playHouseIndex: -1,
+        // dice1: diceValues.first,
+        // dice2: diceValues.second ?? 0,
+        // ludoIndices: "",
       );
-      setLudoDetails(
-        gameId,
-        details,
-        prevDetails,
-      );
-      prevDetails = details;
+      // setLudoDetails(
+      //   gameId,
+      //   details,
+      //   prevDetails,
+      // );
+      // prevDetails = details;
+      awaiting = true;
+      await setGameDetails(gameId, details.toMap());
+      awaiting = false;
     }
   }
 
   Future updateDetails(
       int playHouseIndex, int playPos, bool selectedFromHouse) async {
-    if (matchId != "" && gameId != "" && users != null) {
-      if (played) return;
-      played = true;
+    if (!awaiting && gameId.isNotEmpty && currentPlayerId == myId) {
       final details = LudoDetails(
         currentPlayerId: myId,
-        playPos: playPos,
-        playHouseIndex: playHouseIndex,
+        startPos: selectedLudoTile!.id.toInt,
+        startPosHouse: selectedLudoTile!.houseIndex,
+        endPos: playPos,
+        endPosHouse: playHouseIndex,
+        // playPos: playPos,
+        // playHouseIndex: playHouseIndex,
         selectedFromHouse: selectedFromHouse,
-        enteredHouse: false,
-        dice1: diceValues.first,
-        dice2: diceValues.second ?? 0,
-        ludoIndices: "",
+        // enteredHouse: false,
+        // dice1: diceValues.first,
+        // dice2: diceValues.second ?? 0,
+        // ludoIndices: "",
       );
-      await setLudoDetails(
-        gameId,
-        details,
-        prevDetails,
-      );
-      prevDetails = details;
+      // await setLudoDetails(
+      //   gameId,
+      //   details,
+      //   prevDetails,
+      // );
+      // prevDetails = details;
+      awaiting = true;
+      await setGameDetails(gameId, details.toMap());
+      awaiting = false;
     }
   }
 
@@ -333,9 +314,11 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
             : 0;
   }
 
-  void updateDice() {
-    final dice1 = diceValues[0];
-    final dice2 = diceValues[1];
+  void updateDice(int dice1, int dice2, [bool isClick = true]) async {
+    if (isClick) {
+      await updateDiceDetails(dice1, dice2);
+    }
+    diceValues = [dice1, dice2];
     showRollDice = false;
     roll = false;
     if (dice1 == 6 || dice2 == 6) {
@@ -375,22 +358,9 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
       return;
     }
 
-    if (isClick && gameId.isNotEmpty && currentPlayerId == myId) {
+    if (isClick) {
       awaiting = true;
-      final details = LudoDetails(
-          currentPlayerId: currentPlayerId,
-          ludoIndices: "",
-          startPos: -1,
-          endPos: -1,
-          startPosHouse: -1,
-          endPosHouse: true,
-          dice1: dice1,
-          dice2: dice2,
-          selectedFromHouse: selectedFromHouse,
-          enteredHouse: enteredHouse);
-      final details = ChessDetails(
-          currentPlayerId: currentPlayerId, startPos: index, endPos: -1);
-      await setGameDetails(gameId, details.toMap());
+      updateEnterHouseDetails();
       awaiting = false;
     }
     int dice1 = diceValues[0];
@@ -426,6 +396,7 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
       activeLudos[currentPlayer]
           .removeWhere((element) => element.id == selectedLudo.id);
       playersWonLudos[selectedLudo.houseIndex].add(selectedLudo);
+      incrementCount(currentPlayer);
 
       hintEnterHouse = false;
       selectedLudoTile!.ludos.removeAt(0);
@@ -502,13 +473,14 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
 
   void getHintPositions(int houseIndex, int pos) {
     //if (!firstTime) return;
-    hintHouse = false;
     hintPositions.clear();
     final coordinates = convertToGrid(pos, 6);
     final x = coordinates[0];
     final y = coordinates[1];
     int dice1 = diceValues[0];
     int dice2 = diceValues[1];
+    //hintHouse = dice1 == 6 || dice2 == 6;
+
     final selectedLudo = this.selectedLudo != null
         ? null
         : ludoTiles[houseIndex][pos].ludos.first;
@@ -738,16 +710,15 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
       }
 
       if (selectedLudoTile != null || selectedLudo != null) {
-        moveLudo(ludoTile, index, pos);
+        moveLudo(ludoTile, index, pos, isClick);
       } else {
         selectedLudoTile = ludoTile;
         getHintPositions(index, pos);
       }
-      selectedLudo = null;
-      setState(() {});
+      //selectedLudo = null;
     } else {
       if (selectedLudoTile != null || selectedLudo != null) {
-        moveLudo(ludoTile, index, pos);
+        moveLudo(ludoTile, index, pos, isClick);
       }
     }
   }
@@ -778,21 +749,22 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
 
   void moveLudo(LudoTile ludoTile, int houseIndex, int pos,
       [bool isClick = true]) async {
+    // if (hintEnterHouse) {
+    //   showToast(currentPlayer,
+    //       "You are meant to enter your house now. Tap on the center");
+    //   return;
+    // }
+    if (hintPositions[houseIndex] == null ||
+        !hintPositions[houseIndex]!.contains(pos)) {
+      changeSelectionIfAnother(ludoTile, pos);
+      return;
+    }
     int dice1 = diceValues[0];
     int dice2 = diceValues[1];
-    if (this.selectedLudo != null) {
-      if (this.selectedLudo!.houseIndex != houseIndex && (pos < 16)) {
-        //checking if it is selected from and placed in the right the right house
-        changeSelectionIfAnother(ludoTile, pos);
-        return;
-      }
-      if (dice1 == 6) {
-        dice1 = 0;
-      } else if (dice2 == 6) {
-        dice2 = 0;
-      }
-    }
+
     int totalStepCount = 0;
+    int stepCount = -1;
+
     final coordinates = convertToGrid(pos, 6);
     final x = coordinates[0];
     final y = coordinates[1];
@@ -804,93 +776,45 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
     final prevCoordinates = convertToGrid(selectedPos, 6);
     final selX = prevCoordinates[0];
     final selY = prevCoordinates[1];
-    if (y == 0 &&
-        x == 0 &&
-        houseIndex == selectedLudo.houseIndex &&
-        selectedLudo.step == -1) {
-      //checking if coming out and not starting from the first position
-      changeSelectionIfAnother(ludoTile, pos);
-      return;
-    }
-    if (y == 1 && x != 0 && houseIndex != selectedLudo.houseIndex) {
-      //making sure that the ludo is not going to the wrong path and about to enter the house
-      changeSelectionIfAnother(ludoTile, pos);
-      return;
-    }
-    bool isBackMove = false;
-    if (selectedHouseIndex == houseIndex) {
-      if (y == selY) {
-        isBackMove = (selY < 2 && x < selX) || (selY == 2 && x > selX);
-      } else {
-        isBackMove =
-            (selY == 1 && selectedLudo.step >= 50 && (y == 0 || y == 2)) ||
-                y > selY;
-      }
 
+    final nextHouse = nextLudoHouseIndex(selectedHouseIndex);
+    if (houseIndex == selectedHouseIndex) {
       final xDiff = (x - selX).abs();
       final yDiff = (y - selY).abs();
       final count = selY == y ? xDiff : (selX + x + yDiff);
-      totalStepCount += count;
-    } else {
-      final prevHouse = prevLudoHouseIndex(selectedHouseIndex);
-      if (prevHouse == houseIndex ||
-          prevLudoHouseIndex(prevHouse) == houseIndex) {
-        //check for backward movement
-        changeSelectionIfAnother(ludoTile, pos);
-        return;
-      }
-      final nextHouse = nextLudoHouseIndex(selectedHouseIndex);
-      if (houseIndex == nextHouse) {
-        if (selectedHouseIndex == selectedLudo.houseIndex &&
-            selectedLudo.step >= 44) {
-          //checking for maximum length of possible next house movement
-          changeSelectionIfAnother(ludoTile, pos);
-          return;
-        }
-        final selCount = selY == 0
-            ? 5 - selX
-            : selY == 1 && selectedLudo.step >= 50
-                ? 6 - selX
-                : (selX + 5 + selY);
-        totalStepCount += selCount;
-        final houseCount = y == 2 ? 6 - x : (x + 6 + (2 - y));
-        totalStepCount += houseCount;
+      totalStepCount = count;
+    } else if (houseIndex == nextHouse) {
+      final selCount = selY == 0
+          ? 5 - selX
+          : selY == 1 && selectedLudo.step >= 50
+              ? 6 - selX
+              : (selX + 5 + selY);
+      totalStepCount += selCount;
+      final houseCount = y == 2 ? 6 - x : (x + 6 + (2 - y));
+      totalStepCount += houseCount;
+    }
+    if (this.selectedLudo != null) {
+      if (dice1 == 6) {
+        dice1 = 0;
+      } else if (dice2 == 6) {
+        dice2 = 0;
       }
     }
 
-    int stepCount = 0;
-    if (!isBackMove &&
-        (totalStepCount > 0 ||
-            (totalStepCount == 0 && this.selectedLudo != null)) &&
-        (totalStepCount == dice1 ||
-            totalStepCount == dice2 ||
-            totalStepCount == (dice1 + dice2))) {
-      final step = selectedLudo.step;
-      if (totalStepCount == dice1) {
-        stepCount = dice1;
-      } else if (totalStepCount == dice2) {
-        stepCount = dice2;
-      } else if (totalStepCount == (dice1 + dice2)) {
-        stepCount = dice1 + dice2;
-      }
-      final finalStep = step + stepCount;
-      if (selectedLudo.houseIndex == houseIndex &&
-          ((finalStep >= 50 && finalStep <= 55 && y != 1) ||
-              (finalStep >= 44 && finalStep <= 49 && y != 2) ||
-              (finalStep >= 1 && finalStep <= 5 && y != 0))) {
-        String msg = "";
-        if (finalStep >= 50 && finalStep <= 55 && y != 1) {
-          msg =
-              "You are meant to enter your house now. Go through the center path";
-        } else if (finalStep >= 44 && finalStep <= 49 && y != 2) {
-          msg = "you are on the wrong path";
-        } else if (finalStep >= 1 && finalStep <= 5 && y != 0) {
-          msg = "You shoud follow the arrow path to start";
-        }
-        showToast(currentPlayer, msg);
-        return;
-      }
-
+    if (totalStepCount == 0) {
+      stepCount = 0;
+    } else if (dice1 != 0 && dice2 != 0 && totalStepCount == (dice1 + dice2)) {
+      stepCount = dice1 + dice2;
+      dice1 = 0;
+      dice2 = 0;
+    } else if (dice1 != 0 && totalStepCount == dice1) {
+      stepCount = dice1;
+      dice1 = 0;
+    } else if (dice2 != 0 && totalStepCount == dice2) {
+      stepCount = dice2;
+      dice2 = 0;
+    }
+    if (stepCount != -1) {
       if (ludoTile.ludos.isNotEmpty &&
           getPlayer(selectedLudo.houseIndex) !=
               getPlayer(ludoTile.ludos.first.houseIndex)) {
@@ -899,9 +823,8 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
               "You have to play your total dice at once since you can't play another");
           return;
         }
-        await updatePlayPos(houseIndex, pos, isClick);
 
-        if (selectedLudo.step == -1 && this.selectedLudo != null) {
+        if (selectedLudo.step == -1) {
           selectedLudo.step = 0;
         }
         final ludo = ludoTile.ludos.first;
@@ -922,10 +845,9 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
         activeLudos[currentPlayer]
             .removeWhere((element) => element.id == selectedLudo.id);
         playersWonLudos[selectedLudo.houseIndex].add(selectedLudo);
+        incrementCount(currentPlayer);
       } else {
-        await updatePlayPos(houseIndex, pos, isClick);
-
-        if (selectedLudo.step == -1 && this.selectedLudo != null) {
+        if (selectedLudo.step == -1) {
           selectedLudo.step = 0;
         }
         selectedLudo.step += stepCount;
@@ -938,6 +860,9 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
           activeLudos[currentPlayer].add(selectedLudo);
         }
       }
+      if (isClick) {
+        await updatePlayPos(houseIndex, pos);
+      }
 
       if (this.selectedLudo != null) {
         ludos[this.selectedLudo!.houseIndex]
@@ -945,31 +870,218 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
         this.selectedLudo = null;
       } else {
         selectedLudoTile!.ludos.removeAt(0);
+        selectedLudoTile = null;
       }
 
-      if (stepCount == dice1) {
-        dice1 = 0;
-      } else if (stepCount == dice2) {
-        dice2 = 0;
-      } else if (stepCount == (dice1 + dice2)) {
-        dice2 = 0;
-        dice1 = 0;
-      }
       diceValues = [dice1, dice2];
-      selectedLudoTile = null;
       hintPositions.clear();
       checkWinGame();
       changePlayerAfterMoving();
       setState(() {});
-    } else {
-      changeSelectionIfAnother(ludoTile, pos);
-      //Fluttertoast.showToast(msg: "Invalid Position. Recount");
     }
   }
 
-  Future updatePlayPos(int houseIndex, int pos, [bool isClick = true]) async {
+  // void moveLudo(LudoTile ludoTile, int houseIndex, int pos,
+  //     [bool isClick = true]) async {
+  //   int dice1 = diceValues[0];
+  //   int dice2 = diceValues[1];
+  //   if (this.selectedLudo != null) {
+  //     if (this.selectedLudo!.houseIndex != houseIndex &&
+  //         houseIndex != prevIndex(4, this.selectedLudo!.houseIndex) &&
+  //         (pos < 16)) {
+  //       //checking if it is selected from and placed in the right the right house
+  //       changeSelectionIfAnother(ludoTile, pos);
+  //       return;
+  //     }
+  //     if (dice1 == 6) {
+  //       dice1 = 0;
+  //     } else if (dice2 == 6) {
+  //       dice2 = 0;
+  //     }
+  //   }
+  //   int totalStepCount = 0;
+  //   final coordinates = convertToGrid(pos, 6);
+  //   final x = coordinates[0];
+  //   final y = coordinates[1];
+  //   final selectedLudo = this.selectedLudo ?? selectedLudoTile!.ludos.first;
+  //   final selectedHouseIndex =
+  //       this.selectedLudo?.houseIndex ?? selectedLudoTile!.houseIndex;
+  //   final selectedPos =
+  //       this.selectedLudo != null ? 1 : int.parse(selectedLudoTile!.id);
+  //   final prevCoordinates = convertToGrid(selectedPos, 6);
+  //   final selX = prevCoordinates[0];
+  //   final selY = prevCoordinates[1];
+  //   if (y == 0 &&
+  //       x == 0 &&
+  //       houseIndex == selectedLudo.houseIndex &&
+  //       selectedLudo.step == -1) {
+  //     //checking if coming out and not starting from the first position
+  //     changeSelectionIfAnother(ludoTile, pos);
+  //     return;
+  //   }
+  //   if (y == 1 && x != 0 && houseIndex != selectedLudo.houseIndex) {
+  //     //making sure that the ludo is not going to the wrong path and about to enter the house
+  //     changeSelectionIfAnother(ludoTile, pos);
+  //     return;
+  //   }
+  //   bool isBackMove = false;
+  //   if (selectedHouseIndex == houseIndex) {
+  //     if (y == selY) {
+  //       isBackMove = (selY < 2 && x < selX) || (selY == 2 && x > selX);
+  //     } else {
+  //       isBackMove =
+  //           (selY == 1 && selectedLudo.step >= 50 && (y == 0 || y == 2)) ||
+  //               y > selY;
+  //     }
+
+  //     final xDiff = (x - selX).abs();
+  //     final yDiff = (y - selY).abs();
+  //     final count = selY == y ? xDiff : (selX + x + yDiff);
+  //     totalStepCount += count;
+  //   } else {
+  //     final prevHouse = prevLudoHouseIndex(selectedHouseIndex);
+  //     if (prevHouse == houseIndex ||
+  //         prevLudoHouseIndex(prevHouse) == houseIndex) {
+  //       //check for backward movement
+  //       changeSelectionIfAnother(ludoTile, pos);
+  //       return;
+  //     }
+  //     final nextHouse = nextLudoHouseIndex(selectedHouseIndex);
+  //     if (houseIndex == nextHouse) {
+  //       if (selectedHouseIndex == selectedLudo.houseIndex &&
+  //           selectedLudo.step >= 44) {
+  //         //checking for maximum length of possible next house movement
+  //         changeSelectionIfAnother(ludoTile, pos);
+  //         return;
+  //       }
+  //       final selCount = selY == 0
+  //           ? 5 - selX
+  //           : selY == 1 && selectedLudo.step >= 50
+  //               ? 6 - selX
+  //               : (selX + 5 + selY);
+  //       totalStepCount += selCount;
+  //       final houseCount = y == 2 ? 6 - x : (x + 6 + (2 - y));
+  //       totalStepCount += houseCount;
+  //     }
+  //   }
+
+  //   int stepCount = 0;
+  //   if (!isBackMove &&
+  //       (totalStepCount > 0 ||
+  //           (totalStepCount == 0 && this.selectedLudo != null)) &&
+  //       (totalStepCount == dice1 ||
+  //           totalStepCount == dice2 ||
+  //           totalStepCount == (dice1 + dice2))) {
+  //     final step = selectedLudo.step;
+  //     if (totalStepCount == dice1) {
+  //       stepCount = dice1;
+  //     } else if (totalStepCount == dice2) {
+  //       stepCount = dice2;
+  //     } else if (totalStepCount == (dice1 + dice2)) {
+  //       stepCount = dice1 + dice2;
+  //     }
+  //     final finalStep = step + stepCount;
+  //     if (selectedLudo.houseIndex == houseIndex &&
+  //         ((finalStep >= 50 && finalStep <= 55 && y != 1) ||
+  //             (finalStep >= 44 && finalStep <= 49 && y != 2) ||
+  //             (finalStep >= 1 && finalStep <= 5 && y != 0))) {
+  //       String msg = "";
+  //       if (finalStep >= 50 && finalStep <= 55 && y != 1) {
+  //         msg =
+  //             "You are meant to enter your house now. Go through the center path";
+  //       } else if (finalStep >= 44 && finalStep <= 49 && y != 2) {
+  //         msg = "you are on the wrong path";
+  //       } else if (finalStep >= 1 && finalStep <= 5 && y != 0) {
+  //         msg = "You shoud follow the arrow path to start";
+  //       }
+  //       showToast(currentPlayer, msg);
+
+  //       return;
+  //     }
+
+  //     if (ludoTile.ludos.isNotEmpty &&
+  //         getPlayer(selectedLudo.houseIndex) !=
+  //             getPlayer(ludoTile.ludos.first.houseIndex)) {
+  //       if (!canCapture(selectedLudo, totalStepCount)) {
+  //         showToast(currentPlayer,
+  //             "You have to play your total dice at once since you can't play another");
+  //         return;
+  //       }
+  //       if (isClick) {
+  //         await updatePlayPos(houseIndex, pos);
+  //       }
+
+  //       if (selectedLudo.step == -1 && this.selectedLudo != null) {
+  //         selectedLudo.step = 0;
+  //       }
+  //       final ludo = ludoTile.ludos.first;
+  //       ludo.step = -1;
+  //       ludo.x = -1;
+  //       ludo.y = -1;
+  //       ludo.currentHouseIndex = ludo.houseIndex;
+  //       ludos[ludo.houseIndex].add(ludo);
+  //       ludoTile.ludos.removeAt(0);
+  //       activeLudos[getPlayer(ludo.houseIndex)]
+  //           .removeWhere((element) => element.id == ludo.id);
+
+  //       selectedLudo.step = 56;
+  //       selectedLudo.x = -1;
+  //       selectedLudo.y = -1;
+  //       selectedLudo.currentHouseIndex = selectedLudo.houseIndex;
+
+  //       activeLudos[currentPlayer]
+  //           .removeWhere((element) => element.id == selectedLudo.id);
+  //       playersWonLudos[selectedLudo.houseIndex].add(selectedLudo);
+  //     } else {
+  //       if (isClick) {
+  //         await updatePlayPos(houseIndex, pos);
+  //       }
+
+  //       if (selectedLudo.step == -1 && this.selectedLudo != null) {
+  //         selectedLudo.step = 0;
+  //       }
+  //       selectedLudo.step += stepCount;
+  //       selectedLudo.currentHouseIndex = ludoTile.houseIndex;
+  //       selectedLudo.x = ludoTile.x;
+  //       selectedLudo.y = ludoTile.y;
+
+  //       ludoTile.ludos.insert(0, selectedLudo);
+  //       if (this.selectedLudo != null) {
+  //         activeLudos[currentPlayer].add(selectedLudo);
+  //       }
+  //     }
+
+  //     if (this.selectedLudo != null) {
+  //       ludos[this.selectedLudo!.houseIndex]
+  //           .removeWhere((element) => element.id == selectedLudo.id);
+  //       this.selectedLudo = null;
+  //     } else {
+  //       selectedLudoTile!.ludos.removeAt(0);
+  //     }
+
+  //     if (stepCount == dice1) {
+  //       dice1 = 0;
+  //     } else if (stepCount == dice2) {
+  //       dice2 = 0;
+  //     } else if (stepCount == (dice1 + dice2)) {
+  //       dice2 = 0;
+  //       dice1 = 0;
+  //     }
+  //     diceValues = [dice1, dice2];
+  //     selectedLudoTile = null;
+  //     hintPositions.clear();
+  //     checkWinGame();
+  //     changePlayerAfterMoving();
+  //     setState(() {});
+  //   } else {
+  //     changeSelectionIfAnother(ludoTile, pos);
+  //     //Fluttertoast.showToast(msg: "Invalid Position. Recount");
+  //   }
+  // }
+
+  Future updatePlayPos(int houseIndex, int pos) async {
     if (awaiting) return;
-    if (isClick && gameId.isNotEmpty && currentPlayerId == myId) {
+    if (!awaiting && gameId.isNotEmpty && currentPlayerId == myId) {
       awaiting = true;
       final details = LudoDetails(
           currentPlayerId: currentPlayerId,
@@ -983,7 +1095,9 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
           selectedFromHouse: selectedLudo != null,
           enteredHouse: false);
 
+      awaiting = true;
       await setGameDetails(gameId, details.toMap());
+      awaiting = false;
       awaiting = false;
     }
   }
@@ -1714,30 +1828,54 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
   void onDetailsChange(Map<String, dynamic>? map) {
     if (map != null) {
       final details = LudoDetails.fromMap(map);
-      played = false;
+      awaiting = false;
       pausePlayerTime = false;
-      final playPos = details.playPos;
-      final playHouseIndex = details.playHouseIndex;
+      // final playPos = details.playPos;
+      // final playHouseIndex = details.playHouseIndex;
+
+      final startPos = details.startPos;
+      final endPos = details.endPos;
+      final startPosHouse = details.startPosHouse;
+      final endPosHouse = details.endPosHouse;
+
       final selectedFromHouse = details.selectedFromHouse;
       final enteredHouse = details.enteredHouse;
-      if (enteredHouse) {
-        enterHouse();
+
+      final dice1 = details.dice1;
+      final dice2 = details.dice2;
+
+      if (dice1 != null && dice2 != null) {
+        updateDice(dice1, dice2, false);
+      }
+
+      if (startPos != null && startPosHouse != null) {
+        if (selectedFromHouse == true) {
+          selectHouseLudo(startPosHouse, startPos, false);
+        } else {
+          playLudo(startPosHouse, startPos, false);
+        }
+      }
+      if (endPos != null && endPosHouse != null) {
+        playLudo(endPosHouse, endPos, false);
+      }
+      if (enteredHouse == true) {
+        enterHouse(false);
         return;
       }
-      if (playPos != -1 && playHouseIndex != -1) {
-        if (selectedFromHouse) {
-          selectHouseLudo(playHouseIndex, playPos);
-        } else {
-          playLudo(playHouseIndex, playPos);
-        }
-      } else {
-        int dice1 = details.dice1;
-        int dice2 = details.dice2;
-        if (dice1 != -1 && dice2 != -1) {
-          diceValues = [dice1, dice2];
-          updateDice();
-        }
-      }
+      // if (playPos != -1 && playHouseIndex != -1) {
+      //   if (selectedFromHouse) {
+      //     selectHouseLudo(playHouseIndex, playPos, false);
+      //   } else {
+      //     playLudo(playHouseIndex, playPos, false);
+      //   }
+      // } else {
+      //   int dice1 = details.dice1;
+      //   int dice2 = details.dice2;
+      //   if (dice1 != -1 && dice2 != -1) {
+      //     diceValues = [dice1, dice2];
+      //     updateDice();
+      //   }
+      // }
       pausePlayerTime = false;
       setState(() {});
     }
@@ -1772,11 +1910,13 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
 
   @override
   void onStart() {
-    if (indices != null && indices != "") {
-      ludoIndices = indices!.split(",");
-    } else {
-      ludoIndices = getRandomIndex(4);
-    }
+    // if (indices != null && indices != "") {
+    //   ludoIndices = indices!.split(",");
+    // } else {
+    //   ludoIndices = getRandomIndex(4);
+    // }
+    ludoIndices = List.generate(4, (i) => "$i");
+    setInitialCount(0);
     addInitialLudos();
   }
 
@@ -1807,11 +1947,11 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
         if (showRollDice && !roll) ...[
           Positioned(
             top: currentPlayer == 0 || (currentPlayer == 1 && playersSize > 2)
-                ? 30
+                ? 50
                 : null,
             bottom:
                 (currentPlayer == 1 && playersSize == 2) || (currentPlayer > 1)
-                    ? 30
+                    ? 50
                     : null,
             left: currentPlayer == 0 || currentPlayer == 3 ? 10 : null,
             right: currentPlayer == 1 || currentPlayer == 2 ? 10 : null,
@@ -1844,17 +1984,17 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: () {
-                            if (gameId != "" && currentPlayerId != myId) {
-                              final username = getUsername(currentPlayerId);
-                              Fluttertoast.showToast(
-                                  msg: "It's $username's turn");
-                              return;
-                            }
-                            if (gameId != "") {
-                              updateEnterHouseDetails();
-                            } else {
-                              enterHouse();
-                            }
+                            // if (gameId != "" && currentPlayerId != myId) {
+                            //   final username = getUsername(currentPlayerId);
+                            //   Fluttertoast.showToast(
+                            //       msg: "It's $username's turn");
+                            //   return;
+                            // }
+                            // if (gameId != "") {
+                            //   updateEnterHouseDetails();
+                            // } else {
+                            enterHouse();
+                            // }
                           },
                           child: BlinkingBorderContainer(
                             blink: hintEnterHouse,
@@ -1870,12 +2010,11 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
                                 ? RollingDice(
                                     onUpdate: (dice1, dice2) {},
                                     onComplete: (dice1, dice2) {
-                                      if (gameId != "") {
-                                        updateDiceDetails(dice1, dice2);
-                                      } else {
-                                        diceValues = [dice1, dice2];
-                                        updateDice();
-                                      }
+                                      // if (gameId != "") {
+                                      //   updateDiceDetails(dice1, dice2);
+                                      // } else {
+                                      updateDice(dice1, dice2);
+                                      // }
                                     },
                                     size: gridLength ~/ 4,
                                   )

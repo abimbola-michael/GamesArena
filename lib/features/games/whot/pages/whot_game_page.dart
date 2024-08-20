@@ -1,5 +1,6 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:gamesarena/core/base/base_game_page.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/features/games/whot/models/whot.dart';
 
+import '../../../../shared/services.dart';
 import '../../../../shared/widgets/custom_grid.dart';
 import '../services.dart';
 import '../widgets/whot_card.dart';
@@ -29,7 +31,6 @@ class WhotGamePage extends BaseGamePage {
 }
 
 class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
-  bool played = false;
   WhotDetails? prevDetails;
   List<Whot> whots = [], playedWhots = [], newWhots = [];
   List<List<Whot>> playersWhots = [];
@@ -60,29 +61,28 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
   }
 
   void playIfTimeOut() {
-    if (gameId != "") {
-      pausePlayerTime = true;
-      if (currentPlayerId == myId) {
-        if (needShape && shapeNeeded == null) {
-          final index = Random().nextInt(5);
-          updateDetails(-1, index, "");
-        } else {
-          updateDetails(-1, -1, "");
-        }
-      } else {}
+    // if (gameId != "") {
+    //   pausePlayerTime = true;
+    //   if (currentPlayerId == myId) {
+    //     if (needShape && shapeNeeded == null) {
+    //       final index = Random().nextInt(5);
+    //       updateDetails(-1, index, "");
+    //     } else {
+    //       updateDetails(-1, -1, "");
+    //     }
+    //   } else {}
+    // } else {
+    if (needShape && shapeNeeded == null) {
+      final index = Random().nextInt(5);
+      playShape(index);
     } else {
-      if (needShape && shapeNeeded == null) {
-        final index = Random().nextInt(5);
-        playShape(index);
-      } else {
-        pickWhot();
-      }
+      pickWhot();
+      // }
     }
   }
 
   void shareCards() async {
-    if (awaiting) return;
-    if (whots.isEmpty) return;
+    if (awaiting || whots.isEmpty) return;
     for (int i = 0; i < playersSize; i++) {
       playersWhots.add([]);
     }
@@ -171,8 +171,8 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
     setState(() {});
   }
 
-  void getHintMessage(bool played) {
-    if (played) {
+  void getHintMessage(bool awaiting) {
+    if (awaiting) {
       hintMessage = "Tap to open cards";
     } else {
       if (needShape) {
@@ -183,13 +183,13 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
               "Choose the shape you need depending on the cards you have";
         }
       } else {
-        hintMessage = "Play cards that match the played card number or shape";
+        hintMessage = "Play cards that match the awaiting card number or shape";
       }
     }
     setState(() {});
   }
 
-  void playWhot(int index) async {
+  void playWhot(int index, [bool isClick = true]) async {
     if (!mounted) return;
 
     if (needShape && index != -1) {
@@ -205,6 +205,9 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
       showToast(currentPlayer,
           "This is not ${shapeNeeded!.name}\n Go to Market if you don't have");
       return;
+    }
+    if (isClick) {
+      await updateDetails(index);
     }
     final next = nextPlayer();
     final prev = prevPlayer();
@@ -228,6 +231,7 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
         if (currentPlayerWhots.isNotEmpty) {
           currentPlayerWhots.removeAt(index);
         }
+        updateCount(currentPlayer, currentPlayerWhots.length);
       } else {
         playedWhots.add(whot);
       }
@@ -346,7 +350,10 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
     }
   }
 
-  void playShape(int index) {
+  void playShape(int index, [bool isClick = true]) async {
+    if (isClick) {
+      await updateDetails(index);
+    }
     shapeNeeded = whotCardShapes[index];
     final next = nextPlayer();
     playersMessages[next] =
@@ -357,16 +364,41 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
     setState(() {});
   }
 
-  void pickWhot() {
+  void pickWhot([bool isClick = true, String? whotIndices]) async {
     if (!mounted || awaiting || whots.isEmpty) return;
     // if (shapeNeeded == null) {
     //   message = "";
     // }
+
+    if (pickCount >= whots.length) {
+      final firstPlayedWhot = playedWhots.first;
+      List<Whot> otherPlayedWhots = [];
+      if (whotIndices != null) {
+        otherPlayedWhots = jsonDecode(whotIndices);
+      } else {
+        otherPlayedWhots = playedWhots
+            .where((element) => element.id != firstPlayedWhot.id)
+            .toList();
+        otherPlayedWhots.shuffle();
+        if (isClick) {
+          await updateDetails(-1, jsonEncode(otherPlayedWhots));
+        }
+      }
+
+      playedWhots = [firstPlayedWhot];
+      whots.addAll(otherPlayedWhots);
+    } else {
+      if (isClick) {
+        await updateDetails(-1);
+      }
+    }
+
     for (int i = 0; i < pickCount; i++) {
       final whot = whots.first;
       playersWhots[currentPlayer].insert(0, whot);
       whots.removeAt(0);
       awaiting = false;
+      updateCount(currentPlayer, playersWhots[currentPlayer].length);
       if (whots.isEmpty) {
         tenderCards();
         return;
@@ -413,50 +445,51 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
     }
   }
 
-  void getNewWhots() {
-    List<Whot> newWhots = [];
-    if (playedWhots.isNotEmpty) {
-      newWhots.addAll(playedWhots);
-      newWhots.removeAt(0);
-      final indices = newWhots.map((value) => value.id).toList();
-      for (int i = 0; i < 10; i++) {
-        indices.shuffle();
-      }
-      if (gameId == "") {
-        updateNewWhots(indices);
-      } else {
-        updateDetails(-1, -1, indices.join(","));
-      }
-    } else {
-      if (gameId == "") {
-        pickWhot();
-      } else {
-        updateDetails(-1, -1, "");
-      }
-    }
-  }
+  // void getNewWhots() {
+  //   List<Whot> newWhots = [];
+  //   if (playedWhots.isNotEmpty) {
+  //     newWhots.addAll(playedWhots);
+  //     newWhots.removeAt(0);
+  //     final indices = newWhots.map((value) => value.id).toList();
+  //     for (int i = 0; i < 10; i++) {
+  //       indices.shuffle();
+  //     }
+  //     if (gameId == "") {
+  //       updateNewWhots(indices);
+  //     } else {
+  //       updateDetails(-1, -1, indices.join(","));
+  //     }
+  //   } else {
+  //     if (gameId == "") {
+  //       pickWhot();
+  //     } else {
+  //       updateDetails(-1, -1, "");
+  //     }
+  //   }
+  // }
 
-  void updateNewWhots(List<String> indices) {
-    List<Whot> newPlayedWhot = [];
-    List<Whot> newWhots = [], convertedWhots = [];
-    if (playedWhots.isNotEmpty) {
-      newPlayedWhot.add(playedWhots[0]);
-      newWhots.addAll(playedWhots);
-      newWhots.removeAt(0);
-      for (int i = 0; i < indices.length; i++) {
-        final id = indices[i];
-        convertedWhots.add(newWhots.firstWhere((element) => element.id == id));
-      }
-      newWhots = convertedWhots;
-      whots.addAll(newWhots);
-      playedWhots.clear();
-      playedWhots.addAll(newPlayedWhot);
-      whotIndices = indices;
-      setState(() {});
-      showToast(currentPlayer, "Updated new whots");
-      pickWhot();
-    }
-  }
+  // void updateNewWhots(List<String> indices) {
+  //   List<Whot> newPlayedWhot = [];
+  //   List<Whot> newWhots = [], convertedWhots = [];
+  //   if (playedWhots.isNotEmpty) {
+  //     newPlayedWhot.add(playedWhots[0]);
+  //     newWhots.addAll(playedWhots);
+  //     newWhots.removeAt(0);
+  //     for (int i = 0; i < indices.length; i++) {
+  //       final id = indices[i];
+  //       convertedWhots
+  //           .add(newWhots.firstWhereNullable((element) => element.id == id));
+  //     }
+  //     newWhots = convertedWhots;
+  //     whots.addAll(newWhots);
+  //     playedWhots.clear();
+  //     playedWhots.addAll(newPlayedWhot);
+  //     whotIndices = indices;
+  //     setState(() {});
+  //     showToast(currentPlayer, "Updated new whots");
+  //     pickWhot();
+  //   }
+  // }
 
   void hideCards() {
     if (needShape && shapeNeeded == null) return;
@@ -503,7 +536,7 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
   // void changePlayer(bool suspend, [bool picked = false]) {
   //   hintGeneralMarket = false;
   //   playerTime = maxPlayerTime;
-  //   // message = "Player $currentPlayer ${picked ? "picked" : "played"} Your Turn";
+  //   // message = "Player $currentPlayer ${picked ? "picked" : "awaiting"} Your Turn";
   //   getNextPlayer();
   //   if (suspend) getNextPlayer();
   //   if (gameId != "" || (playersSize == 2 && suspend)) {
@@ -664,7 +697,7 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
     }
   }
 
-  void addInitialWhots() {
+  void addInitialWhots([bool isUpdate = true, String? whotIndices]) async {
     //getCurrentPlayer();
     needShape = false;
     shapeNeeded = null;
@@ -678,27 +711,56 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
     }
     cardVisibilities.addAll(
         List.generate(playersSize, (index) => WhotCardVisibility.turned));
-    whots.addAll(getWhots());
-    whots = whots.arrangeWithStringList(whotIndices);
+    if (whotIndices != null) {
+      whots = jsonDecode(whotIndices);
+    } else {
+      final newWhots = getWhots();
+      newWhots.shuffle();
+      whots.addAll(newWhots);
+      if (isUpdate) {
+        await updateInitalWhotDetails(jsonEncode(whots));
+      }
+    }
+    // whots.addAll(getWhots());
+    // whots = whots.arrangeWithStringList(whotIndices);
     shareCards();
   }
 
-  void updateDetails(int playPos, int shapeNeeded, String whotIndices) {
-    if (matchId != "" && gameId != "" && users != null) {
-      if (played) return;
-      played = true;
+  Future updateInitalWhotDetails(String whotIndices) async {
+    if (!awaiting && gameId.isNotEmpty && currentPlayerId == myId) {
       final details = WhotDetails(
         currentPlayerId: myId,
-        playPos: playPos,
-        shapeNeeded: shapeNeeded,
         whotIndices: whotIndices,
       );
-      setWhotDetails(
-        gameId,
-        details,
-        prevDetails,
-      );
-      prevDetails = details;
+
+      awaiting = true;
+      await setGameDetails(gameId, details.toMap());
+      awaiting = false;
+    }
+  }
+
+  Future updateDetails(int playPos, [String? whotIndices]) async {
+    if (!awaiting && gameId.isNotEmpty && currentPlayerId == myId) {
+      final details = whotIndices == null
+          ? WhotDetails(
+              currentPlayerId: myId,
+              playPos: playPos,
+            )
+          : WhotDetails(
+              currentPlayerId: myId,
+              playPos: playPos,
+              whotIndices: whotIndices,
+            );
+      // setWhotDetails(
+      //   gameId,
+      //   details,
+      //   prevDetails,
+      // );
+      awaiting = true;
+      await setGameDetails(gameId, details.toMap());
+      awaiting = false;
+
+      // prevDetails = details;
     }
   }
 
@@ -1345,7 +1407,7 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
   String gameName = whotGame;
 
   @override
-  int maxGameTime = 20.minToSec;
+  int maxGameTime = 15.minToSec;
 
   @override
   void onConcede(int index) {
@@ -1356,29 +1418,36 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
   void onDetailsChange(Map<String, dynamic>? map) {
     if (map != null) {
       final details = WhotDetails.fromMap(map);
-      played = false;
+      awaiting = false;
       pausePlayerTime = false;
       final playPos = details.playPos;
-      final shapeNeeded = details.shapeNeeded;
-      if (playPos != -1) {
-        playWhot(playPos);
-      } else {
-        if (shapeNeeded != -1) {
-          playShape(shapeNeeded);
+      final whotIndices = details.whotIndices;
+      //final shapeNeeded = details.shapeNeeded;
+
+      if (playPos != null && playPos != -1) {
+        if (needShape) {
+          playShape(playPos, false);
         } else {
-          List<String> indices =
-              details.whotIndices == "" ? [] : details.whotIndices.split(",");
-          if (indices.isNotEmpty && !whotIndices.equals(indices)) {
-            whotIndices = indices;
-            if (!finishedRound) {
-              pausePlayerTime = false;
-              updateNewWhots(indices);
-            }
-          }
-          if (indices.isEmpty) {
-            pickWhot();
-          }
+          playWhot(playPos, false);
         }
+      } else {
+        if (playPos == -1) {
+          pickWhot(false, whotIndices);
+        } else {
+          addInitialWhots(false, whotIndices);
+        }
+        // List<String> indices =
+        //     details.whotIndices == "" ? [] : details.whotIndices.split(",");
+        // if (indices.isNotEmpty && !whotIndices.equals(indices)) {
+        //   whotIndices = indices;
+        //   if (!finishedRound) {
+        //     pausePlayerTime = false;
+        //     updateNewWhots(indices);
+        //   }
+        // }
+        // if (indices.isEmpty) {
+        //   pickWhot();
+        // }
       }
       pausePlayerTime = false;
       setState(() {});
@@ -1407,37 +1476,41 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
         showToast(myPlayer, "Its ${getUsername(currentPlayerId)}'s turn");
         return;
       }
-      if (pickCount >= whots.length) {
-        getNewWhots();
-      } else {
-        if (gameId != "") {
-          updateDetails(-1, -1, "");
-        } else {
-          pickWhot();
-        }
-      }
+      // if (pickCount >= whots.length) {
+      //   getNewWhots();
+      // } else {
+      //   if (gameId != "") {
+      //     updateDetails(-1, -1, "");
+      //   } else {
+      //     pickWhot();
+      //   }
+      // }
+      pickWhot();
     }
   }
 
   @override
   void onStart() {
-    if (indices != null) {
-      whotIndices = indices!.split(",");
-    } else {
-      whotIndices = getRandomIndex(54);
+    // if (indices != null) {
+    //   whotIndices = indices!.split(",");
+    // } else {
+    //   whotIndices = getRandomIndex(54);
+    // }
+    // if (gameId == "") {
+    //   whotIndices = getRandomIndex(54);
+    // } else {
+    //   if (indices != null) {
+    //     whotIndices = indices!.split(",");
+    //   } else {
+    //     if (myId == currentPlayerId) {
+    //       updateDetails(-1, -1, getRandomIndex(54).join(","));
+    //     }
+    //   }
+    // }
+    setInitialCount(startCards);
+    if (gameId.isEmpty || (gameId.isNotEmpty && currentPlayerId == myId)) {
+      addInitialWhots();
     }
-    if (gameId == "") {
-      whotIndices = getRandomIndex(54);
-    } else {
-      if (indices != null) {
-        whotIndices = indices!.split(",");
-      } else {
-        if (myId == currentPlayerId) {
-          updateDetails(-1, -1, getRandomIndex(54).join(","));
-        }
-      }
-    }
-    addInitialWhots();
   }
 
   @override
@@ -1458,6 +1531,9 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
 
   @override
   Widget buildBottomOrLeftChild(int index) {
+    if (whots.isEmpty || playersWhots.isEmpty) {
+      return Container();
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1477,11 +1553,11 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
                             "Its ${users != null ? users![currentPlayer]!.username : "Player ${currentPlayer + 1}"}'s turn");
                         return;
                       }
-                      if (gameId != "") {
-                        updateDetails(-1, index, "");
-                      } else {
-                        playShape(index);
-                      }
+                      // if (gameId != "") {
+                      //   updateDetails(-1, index, "");
+                      // } else {
+                      playShape(index);
+                      // }
                     });
               }))
         ],
@@ -1547,11 +1623,11 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
                       showToast(index, "Pick 2 From Market");
                       return;
                     }
-                    if (gameId != "") {
-                      updateDetails(whotindex, -1, "");
-                    } else {
-                      playWhot(whotindex);
-                    }
+                    // if (gameId != "") {
+                    //   updateDetails(whotindex, -1, "");
+                    // } else {
+                    playWhot(whotindex);
+                    // }
                   },
                 );
               })),
@@ -1566,7 +1642,7 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
         gameId != "" && playersSize > 2 && (myPlayer == 1 || myPlayer == 3);
     final value = isEdgeTilt ? !landScape : landScape;
     return Center(
-      child: playedWhots.isEmpty || whots.isEmpty
+      child: playedWhots.isEmpty || whots.isEmpty || playersWhots.isEmpty
           ? null
           : RotatedBox(
               quarterTurns: currentPlayer == 0 ||
@@ -1659,15 +1735,15 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
                                 return;
                               }
 
-                              if (pickCount >= whots.length) {
-                                getNewWhots();
-                              } else {
-                                if (gameId != "") {
-                                  updateDetails(-1, -1, "");
-                                } else {
-                                  pickWhot();
-                                }
-                              }
+                              // if (pickCount >= whots.length) {
+                              //   getNewWhots();
+                              // } else {
+                              // if (gameId != "") {
+                              //   updateDetails(-1, -1, "");
+                              // } else {
+                              pickWhot();
+                              // }
+                              //}
                             },
                           ),
                           Positioned(

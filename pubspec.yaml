@@ -36,7 +36,7 @@ dependencies:
 
   cupertino_icons:
   firebase_core:
-  firebase_auth: ^5.1.2
+  firebase_auth:
   firebase_messaging:
   firebase_database:
   firebase_crashlytics:
@@ -74,6 +74,7 @@ dependencies:
   rxdart:
   word_generator:
   scrabble_word_checker:
+  image_picker:
 
 dev_dependencies:
   flutter_test:
