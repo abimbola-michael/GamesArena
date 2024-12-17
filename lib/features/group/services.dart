@@ -13,9 +13,9 @@ Future creatGroup(Group group, List<String> players) async {
 
   if (players.isNotEmpty) {
     for (var id in players) {
-      final player = Player(id: id, time: timeNow);
+      final players = Player(id: id, time: timeNow);
       await fm
-          .setValue(["groups", groupId, "players", id], value: player.toMap());
+          .setValue(["groups", groupId, "players", id], value: players.toMap());
     }
   }
 }

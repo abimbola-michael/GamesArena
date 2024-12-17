@@ -1,5 +1,18 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/widgets.dart';
+import 'package:gamesarena/features/game/utils.dart';
+import 'package:gamesarena/features/game/widgets/match_list_item.dart';
+import 'package:gamesarena/features/records/models/match_round.dart';
+import 'package:gamesarena/features/records/pages/match_rounds_page.dart';
+import 'package:gamesarena/features/records/widgets/match_record_item.dart';
+import 'package:gamesarena/features/user/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
+import 'package:gamesarena/shared/models/models.dart';
+import 'package:gamesarena/shared/utils/constants.dart';
+import 'package:gamesarena/shared/views/loading_overlay.dart';
+import '../../../shared/widgets/action_button.dart';
+import '../../../shared/widgets/app_appbar.dart';
 import '../../user/widgets/user_item.dart';
 import '../../../shared/services.dart';
 import 'package:gamesarena/features/game/models/match.dart';
@@ -10,17 +23,10 @@ import '../../../shared/utils/utils.dart';
 
 class MatchRecordsPage extends StatefulWidget {
   final Match match;
-  final List<User> users;
-  final List<String> players;
-  final List<MatchRecord> matchRecords;
-  final int duration;
+
   const MatchRecordsPage({
     super.key,
     required this.match,
-    required this.users,
-    required this.players,
-    required this.matchRecords,
-    required this.duration,
   });
 
   @override
@@ -28,171 +34,125 @@ class MatchRecordsPage extends StatefulWidget {
 }
 
 class _MatchRecordsPageState extends State<MatchRecordsPage> {
-  String name = "";
   late Match match;
   List<User> users = [];
-  List<String> players = [];
   List<MatchRecord> matchRecords = [];
-
+  bool loading = false;
   @override
   void initState() {
     super.initState();
     match = widget.match;
-    matchRecords = widget.matchRecords;
-    users = widget.users;
-    players = widget.players;
+    getDetails();
+
+    final timeStart =
+        (DateTime.now().millisecondsSinceEpoch - 10 * 1000).toString();
+    final timeEnd = (DateTime.now().millisecondsSinceEpoch).toString();
+    List<String> players = List.generate(4, (index) => "$index");
+    users = List.generate(
+        4,
+        (index) => User(
+            user_id: "$index",
+            username: "Player ${index + 1}",
+            email: "",
+            phone: "",
+            token: "",
+            time: "",
+            last_seen: ""));
+    Map<String, dynamic> scores = {"0": 1, "1": 0, "2": 4, "3": 3};
+    match = Match(
+        match_id: "1",
+        game_id: "1",
+        time_start: timeStart,
+        time_end: timeEnd,
+        game: chessGame,
+        players: players,
+        records: {
+          "0": MatchRecord(
+              id: 0,
+              game: chessGame,
+              time_start: timeStart,
+              time_end: timeEnd,
+              players: players,
+              scores: scores,
+              rounds: {
+                "0": MatchRound(
+                        id: 0,
+                        game: chessGame,
+                        time_start: timeStart,
+                        time_end: timeEnd,
+                        players: players,
+                        scores: scores)
+                    .toMap()
+              }).toMap(),
+        });
+    match.users = users;
+    matchRecords = getMatchRecords(match);
   }
 
-  String getMatchMessage() {
-    String matchMessage = "";
-    if (match.time_start != null && match.time_start != "") {
-      matchMessage = "${matchRecords.last.game} - ${matchRecords.length} games";
-    } else {
-      matchMessage = "Missed match";
+  Future getDetails() async {
+    if (match.users == null && match.players != null) {
+      loading = true;
+      List<User> users = await playersToUsers(match.players!);
+      match.users = users;
+      loading = false;
     }
-    return matchMessage;
+
+    users = match.users!;
+    matchRecords = getMatchRecords(match);
+
+    if (!mounted) return;
+
+    setState(() {});
+  }
+
+  void gotoGame(int recordId, int roundId) {
+    final game = match.game;
+    if (game == null) return;
+
+    gotoGamePage(context, game, match.game_id!, match.match_id!,
+        match: match, users: users, recordId: recordId, roundId: roundId);
+  }
+
+  void gotoGameRounds(MatchRecord record) {
+    context.pushTo(MatchRoundsPage(match: match, record: record));
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-        child: Scaffold(
-            appBar: AppBar(
-              title: const Text("Match Records"),
+    return Scaffold(
+      appBar: const AppAppBar(title: "Match Records"),
+      body: LoadingOverlay(
+        loading: loading,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MatchListItem(matches: [match], position: 0, isMatchRecords: true),
+            Expanded(
+              child: ListView.builder(
+                itemCount: matchRecords.length,
+                itemBuilder: (context, index) {
+                  final record = matchRecords[index];
+                  return MatchRecordItem(
+                      match: match,
+                      record: record,
+                      index: index,
+                      onPressed: () => gotoGameRounds(record),
+                      onWatchPressed: () => gotoGame(index, 0));
+                },
+              ),
+            )
+          ],
+        ),
+      ),
+      bottomNavigationBar: matchRecords.isEmpty
+          ? null
+          : ActionButton(
+              "Watch",
+              onPressed: () => gotoGame(0, 0),
+              height: 50,
+              color: Colors.blue,
+              wrap: true,
             ),
-            body: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ListTile(
-                  title: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        match.creator_id != myId ? "Incoming" : "Outgoing",
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        match.time_created?.time ?? "",
-                        style: TextStyle(
-                            fontSize: 14,
-                            color: darkMode ? lightWhite : lighterBlack),
-                      ),
-                    ],
-                  ),
-                  subtitle: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            match.creator_id == myId
-                                ? Icons.arrow_upward
-                                : Icons.arrow_downward,
-                            color: match.creator_id != myId &&
-                                    (match.time_start == "" ||
-                                        match.time_start == null)
-                                ? Colors.red
-                                : Colors.blue,
-                            size: 15,
-                          ),
-                          const SizedBox(
-                            width: 4,
-                          ),
-                          Text(
-                            getMatchMessage(),
-                            style: TextStyle(
-                                fontSize: 16,
-                                color: match.creator_id != myId &&
-                                        (match.time_start == "" ||
-                                            match.time_start == null)
-                                    ? Colors.red
-                                    : null),
-                          ),
-                        ],
-                      ),
-                      if (widget.duration != 0) ...[
-                        Text(
-                          widget.duration.toDurationString(false),
-                          style: TextStyle(
-                              fontSize: 14,
-                              color: darkMode
-                                  ? Colors.white.withOpacity(0.6)
-                                  : Colors.black.withOpacity(0.6)),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (matchRecords.isNotEmpty) ...[
-                  SizedBox(
-                      height: 100,
-                      child: Row(
-                          //   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: List.generate(users.length, (index) {
-                        final user = users[index];
-                        return SizedBox(
-                            width: context.screenWidth / players.length,
-                            child: UserItem(
-                                user: user, type: "", onPressed: () {}));
-                      }))),
-                  Expanded(
-                      child: ListView.builder(
-                          itemCount: matchRecords.length,
-                          itemBuilder: (context, index) {
-                            final record = matchRecords[index];
-                            return Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (index == 0 ||
-                                    record.game !=
-                                        matchRecords[index - 1].game) ...[
-                                  Padding(
-                                    padding: const EdgeInsets.all(4.0),
-                                    child: Text(
-                                      record.game,
-                                      style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ],
-                                Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 8.0),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children:
-                                        List.generate(players.length, (index) {
-                                      int score = 0;
-                                      if (index == 0) {
-                                        score = record.player1Score ?? 0;
-                                      } else if (index == 1) {
-                                        score = record.player2Score ?? 0;
-                                      } else if (index == 2) {
-                                        score = record.player3Score ?? 0;
-                                      } else if (index == 3) {
-                                        score = record.player4Score ?? 0;
-                                      }
-                                      return SizedBox(
-                                          width: context.screenWidth /
-                                              players.length,
-                                          child: Text(
-                                            "$score",
-                                            textAlign: TextAlign.center,
-                                            style:
-                                                const TextStyle(fontSize: 18),
-                                          ));
-                                    }),
-                                  ),
-                                ),
-                              ],
-                            );
-                          })),
-                ],
-              ],
-            )));
+    );
   }
 }

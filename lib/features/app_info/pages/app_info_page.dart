@@ -4,6 +4,8 @@ import 'package:gamesarena/shared/widgets/message_text.dart';
 import 'package:gamesarena/features/app_info/models/app_info.dart';
 import 'package:gamesarena/features/app_info/utils/app_info_words.dart';
 
+import '../../../shared/widgets/app_appbar.dart';
+
 class AppInfoPage extends StatefulWidget {
   final String type;
   final bool isAccept;
@@ -18,9 +20,9 @@ class _AppInfoPageState extends State<AppInfoPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.type == "Terms and Conditions and Privacy Policy") {
+    if (widget.type == "Terms and Privacy Policies") {
       typeAppInfos.add(appInfos["Terms and Conditions"]!);
-      typeAppInfos.add(appInfos["Privacy Policy"]!);
+      typeAppInfos.add(appInfos["Privacy Policies"]!);
     } else {
       typeAppInfos.add(appInfos[widget.type]!);
     }
@@ -29,8 +31,8 @@ class _AppInfoPageState extends State<AppInfoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.type),
+      appBar: AppAppBar(
+        title: widget.type,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
@@ -38,10 +40,10 @@ class _AppInfoPageState extends State<AppInfoPage> {
           ...typeAppInfos.map((typeAppInfo) => Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  HeadingText(
-                    typeAppInfo.name,
-                    isLarge: true,
-                  ),
+                  // HeadingText(
+                  //   typeAppInfo.name,
+                  //   isLarge: true,
+                  // ),
                   MessageText(typeAppInfo.intro),
                   ...List.generate(
                       typeAppInfo.subInfos.length,
@@ -50,14 +52,16 @@ class _AppInfoPageState extends State<AppInfoPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               HeadingText(
-                                  "${index + 1}. ${typeAppInfo.subInfos[index].title}"),
+                                  //${index + 1}.
+                                  typeAppInfo.subInfos[index].title),
                               ...List.generate(
                                 typeAppInfo.subInfos[index].texts.length,
                                 (index2) => MessageText(
                                   typeAppInfo.subInfos[index].texts[index2],
                                   prefix: "${index2 + 1}. ",
                                 ),
-                              )
+                              ),
+                              const SizedBox(height: 10),
                             ],
                           )),
                   MessageText(typeAppInfo.outro),

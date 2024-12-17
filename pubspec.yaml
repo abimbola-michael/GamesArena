@@ -75,6 +75,17 @@ dependencies:
   word_generator:
   scrabble_word_checker:
   image_picker:
+  cached_network_image:
+  share_plus:
+  url_launcher:
+  clipboard:
+  country_code_picker_plus:
+  openai_dart:
+  chat_gpt_sdk:
+  flutter_gemini:
+  geolocator:
+  geocoding:
+  in_app_purchase:
 
 dev_dependencies:
   flutter_test:

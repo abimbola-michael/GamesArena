@@ -1,32 +1,25 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
-
-import '../../../shared/services.dart';
+import 'package:icons_plus/icons_plus.dart';
 import '../../../theme/colors.dart';
 import '../../../shared/utils/utils.dart';
 
-class GameScoreItem extends StatefulWidget {
+class GameScoreItem extends StatelessWidget {
   final String username;
+  final String? profilePhoto;
+
   final String action;
+  final String? callMode;
   final int score;
 
   const GameScoreItem(
       {super.key,
       required this.username,
       required this.score,
-      required this.action});
-
-  @override
-  State<GameScoreItem> createState() => _GameScoreItemState();
-}
-
-class _GameScoreItemState extends State<GameScoreItem> {
-  // String myId = "";
-  @override
-  void initState() {
-    super.initState();
-    // myId = fs.myId;
-  }
+      required this.action,
+      this.callMode,
+      this.profilePhoto});
 
   @override
   Widget build(BuildContext context) {
@@ -37,13 +30,18 @@ class _GameScoreItemState extends State<GameScoreItem> {
           children: [
             CircleAvatar(
               radius: 25,
+              backgroundImage: profilePhoto != null
+                  ? CachedNetworkImageProvider(profilePhoto!)
+                  : null,
               backgroundColor: lightestWhite,
-              child: Text(
-                widget.username.firstChar ?? "",
-                style: const TextStyle(fontSize: 30, color: Colors.blue),
-              ),
+              child: profilePhoto != null
+                  ? null
+                  : Text(
+                      username.firstChar ?? "",
+                      style: const TextStyle(fontSize: 30, color: Colors.blue),
+                    ),
             ),
-            if (widget.action == "start") ...[
+            if (action == "start") ...[
               const Positioned(
                 bottom: 4,
                 right: 4,
@@ -51,7 +49,7 @@ class _GameScoreItemState extends State<GameScoreItem> {
                   radius: 8,
                   backgroundColor: Colors.blue,
                   child: Icon(
-                    Icons.check,
+                    EvaIcons.checkmark,
                     size: 8,
                     color: Colors.white,
                   ),
@@ -64,7 +62,7 @@ class _GameScoreItemState extends State<GameScoreItem> {
           height: 4,
         ),
         Text(
-          widget.username,
+          username,
           style: const TextStyle(fontSize: 16, color: Colors.white),
           textAlign: TextAlign.center,
         ),
@@ -72,21 +70,32 @@ class _GameScoreItemState extends State<GameScoreItem> {
           height: 4,
         ),
         Text(
-          '${widget.score}',
+          '$score',
           style: const TextStyle(
               fontWeight: FontWeight.bold, fontSize: 60, color: Colors.white),
           textAlign: TextAlign.center,
         ),
-        if (widget.action != "") ...[
-          const SizedBox(
-            height: 4,
-          ),
+        if (action != "") ...[
+          // const SizedBox(
+          //   height: 4,
+          // ),
           Text(
-            getActionString(widget.action).capitalize,
+            getActionString(action).capitalize,
             style: const TextStyle(
               fontSize: 14,
               color: Colors.white,
             ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+        if (callMode != null) ...[
+          const SizedBox(
+            height: 4,
+          ),
+          Text(
+            "${callMode!.capitalize} call",
+            style: const TextStyle(
+                fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
         ]

@@ -1,56 +1,69 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:gamesarena/core/firebase/extensions/firebase_extensions.dart';
 import 'package:gamesarena/core/firebase/firebase_notification.dart';
 import 'package:gamesarena/core/firebase/firebase_methods.dart';
 import 'package:gamesarena/core/firebase/firestore_methods.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
-import '../features/user/services.dart';
 import 'models/private_key.dart';
 
-import 'models/models.dart';
 import 'utils/utils.dart';
 
 FirestoreMethods fm = FirestoreMethods();
 
-// Stream<Map<String, dynamic>?> getGameDetails(String gameId) async* {
-//   yield* fm.getValueStream((map) => map, ["games", gameId, "details"]);
-// }
-Future setGameDetails(String gameId, Map<String, dynamic> map) async {
-  return fm.setValue(["games", gameId, "details"], value: map);
+Future setGameDetails(
+    String gameId, String matchId, Map<String, dynamic> map) async {
+  final detailId = getId(["games", gameId, "matches", matchId, "details"]);
+  return fm.setValue(["games", gameId, "matches", matchId, "details", detailId],
+      value: {...map.removeNull(), "detailId": detailId});
+}
+
+Future<List<Map<String, dynamic>>> getGameDetails(
+    String gameId, String matchId, int recordId, int roundId,
+    {String? time, int? limit, String? timeEnd, List<String>? players}) async {
+  return fm.getValues(
+      (map) => map, ["games", gameId, "matches", matchId, "details"],
+      where: [
+        "recordId",
+        "==",
+        recordId,
+        "roundId",
+        "==",
+        roundId,
+        if (players != null) ...["playerId", "in", players],
+        if (timeEnd != null) ...["time", "<=", time]
+      ],
+      order: ["time"],
+      start: time != null ? [time, true] : null,
+      limit: limit != null ? [limit] : null);
 }
 
 Stream<List<ValueChange<Map<String, dynamic>>>> getGameDetailsChange(
-    String gameId) async* {
-  yield* fm.getValuesChangeStream((map) => map, ["games", gameId, "details"],
-      where: ["currentPlayerId", "!=", myId]);
-}
-
-Future sendPushNotificationToPlayers(String game, List<String> players) async {
-  final users = await playersToUsers(players);
-  String creatorName = users.isEmpty
-      ? ""
-      : users.firstWhere((element) => element.user_id == myId).username;
-  players.remove(myId);
-  users.removeWhere((element) => element.user_id == myId);
-  for (int i = 0; i < players.length; i++) {
-    final player = players[i];
-    List<User> otherUsers =
-        users.where((user) => user.user_id != player).toList();
-    final otherUsernames =
-        otherUsers.isEmpty ? [] : otherUsers.map((e) => e.username).toList();
-    otherUsernames.insert(0, "you");
-    // final key = await getPrivateKey();
-    // if (key == null) return;
-    // String firebaseAuthKey = key.firebaseAuthKey;
-    final token = await getToken(player);
-    //final phoneToken = await FirebaseMessaging.instance.getToken();
-    //phoneToken == token
-    if (token == null || token == "") return;
-    final body =
-        "$creatorName will like to play $game game with ${otherUsernames.toStringWithCommaandAnd((username) => username)}";
-    await sendPushNotification(token, creatorName, body);
-  }
+    String gameId, String matchId, int recordId, int roundId,
+    {String? time, List<String>? players}) async* {
+  yield* fm.getValuesChangeStream(
+      (map) => map, ["games", gameId, "matches", matchId, "details"],
+      where: [
+        "recordId",
+        "==",
+        recordId,
+        "roundId",
+        "==",
+        roundId,
+        if (players != null) ...[
+          "playerId",
+          "in",
+          players.where((id) => id != myId).toList()
+        ] else ...[
+          "playerId",
+          "!=",
+          myId,
+        ],
+      ],
+      order: ["time"],
+      start: time == null ? null : [time, true]);
 }
 
 String getId(List<String> path) {

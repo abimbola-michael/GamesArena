@@ -1,14 +1,16 @@
-import 'package:gamesarena/features/games/word_puzzle/pages/word_puzzle_game_page.dart';
+import 'package:gamesarena/features/games/puzzle/word_puzzle/pages/word_puzzle_game_page.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/features/games/pages.dart';
 import 'package:flutter/material.dart';
 import 'package:gamesarena/shared/utils/utils.dart';
 
+import '../../../shared/widgets/app_appbar.dart';
 import '../../user/widgets/user_item.dart';
 import '../../../shared/models/models.dart';
 import '../../../shared/widgets/action_button.dart';
 import '../../../theme/colors.dart';
 import '../../../shared/utils/constants.dart';
+import '../models/player.dart';
 import '../utils.dart';
 
 class NewOfflineGamePage extends StatefulWidget {
@@ -23,14 +25,14 @@ class NewOfflineGamePage extends StatefulWidget {
 class _NewOfflineGamePageState extends State<NewOfflineGamePage> {
   List<User?> users = [];
   bool creatorIsMe = false;
-  List<PlayersFormation> players_formation = [];
-  List<Playing> playing = [], ready_playing = [];
+  List<Player> players = [];
   String game = "";
   String gameState = "unstarted";
   int currentGame = 0;
   int playersSize = 2;
   List<int> sizes = [2, 3, 4];
   int selected = 0;
+  List<String> onePlayerOfflineGame = [];
   @override
   void initState() {
     super.initState();
@@ -40,44 +42,27 @@ class _NewOfflineGamePageState extends State<NewOfflineGamePage> {
   }
 
   void gotoGame() {
-    gotoGamePage(context, game, "", "", null, null, playersSize, null, 0);
-    // Widget widget = const BatballGamePage();
-    // if (game == batballGame) {
-    //   widget = const BatballGamePage();
-    // } else if (game == whotGame) {
-    //   widget = WhotGamePage(
-    //     playersSize: playersSize,
-    //   );
-    // } else if (game == ludoGame) {
-    //   widget = LudoGamePage(
-    //     playersSize: playersSize,
-    //   );
-    // } else if (game == draughtGame) {
-    //   widget = const DraughtGamePage();
-    // } else if (game == chessGame) {
-    //   widget = const ChessGamePage();
-    // } else if (game == xandoGame) {
-    //   widget = const XandOGamePage();
-    // } else if (game == wordPuzzleGame) {
-    //   widget = const WordPuzzleGamePage();
-    // }
-    // Navigator.of(context)
-    //     .pushReplacement(MaterialPageRoute(builder: ((context) => widget)));
+    gotoGamePage(context, game, "", "", playersSize: playersSize);
   }
 
   void getGame() {
+    if (allPuzzleGames.contains(game) || game.endsWith("Quiz")) {
+      playersSize = 1;
+    }
+
     List<int> orders = List.generate(playersSize, (index) => index + 1);
     orders.shuffle();
-    playing = List.generate(
+    players = List.generate(
       playersSize,
-      (index) => Playing(
-          id: "$index",
-          action: "start",
-          game: game,
-          order: orders[index],
-          accept: true),
+      (index) => Player(
+        id: "$index",
+        action: "start",
+        game: game,
+        order: orders[index], time: timeNow,
+        // accept: true,
+      ),
     );
-    playing.sortList((value) => value.order, false);
+    players.sortList((value) => value.order, false);
     users = List.generate(
         playersSize,
         (index) => User(
@@ -90,101 +75,85 @@ class _NewOfflineGamePageState extends State<NewOfflineGamePage> {
             token: ""));
   }
 
-  // void getGameFormation() {
-  //   int i = 0;
-  //   List<PlayersFormation> playersFormation = [];
-  //   while (i < playing.length) {
-  //     final user1 = users[i];
-  //     final user2 = (i + 1) < playing.length ? users[i + 1] : null;
-  //     final playing1 = playing[i];
-  //     final playing2 = (i + 1) < playing.length ? playing[i + 1] : null;
-  //     playersFormation.add(PlayersFormation(
-  //         player1: playing1.id,
-  //         player2: playing2?.id ?? "",
-  //         player1Score: 0,
-  //         player2Score: 0,
-  //         user1: user1,
-  //         user2: user2));
-  //     i += playersSize;
-  //   }
-  //   players_formation = playersFormation;
-  // }
-
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-        child: Scaffold(
-      appBar: AppBar(
-        title: const Text("New Game"),
-        leading: BackButton(onPressed: () {
-          Navigator.of(context).pop();
-        }),
+    return Scaffold(
+      appBar: const AppAppBar(
+        title: "New Game",
       ),
       body: Center(
         child: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Text(
-                "Offline $game game",
-                style:
-                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-            ),
-            if (game == "Ludo" || game == "Whot") ...[
-              Padding(
-                padding:
-                    const EdgeInsets.only(left: 16.0, right: 16, bottom: 16),
-                child: Row(
-                    children: List.generate(sizes.length, (index) {
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        selected = index;
-                        playersSize = sizes[index];
-                        getGame();
-                        setState(() {});
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                            color: selected == index
-                                ? Colors.blue
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10)),
-                        child: Text(
-                          "${sizes[index]}",
-                          style: TextStyle(
-                              color: selected == index ? Colors.white : tint,
-                              fontSize: 18),
-                          textAlign: TextAlign.center,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 450),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text(
+                    "Offline $game game",
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                if (game == "Ludo" || game == "Whot") ...[
+                  Padding(
+                    padding: const EdgeInsets.only(
+                        left: 16.0, right: 16, bottom: 16),
+                    child: Row(
+                        children: List.generate(sizes.length, (index) {
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            selected = index;
+                            playersSize = sizes[index];
+                            getGame();
+                            setState(() {});
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 8, horizontal: 16),
+                            decoration: BoxDecoration(
+                                color: selected == index
+                                    ? Colors.blue
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(30)),
+                            child: Text(
+                              "${sizes[index]}",
+                              style: TextStyle(
+                                  color:
+                                      selected == index ? Colors.white : tint,
+                                  fontSize: 18),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  );
-                })),
-              ),
-            ],
-            const SizedBox(
-              height: 20,
+                      );
+                    })),
+                  ),
+                ],
+                const SizedBox(
+                  height: 20,
+                ),
+                SizedBox(
+                  height: 200,
+                  //width: double.infinity,
+                  child: ListView.builder(
+                      shrinkWrap: true,
+                      scrollDirection: Axis.horizontal,
+                      itemCount: users.length,
+                      itemBuilder: (context, index) {
+                        final user = users[index];
+                        return UserItem(
+                          user: user,
+                          type: "",
+                          onPressed: () {},
+                        );
+                      }),
+                ),
+              ],
             ),
-            SizedBox(
-              height: 200,
-              //width: double.infinity,
-              child: ListView.builder(
-                  shrinkWrap: true,
-                  scrollDirection: Axis.horizontal,
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return UserItem(
-                      user: user,
-                      type: "",
-                      onPressed: () {},
-                    );
-                  }),
-            ),
-          ]),
+          ),
         ),
       ),
       bottomNavigationBar: Container(
@@ -222,6 +191,6 @@ class _NewOfflineGamePageState extends State<NewOfflineGamePage> {
           ],
         ),
       ),
-    ));
+    );
   }
 }

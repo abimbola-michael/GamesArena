@@ -1,9 +1,7 @@
-import 'package:gamesarena/shared/extensions/extensions.dart';
+import 'package:gamesarena/features/game/widgets/profile_photo.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/models/models.dart';
-import '../../../theme/colors.dart';
-import '../../../shared/utils/utils.dart';
 
 class UserListItem extends StatefulWidget {
   final User user;
@@ -30,14 +28,9 @@ class _UserListItemState extends State<UserListItem> {
       ),
       leading: Stack(
         children: [
-          CircleAvatar(
-            backgroundColor: darkMode ? lightestWhite : lightestBlack,
-            radius: 30,
-            child: Text(
-              widget.user.username.firstChar ?? "",
-              style: const TextStyle(fontSize: 30, color: Colors.blue),
-            ),
-          ),
+          ProfilePhoto(
+              profilePhoto: widget.user.profile_photo,
+              name: widget.user.username),
           if (widget.user.checked) ...[
             const Positioned(
               bottom: 4,

@@ -148,21 +148,21 @@ class _AppTextFieldState extends State<AppTextField> {
       if (!isValidPhoneNumber(value)) {
         return "Invalid Phone Number";
       }
-    } else if (hintText.contains("Password")) {
+    } else if (hintText.toLowerCase().contains("password")) {
       if (value.length < 6 || value.length > 30) {
         return "Password must be between 6 and 30 characters";
       }
       // else if (!isValidPassword(value)) {
       //   return "Invalid Password, Password must contain at least one uppercase, lowercase, number and special character";
       // }
-    } else if (hintText.contains("Username")) {
+    } else if (hintText.toLowerCase().contains("username")) {
       if (value.length < 3 || value.length > 20) {
         return "Username must be between 3 and 20 characters";
       }
       if (!isValidUserName(value)) {
         return "Username can only contain letters, numbers and underscores";
       }
-    } else if (hintText.contains("Name")) {
+    } else if (hintText.toLowerCase().contains("name")) {
       if (value.length < 3) {
         return "Name must be at least 3 characters";
       }
@@ -246,8 +246,11 @@ class _AppTextFieldState extends State<AppTextField> {
                   setState(() {
                     _isFieldValid = false;
                   });
+                  return result;
                 }
-                return result;
+                return widget.validator != null
+                    ? widget.validator!(value)
+                    : null;
               },
               controller: widget.controller,
               onChanged: (value) {

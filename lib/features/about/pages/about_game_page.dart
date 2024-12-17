@@ -1,6 +1,8 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter/material.dart';
+import 'package:gamesarena/shared/widgets/app_appbar.dart';
 
+import '../../../shared/utils/constants.dart';
 import '../../../shared/widgets/action_button.dart';
 import '../../game/models/game_info.dart';
 import '../utils/about_game_words.dart';
@@ -21,14 +23,18 @@ class _AboutGamePageState extends State<AboutGamePage> {
   @override
   void initState() {
     super.initState();
-    gameInfo = gamesInfo[widget.game];
+    if (widget.game.endsWith("Quiz")) {
+      gameInfo = quizGameInfo();
+    } else {
+      gameInfo = gamesInfo[widget.game];
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("About ${widget.game}"),
+      appBar: AppAppBar(
+        title: "About ${widget.game}",
       ),
       body: Center(
         child: ListView(

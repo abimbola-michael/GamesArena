@@ -3,6 +3,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:gamesarena/core/firebase/firebase_methods.dart';
 import 'package:gamesarena/theme/colors.dart';
 
+import '../../../shared/extensions/special_context_extensions.dart';
 import '../../../shared/widgets/action_button.dart';
 
 class ResetPasswordPage extends StatefulWidget {
@@ -59,12 +60,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
             "Send Password Reset Email",
             onPressed: () {
               fm.sendPasswordResetEmail(email).then((value) {
-                Fluttertoast.showToast(
-                    msg: "Email sent, Check your inbox to reset your password");
+                showToast(
+                    "Email sent, Check your inbox to reset your password");
                 Navigator.of(context).pop();
               }).onError((error, stackTrace) {
-                Fluttertoast.showToast(
-                    msg: "Something went wrong. Unable to send email");
+                showErrorToast("Something went wrong. Unable to send email");
               });
             },
             height: 60,

@@ -20,6 +20,9 @@ class AppButton extends StatelessWidget {
   final double fontSize;
   final bool wrapped;
   final bool outlined;
+  final bool loading;
+  final bool disabled;
+
   final EdgeInsets? padding;
   final EdgeInsets? margin;
 
@@ -38,13 +41,15 @@ class AppButton extends StatelessWidget {
       this.fontSize = 14,
       this.wrapped = false,
       this.outlined = false,
+      this.loading = false,
+      this.disabled = false,
       this.icon,
       this.margin});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onPressed,
+      onTap: disabled ? null : onPressed,
       behavior: HitTestBehavior.opaque,
       //borderRadius: BorderRadius.circular(radius ?? 30),
       child: Container(
@@ -52,23 +57,34 @@ class AppButton extends StatelessWidget {
         height: height ?? 35,
         padding: padding ?? const EdgeInsets.symmetric(horizontal: 12),
         margin: margin,
-        //margin: const EdgeInsets.symmetric(horizontal: 4),
         alignment: wrapped ? null : Alignment.center,
         decoration: BoxDecoration(
-          color: outlined ? Colors.transparent : bgColor ?? primaryColor,
+          color: outlined
+              ? Colors.transparent
+              : (bgColor ?? primaryColor).withOpacity(disabled ? 0.5 : 1),
           borderRadius: BorderRadius.circular(radius ?? 30),
           border: outlined
               ? Border.all(
-                  color: primaryColor,
+                  color:
+                      (bgColor ?? primaryColor).withOpacity(disabled ? 0.5 : 1),
                   width: 1,
                 )
               : null,
         ),
-
         child: child ??
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (loading) ...[
+                  const SizedBox(
+                    width: 15,
+                    height: 15,
+                    child: CircularProgressIndicator(),
+                  ),
+                  const SizedBox(
+                    width: 8,
+                  ),
+                ],
                 if (icon != null)
                   SvgAsset(
                     name: icon!,

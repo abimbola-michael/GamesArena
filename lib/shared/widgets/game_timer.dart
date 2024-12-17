@@ -6,7 +6,8 @@ import '../utils/utils.dart';
 
 class GameTimer extends StatefulWidget {
   final Stream<int> timerStream;
-  const GameTimer({super.key, required this.timerStream});
+  final int? time;
+  const GameTimer({super.key, required this.timerStream, this.time});
 
   @override
   State<GameTimer> createState() => _GameTimerState();
@@ -15,19 +16,27 @@ class GameTimer extends StatefulWidget {
 class _GameTimerState extends State<GameTimer> {
   @override
   Widget build(BuildContext context) {
+    Widget buildChild(int time) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        // padding: const EdgeInsets.symmetric(vertical: 8),
+        // alignment: Alignment.center,
+        //width: 50,
+        decoration: BoxDecoration(
+            color: darkMode ? Colors.white : Colors.black,
+            borderRadius: BorderRadius.circular(20)),
+        child: Text(time.toDurationString(),
+            style: TextStyle(
+                color: darkMode ? Colors.black : Colors.white, fontSize: 12)),
+      );
+    }
+
+    if (widget.time != null) return buildChild(widget.time!);
     return StreamBuilder(
         stream: widget.timerStream,
         builder: (context, snapshot) {
           final time = snapshot.data ?? 0;
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-                color: darkMode ? Colors.white : Colors.black,
-                borderRadius: BorderRadius.circular(20)),
-            child: Text(time.toDurationString(),
-                style:
-                    TextStyle(color: darkMode ? Colors.black : Colors.white)),
-          );
+          return buildChild(time);
         });
   }
 }

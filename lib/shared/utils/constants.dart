@@ -6,36 +6,92 @@ const String CHANNEL_ID = "com.hms.gamesarena";
 const String CHANNEL_NAME = "Games Arena";
 const String CHANNEL_DESC = "This is a channel for Games Arena games";
 
+//board
 const String batballGame = "Bat Ball";
 const String xandoGame = "X and O";
-const String whotGame = "Whot";
 const String ludoGame = "Ludo";
 const String draughtGame = "Draught";
 const String chessGame = "Chess";
+
+//card
+const String whotGame = "Whot";
+
+//puzzle
 const String wordPuzzleGame = "Word Puzzle";
 
-const String playedBatballGame = "playedBatball";
-const String playedXandoGame = "playedXando";
-const String playedWhotGame = "playedWhot";
-const String playedLudoGame = "playedLudo";
-const String playedDraughtGame = "playedDraught";
-const String playedChessGame = "playedChess";
-const String playedWordPuzzleGame = "playedWordPuzzle";
+//quiz
+const String quizGame = "Quiz";
 
-const List<String> allGames = [
+const String brainTeaserQuizGame = "Brain Teaser";
+const String bibleQuizGame = "Bible Quiz";
+const String quranQuizGame = "Quran Quiz";
+const String englishQuizGame = "English Quiz";
+const String mathsQuizGame = "Maths Quiz";
+const String biologyQuizGame = "Biology Quiz";
+const String physisQuizGame = "Physis Quiz";
+const String chemistryQuizGame = "Chemistry Quiz";
+const String scienceQuizGame = "Science Quiz";
+const String artQuizGame = "Art Quiz";
+const String lawQuizGame = "Law Quiz";
+const String medicalQuizGame = "Medical Quiz";
+const String engineeringQuizGame = "Engineering Quiz";
+
+const String englishLiteratureQuizGame = "English Literature Quiz";
+const String verbalAptQuizGame = "Verbal Aptitude Quiz";
+const String quantitativeAptQuizGame = "Quantitative Aptitude Quiz";
+const String vocationalAptQuizGame = "Vocational Aptitude Quiz";
+const String generalKnowledgeQuizGame = "General Knowledge Quiz";
+const String currentAffairsQuizGame = "Current Affairs Quiz";
+
+const String techQuizGame = "Tech Quiz";
+
+const String yourTopicQuizGame = "Your Topic Quiz";
+
+const List<String> allQuizGames = [
+  brainTeaserQuizGame,
+  bibleQuizGame,
+  quranQuizGame,
+  englishQuizGame,
+  mathsQuizGame,
+  biologyQuizGame,
+  physisQuizGame,
+  chemistryQuizGame,
+  scienceQuizGame,
+  artQuizGame,
+  lawQuizGame,
+  medicalQuizGame,
+  engineeringQuizGame,
+  englishLiteratureQuizGame,
+  verbalAptQuizGame,
+  quantitativeAptQuizGame,
+  vocationalAptQuizGame,
+  techQuizGame,
+  generalKnowledgeQuizGame,
+  currentAffairsQuizGame,
+  yourTopicQuizGame
+];
+
+const List<String> allBoardGames = [
   chessGame,
   draughtGame,
-  whotGame,
   ludoGame,
-  xandoGame,
-  wordPuzzleGame
+  xandoGame
+];
+const List<String> allCardGames = [whotGame];
+const List<String> allPuzzleGames = [wordPuzzleGame];
+
+const List<String> allGames = [
+  ...allBoardGames,
+  ...allCardGames,
+  ...allPuzzleGames,
+  quizGame,
   //"Bat Ball",
   //"Ayo",
   //"Snooker"
   //"Jackpot",
   //"Scrabble"
 ];
-
+const List<String> allGameCategories = ["Board", "Card", "Puzzle", "Quiz"];
 const List<String> modes = [
   "Online",
   "Offline",

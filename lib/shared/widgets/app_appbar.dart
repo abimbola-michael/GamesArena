@@ -11,10 +11,13 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   final Widget? trailing;
   final Widget? middle;
+  final Widget? icon;
+
   final Widget? leading;
   final VoidCallback? onBackPressed;
   final bool hideBackButton;
   final Color? color;
+  final TextStyle? style;
   const AppAppBar({
     super.key,
     this.title,
@@ -24,7 +27,9 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.hideBackButton = false,
     this.leading,
     this.middle,
+    this.icon,
     this.color,
+    this.style,
   });
 
   @override
@@ -40,7 +45,7 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
               Align(
                 alignment: Alignment.center,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 50),
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: middle!,
                 ),
               )
@@ -48,14 +53,15 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
               Align(
                 alignment: Alignment.center,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 50),
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         title!,
-                        style: context.headlineSmall
-                            ?.copyWith(color: color, fontSize: 18),
+                        style: style ??
+                            context.headlineSmall
+                                ?.copyWith(color: color, fontSize: 18),
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -76,11 +82,20 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
             if (!hideBackButton)
               Align(
                 alignment: Alignment.centerLeft,
-                child: leading ??
-                    AppBackButton(
-                      onPressed: onBackPressed,
-                      color: color,
-                    ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    leading ??
+                        AppBackButton(
+                          onPressed: onBackPressed,
+                          color: color,
+                        ),
+                    if (icon != null) ...[
+                      const SizedBox(width: 4),
+                      icon!,
+                    ]
+                  ],
+                ),
               ),
             if (trailing != null)
               Align(

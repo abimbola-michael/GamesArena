@@ -66,13 +66,14 @@ extension ContextExtensions on BuildContext {
       Navigator.of(this).pushNamed(routeName, arguments: args);
   Future pushAndPop(Widget page, [result]) => Navigator.of(this)
       .pushReplacement(MaterialPageRoute(builder: (context) => page));
-  Future pushNamedAndPop(String routeName, {Object? args, Object? result}) =>
+  Future pushReplacementNamed(String routeName,
+          {Object? args, Object? result}) =>
       Navigator.of(this)
           .pushReplacementNamed(routeName, arguments: args, result: result);
-  pop([result]) => Navigator.of(this).pop(result);
-  popRoot([result]) => Navigator.of(this, rootNavigator: true).pop(result);
+  void pop([result]) => Navigator.of(this).pop(result);
+  void popRoot([result]) => Navigator.of(this, rootNavigator: true).pop(result);
 
-  popUntil(String routeName) =>
+  void popUntil(String routeName) =>
       Navigator.of(this).popUntil(ModalRoute.withName(routeName));
   Future pushReplacementTo(Widget page, {Object? args}) => Navigator.of(this)
       .pushReplacement(MaterialPageRoute(builder: (context) => page),
@@ -118,13 +119,31 @@ extension DoubleExtensions on double {
 
 extension IntExtensions on int {
   int get minToSec => this * 60;
+
+  String toDuration() {
+    String duration = "";
+    final hours = this ~/ 3600;
+    final minutes = this % 3600 ~/ 60;
+    final seconds = this % 60;
+    if (this < 60) {
+      duration = "$seconds secs";
+    } else if (this < 3600) {
+      duration = "$minutes:${seconds.toDigitsOf(2)} mins";
+    } else {
+      duration =
+          "$hours:${minutes.toDigitsOf(2)}:${seconds.toDigitsOf(2)} hours";
+    }
+    return duration;
+  }
+
   String toDurationString([bool isTimer = true]) {
     String duration = "";
     final hours = this ~/ 3600;
     final minutes = this % 3600 ~/ 60;
     final seconds = this % 60;
     if (this < 60) {
-      duration = isTimer ? "00:${seconds.toDigitsOf(2)}" : "$seconds";
+      duration =
+          isTimer ? "00:${seconds.toDigitsOf(2)}" : seconds.toDigitsOf(2);
     } else if (this <= 600) {
       duration =
           "${minutes.toDigitsOf(isTimer ? 2 : 1)}:${seconds.toDigitsOf(2)}";
@@ -132,7 +151,8 @@ extension IntExtensions on int {
       duration =
           "${minutes.toDigitsOf(isTimer ? 2 : 1)}:${seconds.toDigitsOf(2)}";
     } else {
-      duration = "$hours:${minutes.toDigitsOf(2)}:${seconds.toDigitsOf(2)}";
+      duration =
+          "${hours.toDigitsOf(2)}:${minutes.toDigitsOf(2)}:${seconds.toDigitsOf(2)}";
     }
     return duration;
   }
@@ -210,6 +230,23 @@ extension DateTimeExtensions on DateTime {
 }
 
 extension StringExtensions on String {
+  String? toValidNumber(String? dialCode) {
+    if (trim().length < 10 ||
+        (RegExp(r"[^0-9]").hasMatch(trim().firstChar!) &&
+            trim().firstChar != "+")) {
+      return null;
+    }
+    dialCode ??= "+1";
+    bool startsWithZero = trim().startsWith("0");
+    String refinedNumber = replaceAll(RegExp(r"\D"), "")
+        .replaceAll(" ", "")
+        .replaceAll("+", "")
+        .trim();
+    return startsWithZero
+        ? "$dialCode${refinedNumber.substring(1)}"
+        : "+$refinedNumber";
+  }
+
   String get onlyErrorMessage {
     if (contains("[") && contains("]")) {
       return substring(indexOf("]") + 1).trim();
@@ -258,23 +295,23 @@ extension StringExtensions on String {
     return false;
   }
 
-  bool hasNumberInternally() {
-    bool foundNumber = false;
-    for (int i = 0; i < length; i++) {
-      final char = this[i];
-      if (foundNumber) {
-        if (alphabets.contains(this[0]) || capsalphabets.contains(this[0])) {
-          return true;
-        }
-      }
-      if (numbers.contains(char)) {
-        if (!foundNumber) {
-          foundNumber = true;
-        }
-      }
-    }
-    return false;
-  }
+  // bool hasNumberInternally() {
+  //   bool foundNumber = false;
+  //   for (int i = 0; i < length; i++) {
+  //     final char = this[i];
+  //     if (foundNumber) {
+  //       if (alphabets.contains(this[0]) || capsalphabets.contains(this[0])) {
+  //         return true;
+  //       }
+  //     }
+  //     if (numbers.contains(char)) {
+  //       if (!foundNumber) {
+  //         foundNumber = true;
+  //       }
+  //     }
+  //   }
+  //   return false;
+  // }
 
   bool startWithLetter() {
     return length == 0
@@ -368,6 +405,8 @@ extension StringExtensions on String {
   String get toJpg => "assets/images/png/$this.jpg";
   String get toPng => "assets/images/png/$this.png";
   String get toSvg => "assets/images/svg/$this.svg";
+  String get toImage => "assets/images/$this";
+
   DateTime get toDateTime => DateTime.fromMillisecondsSinceEpoch(toInt);
   String lastChars(int n) => substring(length - n);
 
@@ -422,22 +461,45 @@ extension StringExtensions on String {
   }
 }
 
-extension ListNullableExtensions<T, U> on List<T?> {
-  T? firstWhereNullableNullable(bool Function(T? t) callback, [int start = 0]) {
-    final index = indexWhere(callback, start);
-    if (index != -1) {
-      return this[index];
+extension StringMapExtension<T> on Map<String, T> {
+  List<T> toList() {
+    List<T> list = [];
+    for (int i = 0; i < length; i++) {
+      final value = this["$i"];
+      if (value != null) list.add(value);
     }
-    return null;
+    return list;
   }
 }
+
+extension MapExtension<T, U> on Map<T, U> {
+  Map<T, U> getChangedProperties(Map<T, U> newMap) {
+    Map<T, U> resultMap = {};
+    for (var entry in newMap.entries) {
+      if (this[entry.key] != entry.value) {
+        resultMap[entry.key] = entry.value;
+      }
+    }
+    return resultMap;
+  }
+}
+
+// extension ListNullableExtensions<T, U> on List<T?> {
+//   T? firstWhereNullable(bool Function(T? t) callback, [int start = 0]) {
+//     final index = indexWhere(callback, start);
+//     if (index != -1) {
+//       return this[index];
+//     }
+//     return null;
+//   }
+// }
 
 extension ListExtensions<T, U> on List<T> {
   T? get lastOrNull => isEmpty ? null : last;
   T? get firstOrNull => isEmpty ? null : first;
   T? valueOrNull(int index) => isEmpty ? null : this[index];
 
-  T? firstWhereNullableNullable(bool Function(T t) callback, [int start = 0]) {
+  T? firstWhereNullable(bool Function(T t) callback, [int start = 0]) {
     final index = indexWhere(callback, start);
     if (index != -1) {
       return this[index];
@@ -455,7 +517,7 @@ extension ListExtensions<T, U> on List<T> {
     return true;
   }
 
-  String toStringWithCommaandAnd(String Function(T) callback,
+  String toStringWithCommaandAnd(String Function(T t) callback,
       [String addition = ""]) {
     String finalString = "";
     for (int i = 0; i < length; i++) {
@@ -481,8 +543,8 @@ extension ListExtensions<T, U> on List<T> {
     List<T> list = [];
     list.addAll(this);
     list.sort((i, j) => dsc
-        ? callback(j).compareTo(callback(i))
-        : callback(i).compareTo(callback(j)));
+        ? callback(j)?.compareTo(callback(i))
+        : callback(i)?.compareTo(callback(j)));
     return list;
   }
 
@@ -530,7 +592,7 @@ extension ListExtensions<T, U> on List<T> {
       List<String> order, String Function(T value) callback) {
     List<T> newList = [];
     if (order.isEmpty || order.length != length) {
-      return [];
+      return this;
     }
     for (int i = 0; i < order.length; i++) {
       final index = indexWhere((element) => callback(element) == order[i]);
@@ -556,10 +618,10 @@ extension ListExtensions<T, U> on List<T> {
     return string;
   }
 
-  Map<int, T> toMap() {
-    Map<int, T> listmap = {};
+  Map<String, T> toMap() {
+    Map<String, T> listmap = {};
     for (int i = 0; i < length; i++) {
-      listmap[i] = this[i];
+      listmap["$i"] = this[i];
     }
     return listmap;
   }

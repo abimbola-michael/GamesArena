@@ -19,7 +19,7 @@ Map<String, AppInfo> appInfos = {
           "Any violations of game rules may result in consequences, including but not limited to account suspension or termination."
         ]),
         SubInfo(title: "Fair Play", texts: [
-          "Users are expected to engage in fair and sportsmanlike conduct while playing games.",
+          "Users are expected to engage in fair and sportsmanlike conduct while players games.",
           "Cheating, exploiting bugs, or engaging in any form of unfair play is strictly prohibited."
         ]),
         SubInfo(title: "User Content", texts: [
@@ -44,10 +44,10 @@ Map<String, AppInfo> appInfos = {
       ],
       outro:
           "By using the Games Arena App, you acknowledge that you have read, understood, and agreed to these Terms and our Privacy Policy. Games Arena reserves the right to update or modify these Terms at any time. It is your responsibility to review these Terms periodically for changes. If you continue to use the App after any modifications, you accept the revised Terms. If you do not agree to the revised Terms, please discontinue your use of the App"),
-  "Privacy Policy": AppInfo(
-      name: "Privacy Policy",
+  "Privacy Policies": AppInfo(
+      name: "Privacy Policies",
       intro:
-          "Thank you for choosing Games Arena (\"the App\"). This Privacy Policy outlines how we collect, use, and safeguard your personal information.\nLast Updated: 8/1/2024\n By using the App, you agree to the terms outlined in this policy.",
+          "Thank you for choosing Games Arena. This Privacy Policy outlines how we collect, use, and safeguard your personal information.\nLast Updated: 8/1/2024\nBy using the App, you agree to the terms outlined in this policy.",
       subInfos: [
         SubInfo(title: "Information We Collect", texts: [
           "User Account Information: When you create an account, we may collect your username, email address, and other relevant information.",
@@ -93,8 +93,8 @@ Map<String, AppInfo> appInfos = {
         ]),
         SubInfo(title: "What Sets Us Apart", texts: [
           "Variety of Games: From the classic strategy of Chess to the excitement of Ludo, the tactical moves in Draught, the unpredictability of Whot, and the timeless fun of Xs and Os, we offer a diverse selection of games to keep you entertained.",
-          "User-Focused Design: We prioritize user experience, ensuring our games are not only challenging but also easy to navigate. Whether you're a seasoned player or a newcomer, Games Arena is designed with you in mind.",
-          "Community Engagement: We believe that gaming is not just about playing; it's about connecting. Join our community, share your achievements, and challenge friends to friendly matches. The Games Arena community is a place where gamers come together."
+          "User-Focused Design: We prioritize user experience, ensuring our games are not only challenging but also easy to navigate. Whether you're a seasoned players or a newcomer, Games Arena is designed with you in mind.",
+          "Community Engagement: We believe that gaming is not just about players; it's about connecting. Join our community, share your achievements, and challenge friends to friendly matches. The Games Arena community is a place where gamers come together."
         ]),
         SubInfo(title: "Our Team", texts: [
           "Games Arena is driven by a team of dedicated individuals who share a love for gaming. From developers crafting immersive gameplay to support staff ensuring a smooth experience, our team works collaboratively to bring you the best gaming platform."

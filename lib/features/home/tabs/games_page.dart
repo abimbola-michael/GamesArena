@@ -1,21 +1,26 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamesarena/features/game/utils.dart';
-import 'package:gamesarena/shared/services.dart';
+import 'package:gamesarena/features/home/providers/search_games_provider.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/features/game/pages/new_offline_game_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:gamesarena/shared/extensions/special_context_extensions.dart';
 import 'package:icons_plus/icons_plus.dart';
 import '../../../shared/widgets/game_card.dart';
+import '../../../theme/colors.dart';
 import '../../game/services.dart';
 import '../../game/widgets/game_item.dart';
 import '../../../shared/utils/constants.dart';
-import '../../../shared/utils/utils.dart';
 import '../../games/pages.dart';
 import '../../onboarding/pages/auth_page.dart';
 
-class GamesPage extends StatefulWidget {
+class GamesPage extends ConsumerStatefulWidget {
   final bool isTab;
   final List<String>? players;
+  final String? gameId;
+  final String? groupName;
+
   final int? playersSize;
   final bool isCallback;
   final bool isChangeGame;
@@ -28,6 +33,8 @@ class GamesPage extends StatefulWidget {
     this.isCallback = false,
     this.isChangeGame = false,
     this.players,
+    this.gameId,
+    this.groupName,
     this.playersSize,
     this.gameCallback,
     this.onBackPressed,
@@ -35,59 +42,96 @@ class GamesPage extends StatefulWidget {
   });
 
   @override
-  State<GamesPage> createState() => GamesPageState();
+  ConsumerState<GamesPage> createState() => GamesPageState();
 }
 
-class GamesPageState extends State<GamesPage> {
+class GamesPageState extends ConsumerState<GamesPage>
+    with SingleTickerProviderStateMixin {
   // int mode = -1;
-  int game = -1;
+  //int game = -1;
+  String game = "";
   String current = "game";
   List<String>? players;
   bool creating = false;
   int playersSize = 2;
   int gridSize = 2;
-  List<String> games = [];
+  int currentTab = 0;
+  //List<String> games = [];
   void Function(String game)? gameCallback;
+
+  List<String> boardGames = [];
+  List<String> cardGames = [];
+  List<String> puzzleGames = [];
+  List<String> quizGames = [];
+
+  TabController? tabController;
 
   @override
   void initState() {
     super.initState();
+    tabController = TabController(
+        length: allGameCategories.length,
+        vsync: this,
+        initialIndex: currentTab);
+    //tabController!.addListener(tabListener);
 
     players = widget.players;
     playersSize = widget.playersSize ?? 2;
     gameCallback = widget.gameCallback;
-    // if (players != null && players!.isNotEmpty) {
-    //   mode = 0;
-    // } else if (playersSize != null) {
-    //   mode = 1;
-    // }
+
     if (playersSize > 2) {
-      games.add(ludoGame);
-      games.add(whotGame);
+      boardGames.add(ludoGame);
+      boardGames.add(whotGame);
     } else {
-      games.addAll(allGames);
+      boardGames.addAll(allBoardGames);
     }
+    cardGames.addAll(allCardGames);
+    puzzleGames.addAll(allPuzzleGames);
+    quizGames.addAll(allQuizGames);
+
     if (widget.currentGame != null) {
-      games.remove(widget.currentGame);
+      if (boardGames.contains(widget.currentGame)) {
+        boardGames.remove(widget.currentGame);
+      } else if (cardGames.contains(widget.currentGame)) {
+        cardGames.remove(widget.currentGame);
+      } else if (puzzleGames.contains(widget.currentGame)) {
+        puzzleGames.remove(widget.currentGame);
+      } else if (quizGames.contains(widget.currentGame)) {
+        quizGames.remove(widget.currentGame);
+      }
     }
   }
 
-  int getListLength() {
-    return current == "game" ? games.length : modes.length;
+  @override
+  void dispose() {
+    tabController?.dispose();
+    super.dispose();
   }
+
+  // void tabListener() {
+  //   currentTab = tabController?.index ?? 0;
+  // }
 
   @override
   Widget build(BuildContext context) {
     gridSize = context.screenWidth < context.screenHeight ? 2 : 4;
-    return WillPopScope(
-      onWillPop: () async {
-        if (current == "game") {
-          return true;
-        } else {
+    final searchString = ref.watch(searchGamesProvider);
+    return PopScope(
+      canPop: current == "game",
+      onPopInvoked: (pop) {
+        if (pop) return;
+        if (current != "game") {
           goBackToGames();
-          return false;
         }
       },
+      // onWillPop: () async {
+      //   if (current == "game") {
+      //     return true;
+      //   } else {
+      //     goBackToGames();
+      //     return false;
+      //   }
+      // },
       child: Scaffold(
         appBar: widget.isTab
             ? null
@@ -95,7 +139,7 @@ class GamesPageState extends State<GamesPage> {
                 titleSpacing: 20,
                 centerTitle: true,
                 leading: IconButton(
-                  onPressed: widget.onBackPressed ?? context.pop(),
+                  onPressed: widget.onBackPressed ?? () => context.pop(),
                   icon: const Icon(
                     EvaIcons.arrow_back,
                     color: Colors.white,
@@ -130,187 +174,169 @@ class GamesPageState extends State<GamesPage> {
               )
             : Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Center(
-                  child: SingleChildScrollView(
-                    primary: true,
-                    scrollDirection: Axis.vertical,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (game != -1 && current == "mode") ...[
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text(
-                              games[game],
-                              style: const TextStyle(
-                                  fontSize: 24, fontWeight: FontWeight.bold),
-                              textAlign: TextAlign.center,
+                child: current == "game"
+                    ? Column(
+                        children: [
+                          TabBar(
+                            controller: tabController,
+                            padding: EdgeInsets.zero,
+                            isScrollable: true,
+                            tabAlignment: TabAlignment.center,
+                            dividerColor: transparent,
+                            tabs: List.generate(
+                              allGameCategories.length,
+                              (index) {
+                                final tab = allGameCategories[index];
+                                return Tab(text: tab);
+                              },
                             ),
                           ),
-                        ],
-                        Wrap(
-                          direction: Axis.horizontal,
-                          children: List.generate(getListLength(), (index) {
-                            if (current == "game") {
-                              final game = games[index];
-                              return GameItemWidget(
-                                width: (context.screenWidth - 32) / gridSize,
-                                game: game,
-                                onPressed: () {
-                                  if (gameCallback != null) {
-                                    gameCallback!(game);
-                                    if (widget.isChangeGame) {
-                                      return;
-                                    }
-                                  }
-                                  this.game = index;
-                                  if (widget.isCallback) {
-                                    Navigator.of(context).pop(games[index]);
-                                  } else {
-                                    if (widget.isTab) {
-                                      setState(() {
-                                        current = "mode";
-                                      });
-                                      // if (!kIsWeb ||
-                                      //     (defaultTargetPlatform ==
-                                      //             TargetPlatform.android ||
-                                      //         defaultTargetPlatform ==
-                                      //             TargetPlatform.iOS)) {
-                                      //   setState(() {
-                                      //     current = "mode";
-                                      //   });
-                                      // } else {
-                                      //   if (players != null &&
-                                      //       players!.isNotEmpty) {
-                                      //     createNewGame();
-                                      //   } else {
-                                      //     gotoSelectPlayers();
-                                      //   }
-                                      // }
-                                    } else {
-                                      if (players != null &&
-                                          players!.isNotEmpty) {
-                                        createNewGame();
-                                      } else if (widget.playersSize != null) {
-                                        gotoGame();
-                                      } else {
-                                        gotoOfflineGame();
-                                      }
-                                    }
-                                  }
-                                },
-                              );
-                            } else {
-                              String mode = modes[index];
-                              return SizedBox(
-                                width: (context.screenWidth - 32) / gridSize,
-                                child: GameCard(
-                                    text: mode,
-                                    icon: Icons.gamepad_rounded,
-                                    onPressed: () {
-                                      if (index == 1) {
-                                        gotoOfflineGame();
-                                      } else {
-                                        gotoSelectPlayers();
-                                      }
+                          Expanded(
+                            child: TabBarView(
+                              controller: tabController,
+                              children: List.generate(allGameCategories.length,
+                                  (index) {
+                                final foundGames = index == 0
+                                    ? boardGames
+                                    : index == 1
+                                        ? cardGames
+                                        : index == 2
+                                            ? puzzleGames
+                                            : quizGames;
+                                final games = foundGames
+                                    .where((game) => game
+                                        .toLowerCase()
+                                        .contains(searchString))
+                                    .toList();
+                                return SingleChildScrollView(
+                                  primary: true,
+                                  scrollDirection: Axis.vertical,
+                                  child: Wrap(
+                                    direction: Axis.horizontal,
+                                    children:
+                                        List.generate(games.length, (index) {
+                                      String game = games[index];
+                                      return GameItemWidget(
+                                        width: (context.screenWidth - 32) /
+                                            gridSize,
+                                        game: game,
+                                        onPressed: () async {
+                                          if (game == yourTopicQuizGame) {
+                                            final topicName = await context
+                                                .showTextInputDialog(
+                                              title: "Quiz Topic",
+                                              hintText: "Topic",
+                                              message:
+                                                  "Enter your quiz topic without ending with quiz and should be between 1 to 3 words",
+                                              actions: ["Cancel", "Start Quiz"],
+                                            );
+                                            if (topicName == null) {
+                                              return;
+                                            }
+                                            String name =
+                                                (topicName as String).trim();
+                                            if (name.isEmpty ||
+                                                name.split(" ").length > 3) {
+                                              showErrorToast(
+                                                  "Please enter a valid topic. Your topic should be between 1 to 3 words");
+                                              return;
+                                            }
+                                            if (name
+                                                .toLowerCase()
+                                                .endsWith("quiz")) {
+                                              name = name.substring(
+                                                  0, name.length - 4);
+                                            }
+                                            game = "${name.capitalize} Quiz";
+                                          }
+                                          if (gameCallback != null) {
+                                            gameCallback!(game);
+                                            if (widget.isChangeGame) {
+                                              return;
+                                            }
+                                          }
+                                          //this.game = index;
+                                          this.game = game;
+
+                                          if (!context.mounted) return;
+
+                                          if (widget.isCallback) {
+                                            Navigator.of(context)
+                                                .pop(games[index]);
+                                          } else {
+                                            if (widget.isTab) {
+                                              setState(() {
+                                                current = "mode";
+                                              });
+                                            } else {
+                                              if (players != null &&
+                                                  players!.isNotEmpty) {
+                                                createNewGame();
+                                              } else if (widget.gameId !=
+                                                  null) {
+                                                gotoSelectPlayers();
+                                              } else if (widget.playersSize !=
+                                                  null) {
+                                                gotoGame();
+                                              } else {
+                                                gotoOfflineGame();
+                                              }
+                                            }
+                                          }
+                                        },
+                                      );
                                     }),
-                              );
-                            }
-                          }),
+                                  ),
+                                );
+                              }),
+                            ),
+                          )
+                        ],
+                      )
+                    : Center(
+                        child: SingleChildScrollView(
+                          primary: true,
+                          scrollDirection: Axis.vertical,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (game.isNotEmpty) ...[
+                                Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Text(
+                                    game,
+                                    style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ],
+                              Wrap(
+                                direction: Axis.horizontal,
+                                children: List.generate(modes.length, (index) {
+                                  String mode = modes[index];
+                                  return SizedBox(
+                                    width:
+                                        (context.screenWidth - 32) / gridSize,
+                                    child: GameCard(
+                                        text: mode,
+                                        icon: Icons.gamepad_rounded,
+                                        onPressed: () {
+                                          if (index == 1) {
+                                            gotoOfflineGame();
+                                          } else {
+                                            gotoSelectPlayers();
+                                          }
+                                        }),
+                                  );
+                                }),
+                              ),
+                            ],
+                          ),
                         ),
-                        // ...List.generate(
-                        //     current == "mode"
-                        //         ? 1
-                        //         : (getListLength() / gridSize).ceil(),
-                        //     (colindex) {
-                        //   final colSize = (getListLength() / gridSize).ceil();
-                        //   final remainder = getListLength() % gridSize;
-                        //   return Row(
-                        //       mainAxisAlignment: current == "mode"
-                        //           ? MainAxisAlignment.center
-                        //           : MainAxisAlignment.start,
-                        //       children: List.generate(
-                        //           current == "mode"
-                        //               ? 2
-                        //               : colindex == colSize - 1 && remainder > 0
-                        //                   ? remainder
-                        //                   : gridSize, (rowindex) {
-                        //         final index = convertToPosition(
-                        //             [rowindex, colindex],
-                        //             current == "mode" ? 2 : gridSize);
-                        //         if (current == "game") {
-                        //           final game = games[index];
-                        //           return Expanded(
-                        //             child: GameItemWidget(
-                        //               width:
-                        //                   (context.screenWidth - 32) / gridSize,
-                        //               game: game,
-                        //               onPressed: () {
-                        //                 if (gameCallback != null) {
-                        //                   gameCallback!(game);
-                        //                 }
-                        //                 this.game = index;
-                        //                 if (widget.isCallback) {
-                        //                   Navigator.of(context)
-                        //                       .pop(games[index]);
-                        //                 } else {
-                        //                   if (widget.isTab) {
-                        //                     if (!kIsWeb ||
-                        //                         (defaultTargetPlatform ==
-                        //                                 TargetPlatform
-                        //                                     .android ||
-                        //                             defaultTargetPlatform ==
-                        //                                 TargetPlatform.iOS)) {
-                        //                       setState(() {
-                        //                         current = "mode";
-                        //                       });
-                        //                     } else {
-                        //                       if (players != null &&
-                        //                           players!.isNotEmpty) {
-                        //                         createNewGame();
-                        //                       } else {
-                        //                         gotoSelectPlayers();
-                        //                       }
-                        //                     }
-                        //                   } else {
-                        //                     if (players != null &&
-                        //                         players!.isNotEmpty) {
-                        //                       createNewGame();
-                        //                     } else if (widget.playersSize !=
-                        //                         null) {
-                        //                       gotoGame();
-                        //                     } else {
-                        //                       gotoOfflineGame();
-                        //                     }
-                        //                   }
-                        //                 }
-                        //               },
-                        //             ),
-                        //           );
-                        //         } else {
-                        //           String mode = modes[index];
-                        //           return SizedBox(
-                        //             width:
-                        //                 (context.screenWidth - 32) / gridSize,
-                        //             child: GameCard(
-                        //                 text: mode,
-                        //                 icon: Icons.gamepad_rounded,
-                        //                 onPressed: () {
-                        //                   if (index == 1) {
-                        //                     gotoOfflineGame();
-                        //                   } else {
-                        //                     gotoSelectPlayers();
-                        //                   }
-                        //                 }),
-                        //           );
-                        //         }
-                        //       }));
-                        // }),
-                      ],
-                    ),
-                  ),
-                ),
+                      ),
               ),
       ),
     );
@@ -321,7 +347,8 @@ class GamesPageState extends State<GamesPage> {
     if (gameCallback != null) {
       gameCallback!("");
     }
-    game = -1;
+    //game = -1;
+    game = "";
     current = "game";
     setState(() {});
   }
@@ -331,23 +358,39 @@ class GamesPageState extends State<GamesPage> {
     setState(() {
       creating = true;
     });
-    await createGame(games[game], "", players!);
-    setState(() {
-      players!.clear();
-      players = null;
-      creating = false;
-    });
+    try {
+      final match = await createMatch(game, null, List.from(players!));
+      if (!mounted || match == null) return;
+      context.pushTo(NewOnlineGamePage(
+        indices: "",
+        players: const [],
+        users: const [],
+        game: match.game!,
+        matchId: match.match_id!,
+        gameId: match.game_id!,
+        creatorId: match.creator_id!,
+        creatorName: "",
+      ));
+    } finally {
+      if (mounted) {
+        setState(() {
+          players!.clear();
+          players = null;
+          creating = false;
+        });
+      }
+    }
   }
 
   void gotoOfflineGame() async {
     if (!widget.isTab) {
       await Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-              builder: (context) => NewOfflineGamePage(game: games[game])),
+              builder: (context) => NewOfflineGamePage(game: game)),
           result: true);
     } else {
       await Navigator.of(context).push(MaterialPageRoute(
-          builder: (context) => NewOfflineGamePage(game: games[game])));
+          builder: (context) => NewOfflineGamePage(game: game)));
       setState(() {
         current = "game";
       });
@@ -358,10 +401,11 @@ class GamesPageState extends State<GamesPage> {
     final players = (await Navigator.of(context).push(MaterialPageRoute(
         builder: (context) => FirebaseAuth.instance.currentUser == null
             ? const AuthPage()
-            : OnlinePlayersSelectionPage(
+            : PlayersSelectionPage(
                 type: "",
-                game: games[game],
-                group_id: "",
+                game: game,
+                gameId: widget.gameId,
+                groupName: widget.groupName,
               ))) as List<String>?);
     if (players != null) {
       this.players = players;
@@ -371,77 +415,6 @@ class GamesPageState extends State<GamesPage> {
   }
 
   void gotoGame() {
-    final game = games[this.game];
-    gotoGamePage(context, game, "", "", null, null, playersSize, null, 0,
-        result: true);
-    // Widget widget = const BatballGamePage();
-    // if (game == "Bat Ball") {
-    //   widget = const BatballGamePage();
-    // } else if (game == "Whot") {
-    //   widget = WhotGamePage(
-    //     playersSize: playersSize,
-    //   );
-    // } else if (game == "Ludo") {
-    //   widget = LudoGamePage(
-    //     playersSize: playersSize,
-    //   );
-    // } else if (game == "Draught") {
-    //   widget = const DraughtGamePage();
-    // } else if (game == "Chess") {
-    //   widget = const ChessGamePage();
-    // } else if (game == "X and O") {
-    //   widget = const XandOGamePage();
-    // }
-    // Navigator.of(context).pushReplacement(
-    //     MaterialPageRoute(builder: ((context) => widget)),
-    //     result: true);
+    gotoGamePage(context, game, "", "", playersSize: playersSize, result: true);
   }
-  // void gotoGame() {
-  //   String game = games[this.game];
-  //   Widget widget = const BatballGamePage();
-  //   if (game == "Bat Ball") {
-  //     widget = BatballGamePage(
-  //       matchId: matchId,
-  //       gameId: gameId,
-  //       users: users,
-  //     );
-  //   } else if (game == "Whot") {
-  //     widget = WhotGamePage(
-  //       matchId: matchId,
-  //       gameId: gameId,
-  //       users: users,
-  //     );
-  //   } else if (game == "Ludo") {
-  //     widget = LudoGamePage(
-  //       matchId: matchId,
-  //       gameId: gameId,
-  //       users: users,
-  //     );
-  //   } else if (game == "Draught") {
-  //     widget = DraughtGamePage(
-  //       matchId: matchId,
-  //       gameId: gameId,
-  //       users: users,
-  //     );
-  //   } else if (game == "Chess") {
-  //     widget = ChessGamePage(
-  //       matchId: matchId,
-  //       gameId: gameId,
-  //       users: users,
-  //     );
-  //   } else if (game == "X and O") {
-  //     widget = XandOGamePage(
-  //       matchId: matchId,
-  //       gameId: gameId,
-  //       users: users,
-  //     );
-  //   }
-  //   Navigator.of(context)
-  //       .pushReplacement(MaterialPageRoute(builder: ((context) => widget)));
-  // }
-  // void gotoNewGamePage(int playersSize) {
-  //   Navigator.of(context).push(MaterialPageRoute(
-  //       builder: ((context) =>
-  //           NewOfflineGamePage(game: games[game], playersSize: playersSize))));
-  // }
 }

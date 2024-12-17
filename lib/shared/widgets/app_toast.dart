@@ -40,7 +40,7 @@ class _AppToastState extends State<AppToast>
         : Container(
             decoration: BoxDecoration(
                 color: Colors.black, borderRadius: BorderRadius.circular(20)),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             margin: const EdgeInsets.symmetric(vertical: 20),
             child: Text(
               widget.message,

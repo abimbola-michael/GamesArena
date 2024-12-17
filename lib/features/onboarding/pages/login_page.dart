@@ -375,65 +375,124 @@ class _LoginPageState extends State<LoginPage> {
           });
         }
       },
-      child: SafeArea(
-        child: Scaffold(
-          extendBody: true,
-          body: Center(
-            child: SizedBox(
-              width: 350,
-              child: comfirmEmail
-                  ? Center(
-                      child: RichText(
-                          textAlign: TextAlign.center,
-                          text: TextSpan(
-                              style: const TextStyle(fontSize: 18),
-                              text:
-                                  "A comfirmation link has been sent to your mail. Click to comfirm. ",
-                              children: [
-                                TextSpan(
-                                    text: "Resend",
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: primaryColor),
-                                    recognizer: TapGestureRecognizer()
-                                      ..onTap = () {
-                                        fm
-                                            .sendEmailVerification()
-                                            .then((value) {
-                                          Fluttertoast.showToast(
-                                              msg:
-                                                  "A comfirmation link has been sent to your mail. Click to comfirm");
-                                          setState(() {
-                                            comfirmEmail = false;
-                                          });
+      child: Scaffold(
+        extendBody: true,
+        body: Center(
+          child: SizedBox(
+            width: 350,
+            child: comfirmEmail
+                ? Center(
+                    child: RichText(
+                        textAlign: TextAlign.center,
+                        text: TextSpan(
+                            style: const TextStyle(fontSize: 18),
+                            text:
+                                "A comfirmation link has been sent to your mail. Click to comfirm. ",
+                            children: [
+                              TextSpan(
+                                  text: "Resend",
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: primaryColor),
+                                  recognizer: TapGestureRecognizer()
+                                    ..onTap = () {
+                                      fm.sendEmailVerification().then((value) {
+                                        Fluttertoast.showToast(
+                                            msg:
+                                                "A comfirmation link has been sent to your mail. Click to comfirm");
+                                        setState(() {
+                                          comfirmEmail = false;
                                         });
-                                      }),
-                              ])),
-                    )
-                  : Stack(
-                      fit: StackFit.expand,
-                      alignment: Alignment.center,
-                      children: [
-                        Center(
-                          child: SingleChildScrollView(
-                            child: Form(
-                              key: formStateKey,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.all(16.0),
-                                    child: Text(
-                                      "Games Arena",
-                                      style: GoogleFonts.merienda(
-                                          fontSize: 30,
-                                          fontWeight: FontWeight.bold),
-                                      textAlign: TextAlign.center,
-                                    ),
+                                      });
+                                    }),
+                            ])),
+                  )
+                : Stack(
+                    fit: StackFit.expand,
+                    alignment: Alignment.center,
+                    children: [
+                      Center(
+                        child: SingleChildScrollView(
+                          child: Form(
+                            key: formStateKey,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Text(
+                                    "Games Arena",
+                                    style: GoogleFonts.merienda(
+                                        fontSize: 30,
+                                        fontWeight: FontWeight.bold),
+                                    textAlign: TextAlign.center,
                                   ),
-                                  const SizedBox(
-                                    height: 20,
+                                ),
+                                const SizedBox(
+                                  height: 20,
+                                ),
+                                if (!enterUsername) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        // horizontal: context.screenWidth
+                                        //     .percentValue(5),
+                                        vertical: 10),
+                                    child: TextFormField(
+                                      controller: emailController,
+                                      validator: (string) {
+                                        return fm.checkValidity(
+                                            string?.trim() ?? "", "email", 0, 0,
+                                            exists: emailExist);
+                                      },
+                                      keyboardType: TextInputType.emailAddress,
+                                      decoration: InputDecoration(
+                                          border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              borderSide: BorderSide(
+                                                  color: darkMode
+                                                      ? lightWhite
+                                                      : lightBlack)),
+                                          hintText: "Email"),
+                                      onChanged: ((value) {
+                                        email = value.trim();
+                                      }),
+                                    ),
+                                  )
+                                ],
+                                if (!login &&
+                                    !forgotPassword &&
+                                    !enterUsername) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        // horizontal: context.screenWidth
+                                        //     .percentValue(5),
+                                        vertical: 10),
+                                    child: TextFormField(
+                                      controller: usernameController,
+                                      validator: (string) {
+                                        return fm.checkValidity(
+                                            string?.trim() ?? "",
+                                            "username",
+                                            6,
+                                            20,
+                                            exists: usernameExist);
+                                      },
+                                      keyboardType: TextInputType.text,
+                                      decoration: InputDecoration(
+                                          border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              borderSide: BorderSide(
+                                                  color: darkMode
+                                                      ? lightWhite
+                                                      : lightBlack)),
+                                          hintText: "Username"),
+                                      onChanged: ((value) {
+                                        username = value.trim();
+                                      }),
+                                    ),
                                   ),
                                   if (!enterUsername) ...[
                                     Padding(
@@ -442,17 +501,15 @@ class _LoginPageState extends State<LoginPage> {
                                           //     .percentValue(5),
                                           vertical: 10),
                                       child: TextFormField(
-                                        controller: emailController,
+                                        controller: phoneController,
                                         validator: (string) {
                                           return fm.checkValidity(
                                               string?.trim() ?? "",
-                                              "email",
-                                              0,
-                                              0,
-                                              exists: emailExist);
+                                              "phone",
+                                              6,
+                                              20);
                                         },
-                                        keyboardType:
-                                            TextInputType.emailAddress,
+                                        keyboardType: TextInputType.number,
                                         decoration: InputDecoration(
                                             border: OutlineInputBorder(
                                                 borderRadius:
@@ -461,312 +518,245 @@ class _LoginPageState extends State<LoginPage> {
                                                     color: darkMode
                                                         ? lightWhite
                                                         : lightBlack)),
-                                            hintText: "Email"),
+                                            hintText: "Phone"),
                                         onChanged: ((value) {
-                                          email = value.trim();
-                                        }),
-                                      ),
-                                    )
-                                  ],
-                                  if (!login &&
-                                      !forgotPassword &&
-                                      !enterUsername) ...[
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          // horizontal: context.screenWidth
-                                          //     .percentValue(5),
-                                          vertical: 10),
-                                      child: TextFormField(
-                                        controller: usernameController,
-                                        validator: (string) {
-                                          return fm.checkValidity(
-                                              string?.trim() ?? "",
-                                              "username",
-                                              6,
-                                              20,
-                                              exists: usernameExist);
-                                        },
-                                        keyboardType: TextInputType.text,
-                                        decoration: InputDecoration(
-                                            border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
-                                                borderSide: BorderSide(
-                                                    color: darkMode
-                                                        ? lightWhite
-                                                        : lightBlack)),
-                                            hintText: "Username"),
-                                        onChanged: ((value) {
-                                          username = value.trim();
+                                          phone = value.trim();
                                         }),
                                       ),
                                     ),
-                                    if (!enterUsername) ...[
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            // horizontal: context.screenWidth
-                                            //     .percentValue(5),
-                                            vertical: 10),
-                                        child: TextFormField(
-                                          controller: phoneController,
-                                          validator: (string) {
-                                            return fm.checkValidity(
-                                                string?.trim() ?? "",
-                                                "phone",
-                                                6,
-                                                20);
-                                          },
-                                          keyboardType: TextInputType.number,
-                                          decoration: InputDecoration(
-                                              border: OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                  borderSide: BorderSide(
-                                                      color: darkMode
-                                                          ? lightWhite
-                                                          : lightBlack)),
-                                              hintText: "Phone"),
-                                          onChanged: ((value) {
-                                            phone = value.trim();
-                                          }),
-                                        ),
-                                      ),
-                                    ]
-                                  ],
-                                  if (!forgotPassword && !enterUsername) ...[
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          // horizontal: context.screenWidth
-                                          //     .percentValue(5),
-                                          vertical: 10),
-                                      child: TextFormField(
-                                        controller: passwordController,
-                                        validator: (string) {
-                                          return fm.checkValidity(
-                                              string?.trim() ?? "",
-                                              "password",
-                                              6,
-                                              30);
-                                        },
-                                        obscureText: !showPassword,
-                                        decoration: InputDecoration(
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              borderSide: BorderSide(
-                                                  color: darkMode
-                                                      ? lightWhite
-                                                      : lightBlack),
-                                            ),
-                                            hintText: "Password",
-                                            suffix: GestureDetector(
-                                              child: Text(
-                                                showPassword ? "Hide" : "Show",
-                                                style: const TextStyle(
-                                                    color: Colors.blue),
-                                              ),
-                                              onTap: () {
-                                                setState(() {
-                                                  showPassword = !showPassword;
-                                                });
-                                              },
-                                            )),
-                                        onChanged: ((value) {
-                                          password = value.trim();
-                                        }),
-                                      ),
-                                    ),
-                                  ],
-                                  if (!login &&
-                                      !forgotPassword &&
-                                      !enterUsername) ...[
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Checkbox(
-                                            activeColor: Colors.blue,
-                                            value: acceptTerms,
-                                            onChanged: (value) {
-                                              setState(() {
-                                                if (value != null) {
-                                                  acceptTerms = value;
-                                                }
-                                              });
-                                            }),
-                                        // const SizedBox(
-                                        //   width: 4,
-                                        // ),
-                                        TextButton(
-                                            onPressed: () {
-                                              Navigator.of(context).push(
-                                                  MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          const AppInfoPage(
-                                                            type:
-                                                                "Terms and Conditions and Privacy Policy",
-                                                          )));
-                                            },
-                                            child: const Text(
-                                              "Accept Terms, Conditions and Privacy Policy",
-                                              style:
-                                                  TextStyle(color: Colors.blue),
-                                            ))
-                                      ],
-                                    )
-                                  ],
-                                  ActionButton(
-                                      login
-                                          ? "Login"
-                                          : forgotPassword
-                                              ? "Send Password Reset Email"
-                                              : "Sign Up",
-                                      onPressed: loginOrSignUp,
-                                      disabled: !(login ||
-                                          enterUsername ||
-                                          forgotPassword ||
-                                          acceptTerms),
-                                      disabledColor: darkMode
-                                          ? lightestWhite
-                                          : lightestBlack,
-                                      height: 50),
-                                  // if (login) ...[
-                                  ActionButton("Login with Gmail",
-                                      outline: true,
-                                      color: const Color(0xffDB4437),
-                                      onPressed: () {
-                                    googleSignIn();
-                                  }),
-                                  //],
-                                  if (login) ...[
-                                    GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          forgotPassword = true;
-                                          login = false;
-                                        });
-                                      },
-                                      child: const Text(
-                                        "Forgot Password",
-                                        style: TextStyle(color: primaryColor),
-                                      ),
-                                    ),
-                                  ],
-                                  if (login) ...[
-                                    // const SizedBox(
-                                    //   height: 4,
-                                    // ),
-
-                                    // GestureDetector(
-                                    //   onTap: () {
-                                    //     fm.signInWithGoogle().then((cred) async {
-                                    //       final user = cred.user!;
-                                    //       final userId = user.uid;
-                                    //       final userData = await getUser(userId);
-                                    //       email = user.email!;
-                                    //       username = user.displayName!
-                                    //           .replaceAll(" ", "")
-                                    //           .toLowerCase();
-                                    //       phone = user.phoneNumber!;
-                                    //       if (userData != null) {
-                                    //         gotoHomePage();
-                                    //       } else {
-                                    //         setState(() {
-                                    //           loading = false;
-                                    //           enterUsername = true;
-                                    //         });
-                                    //       }
-                                    //     }).onError((error, stackTrace) {
-                                    //       Fluttertoast.showToast(
-                                    //           msg: error.toString().contains("]")
-                                    //               ? "${error.toString().split("]").second}"
-                                    //               : error.toString());
-                                    //     });
-                                    //   },
-                                    //   child: SvgPicture.asset(
-                                    //     "assets/icons/gmail_icon_round.svg",
-                                    //     width: 60,
-                                    //     height: 60,
-                                    //     color: Color(0xffDB4437),
-                                    //   ),
-                                    // child: Row(
-                                    //   crossAxisAlignment: CrossAxisAlignment.center,
-                                    //   mainAxisAlignment: MainAxisAlignment.center,
-                                    //   children: [
-                                    //     SvgPicture.asset(
-                                    //       "assets/icons/gmail_icon.svg",
-                                    //       width: 20,
-                                    //       height: 20,
-                                    //     ),
-                                    //     const SizedBox(
-                                    //       width: 2,
-                                    //     ),
-                                    //     const Text(
-                                    //       "Login with Gmail",
-                                    //       style: TextStyle(color: Colors.blue),
-                                    //     )
-                                    //   ],
-                                    // ),
-                                    //)
                                   ]
                                 ],
-                              ),
+                                if (!forgotPassword && !enterUsername) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        // horizontal: context.screenWidth
+                                        //     .percentValue(5),
+                                        vertical: 10),
+                                    child: TextFormField(
+                                      controller: passwordController,
+                                      validator: (string) {
+                                        return fm.checkValidity(
+                                            string?.trim() ?? "",
+                                            "password",
+                                            6,
+                                            30);
+                                      },
+                                      obscureText: !showPassword,
+                                      decoration: InputDecoration(
+                                          border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                            borderSide: BorderSide(
+                                                color: darkMode
+                                                    ? lightWhite
+                                                    : lightBlack),
+                                          ),
+                                          hintText: "Password",
+                                          suffix: GestureDetector(
+                                            child: Text(
+                                              showPassword ? "Hide" : "Show",
+                                              style: const TextStyle(
+                                                  color: Colors.blue),
+                                            ),
+                                            onTap: () {
+                                              setState(() {
+                                                showPassword = !showPassword;
+                                              });
+                                            },
+                                          )),
+                                      onChanged: ((value) {
+                                        password = value.trim();
+                                      }),
+                                    ),
+                                  ),
+                                ],
+                                if (!login &&
+                                    !forgotPassword &&
+                                    !enterUsername) ...[
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Checkbox(
+                                          activeColor: Colors.blue,
+                                          value: acceptTerms,
+                                          onChanged: (value) {
+                                            setState(() {
+                                              if (value != null) {
+                                                acceptTerms = value;
+                                              }
+                                            });
+                                          }),
+                                      // const SizedBox(
+                                      //   width: 4,
+                                      // ),
+                                      TextButton(
+                                          onPressed: () {
+                                            Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        const AppInfoPage(
+                                                          type:
+                                                              "Terms and Conditions and Privacy Policy",
+                                                        )));
+                                          },
+                                          child: const Text(
+                                            "Accept Terms, Conditions and Privacy Policy",
+                                            style:
+                                                TextStyle(color: Colors.blue),
+                                          ))
+                                    ],
+                                  )
+                                ],
+                                ActionButton(
+                                    login
+                                        ? "Login"
+                                        : forgotPassword
+                                            ? "Send Password Reset Email"
+                                            : "Sign Up",
+                                    onPressed: loginOrSignUp,
+                                    disabled: !(login ||
+                                        enterUsername ||
+                                        forgotPassword ||
+                                        acceptTerms),
+                                    disabledColor: darkMode
+                                        ? lightestWhite
+                                        : lightestBlack,
+                                    height: 50),
+                                // if (login) ...[
+                                ActionButton("Login with Gmail",
+                                    outline: true,
+                                    color: const Color(0xffDB4437),
+                                    onPressed: () {
+                                  googleSignIn();
+                                }),
+                                //],
+                                if (login) ...[
+                                  GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        forgotPassword = true;
+                                        login = false;
+                                      });
+                                    },
+                                    child: const Text(
+                                      "Forgot Password",
+                                      style: TextStyle(color: primaryColor),
+                                    ),
+                                  ),
+                                ],
+                                if (login) ...[
+                                  // const SizedBox(
+                                  //   height: 4,
+                                  // ),
+
+                                  // GestureDetector(
+                                  //   onTap: () {
+                                  //     fm.signInWithGoogle().then((cred) async {
+                                  //       final user = cred.user!;
+                                  //       final userId = user.uid;
+                                  //       final userData = await getUser(userId);
+                                  //       email = user.email!;
+                                  //       username = user.displayName!
+                                  //           .replaceAll(" ", "")
+                                  //           .toLowerCase();
+                                  //       phone = user.phoneNumber!;
+                                  //       if (userData != null) {
+                                  //         gotoHomePage();
+                                  //       } else {
+                                  //         setState(() {
+                                  //           loading = false;
+                                  //           enterUsername = true;
+                                  //         });
+                                  //       }
+                                  //     }).onError((error, stackTrace) {
+                                  //       Fluttertoast.showToast(
+                                  //           msg: error.toString().contains("]")
+                                  //               ? "${error.toString().split("]").second}"
+                                  //               : error.toString());
+                                  //     });
+                                  //   },
+                                  //   child: SvgPicture.asset(
+                                  //     "assets/icons/gmail_icon_round.svg",
+                                  //     width: 60,
+                                  //     height: 60,
+                                  //     color: Color(0xffDB4437),
+                                  //   ),
+                                  // child: Row(
+                                  //   crossAxisAlignment: CrossAxisAlignment.center,
+                                  //   mainAxisAlignment: MainAxisAlignment.center,
+                                  //   children: [
+                                  //     SvgPicture.asset(
+                                  //       "assets/icons/gmail_icon.svg",
+                                  //       width: 20,
+                                  //       height: 20,
+                                  //     ),
+                                  //     const SizedBox(
+                                  //       width: 2,
+                                  //     ),
+                                  //     const Text(
+                                  //       "Login with Gmail",
+                                  //       style: TextStyle(color: Colors.blue),
+                                  //     )
+                                  //   ],
+                                  // ),
+                                  //)
+                                ]
+                              ],
                             ),
                           ),
                         ),
-                        if (loading || enterUsername) ...[
-                          Container(
-                            height: double.infinity,
-                            width: double.infinity,
-                            color: Colors.black.withOpacity(0.5),
-                            alignment: Alignment.center,
-                            child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const CircularProgressIndicator(),
-                                  Text(
-                                    forgotPassword
-                                        ? "Sending Password Reset Email"
-                                        : login
-                                            ? "Logging in"
-                                            : "Signing up",
-                                    style: const TextStyle(color: Colors.white),
-                                  )
-                                ]),
-                          )
-                        ],
+                      ),
+                      if (loading || enterUsername) ...[
+                        Container(
+                          height: double.infinity,
+                          width: double.infinity,
+                          color: Colors.black.withOpacity(0.5),
+                          alignment: Alignment.center,
+                          child:
+                              Column(mainAxisSize: MainAxisSize.min, children: [
+                            const CircularProgressIndicator(),
+                            Text(
+                              forgotPassword
+                                  ? "Sending Password Reset Email"
+                                  : login
+                                      ? "Logging in"
+                                      : "Signing up",
+                              style: const TextStyle(color: Colors.white),
+                            )
+                          ]),
+                        )
                       ],
-                    ),
-            ),
+                    ],
+                  ),
           ),
-          bottomNavigationBar: loading
-              ? null
-              : Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                          text: login
-                              ? "Don't have an account? "
-                              : "Already have an account? ",
-                          style: TextStyle(
-                              color: darkMode ? lightWhite : lightBlack),
-                          children: [
-                            TextSpan(
-                                text: login ? "Sign Up" : "Login",
-                                style: const TextStyle(color: primaryColor),
-                                recognizer: TapGestureRecognizer()
-                                  ..onTap = () {
-                                    setState(() {
-                                      forgotPassword = false;
-                                      login = !login;
-                                    });
-                                  }),
-                          ])),
-                ),
         ),
+        bottomNavigationBar: loading
+            ? null
+            : Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: RichText(
+                    textAlign: TextAlign.center,
+                    text: TextSpan(
+                        text: login
+                            ? "Don't have an account? "
+                            : "Already have an account? ",
+                        style: TextStyle(
+                            color: darkMode ? lightWhite : lightBlack),
+                        children: [
+                          TextSpan(
+                              text: login ? "Sign Up" : "Login",
+                              style: const TextStyle(color: primaryColor),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = () {
+                                  setState(() {
+                                    forgotPassword = false;
+                                    login = !login;
+                                  });
+                                }),
+                        ])),
+              ),
       ),
     );
   }

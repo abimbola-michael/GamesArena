@@ -1,4 +1,6 @@
+// ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:gamesarena/core/firebase/extensions/firestore_extensions.dart';
 
 import 'auth_methods.dart';
@@ -14,6 +16,11 @@ class ValueChange<T> {
       required this.type,
       required this.oldIndex,
       required this.newIndex});
+
+  @override
+  String toString() {
+    return 'ValueChange(value: $value, type: $type, oldIndex: $oldIndex, newIndex: $newIndex)';
+  }
 }
 
 class FirestoreMethods {
@@ -143,6 +150,7 @@ class FirestoreMethods {
 
   Future<void> removeValue(List<String> path,
       {bool Function(Map? map)? callback,
+      List<dynamic>? queries,
       List<dynamic>? where,
       List<dynamic>? order,
       List<dynamic>? start,
@@ -150,8 +158,8 @@ class FirestoreMethods {
       List<dynamic>? limit}) async {
     try {
       if (path.length.isOdd) {
-        final ref =
-            getCollectionRef(path).getQuery(where, order, start, end, limit);
+        final ref = getCollectionRef(path)
+            .getQuery(queries, where, order, start, end, limit);
         final batch = firestore.batch();
         final snapshots = await ref.get();
         for (var doc in snapshots.docs) {
@@ -160,6 +168,30 @@ class FirestoreMethods {
           } else {
             batch.delete(doc.reference);
           }
+        }
+        return batch.commit();
+      } else {
+        final ref = getDocumentRef(path);
+        return ref.delete();
+      }
+    } on FirebaseException catch (e) {}
+  }
+
+  Future<void> removeValues(List<String> path, List<String> ids,
+      {List<dynamic>? queries,
+      List<dynamic>? where,
+      List<dynamic>? order,
+      List<dynamic>? start,
+      List<dynamic>? end,
+      List<dynamic>? limit}) async {
+    try {
+      if (path.length.isOdd) {
+        final batch = firestore.batch();
+
+        for (var id in ids) {
+          final ref = getDocumentRef([...path, id]);
+          batch.delete(ref);
+          //await ref.delete();
         }
         return batch.commit();
       } else {
@@ -188,7 +220,8 @@ class FirestoreMethods {
 
   Future<List<T>> getValues<T>(
       T Function(Map<String, dynamic> map) callback, List<String> path,
-      {List<dynamic>? where,
+      {List<dynamic>? queries,
+      List<dynamic>? where,
       List<dynamic>? order,
       List<dynamic>? start,
       List<dynamic>? end,
@@ -198,8 +231,9 @@ class FirestoreMethods {
       if (path.length.isOdd) {
         final ref = isSubcollection
             ? getGroupCollectionRef(path)
-                .getQuery(where, order, start, end, limit)
-            : getCollectionRef(path).getQuery(where, order, start, end, limit);
+                .getQuery(queries, where, order, start, end, limit)
+            : getCollectionRef(path)
+                .getQuery(queries, where, order, start, end, limit);
         final snapshot = await ref.get();
         return snapshot.getValues(callback);
       } else {
@@ -216,7 +250,8 @@ class FirestoreMethods {
 
   Stream<T?> getValueStream<T>(
       T Function(Map<String, dynamic> map) callback, List<String> path,
-      {List<dynamic>? where,
+      {List<dynamic>? queries,
+      List<dynamic>? where,
       List<dynamic>? order,
       List<dynamic>? start,
       List<dynamic>? end,
@@ -226,8 +261,9 @@ class FirestoreMethods {
       if (path.length.isOdd) {
         final ref = isSubcollection
             ? getGroupCollectionRef(path)
-                .getQuery(where, order, start, end, limit)
-            : getCollectionRef(path).getQuery(where, order, start, end, limit);
+                .getQuery(queries, where, order, start, end, limit)
+            : getCollectionRef(path)
+                .getQuery(queries, where, order, start, end, limit);
         final snapshots = ref.snapshots();
         yield* snapshots
             .map((snapshot) => snapshot.getValues(callback).lastOrNull);
@@ -243,7 +279,8 @@ class FirestoreMethods {
 
   Stream<List<T>> getValuesStream<T>(
       T Function(Map<String, dynamic> map) callback, List<String> path,
-      {List<dynamic>? where,
+      {List<dynamic>? queries,
+      List<dynamic>? where,
       List<dynamic>? order,
       List<dynamic>? start,
       List<dynamic>? end,
@@ -253,8 +290,9 @@ class FirestoreMethods {
       if (path.length.isOdd) {
         final ref = isSubcollection
             ? getGroupCollectionRef(path)
-                .getQuery(where, order, start, end, limit)
-            : getCollectionRef(path).getQuery(where, order, start, end, limit);
+                .getQuery(queries, where, order, start, end, limit)
+            : getCollectionRef(path)
+                .getQuery(queries, where, order, start, end, limit);
 
         final snapshots = ref.snapshots();
         yield* snapshots.map((snapshot) => snapshot.getValues(callback));
@@ -272,7 +310,8 @@ class FirestoreMethods {
 
   Stream<List<ValueChange<T>>> getValuesChangeStream<T>(
       T Function(Map<String, dynamic> map) callback, List<String> path,
-      {List<dynamic>? where,
+      {List<dynamic>? queries,
+      List<dynamic>? where,
       List<dynamic>? order,
       List<dynamic>? start,
       List<dynamic>? end,
@@ -284,8 +323,9 @@ class FirestoreMethods {
       if (path.length.isOdd) {
         final ref = isSubcollection
             ? getGroupCollectionRef(path)
-                .getQuery(where, order, start, end, limit)
-            : getCollectionRef(path).getQuery(where, order, start, end, limit);
+                .getQuery(queries, where, order, start, end, limit)
+            : getCollectionRef(path)
+                .getQuery(queries, where, order, start, end, limit);
         final snapshots = ref.snapshots();
         yield* snapshots.map((snapshot) => snapshot.getValuesChange(callback));
       }
@@ -294,8 +334,9 @@ class FirestoreMethods {
     }
   }
 
-  Future<int> getCount(List<String> path,
-      {List<dynamic>? where,
+  Future<int> getSnapshotCount(List<String> path,
+      {List<dynamic>? queries,
+      List<dynamic>? where,
       List<dynamic>? order,
       List<dynamic>? start,
       List<dynamic>? end,
@@ -304,7 +345,7 @@ class FirestoreMethods {
     try {
       final ref = isSubcollection
           ? getGroupCollectionRef(path)
-              .getQuery(where, order, start, end, limit)
+              .getQuery(queries, where, order, start, end, limit)
           : getCollectionRef(path);
 
       // final snapshot = await ref.get();
@@ -316,7 +357,8 @@ class FirestoreMethods {
   }
 
   Stream<int> getSnapshotSizeStream(List<String> path,
-      {List<dynamic>? where,
+      {List<dynamic>? queries,
+      List<dynamic>? where,
       List<dynamic>? order,
       List<dynamic>? start,
       List<dynamic>? end,
@@ -325,8 +367,9 @@ class FirestoreMethods {
     try {
       final ref = isSubcollection
           ? getGroupCollectionRef(path)
-              .getQuery(where, order, start, end, limit)
-          : getCollectionRef(path).getQuery(where, order, start, end, limit);
+              .getQuery(queries, where, order, start, end, limit)
+          : getCollectionRef(path)
+              .getQuery(queries, where, order, start, end, limit);
       final snapshots = ref.snapshots();
       yield* snapshots.map((snapshot) => snapshot.size);
     } on FirebaseException catch (e) {
@@ -341,5 +384,10 @@ class FirestoreMethods {
     } on FirebaseException catch (e) {
       return "";
     }
+  }
+
+  Future<bool> checkIfUsernameExists(String username) async {
+    final name = await getValue((map) => map, ["usernames", username]);
+    return name != null;
   }
 }

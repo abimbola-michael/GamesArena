@@ -27,8 +27,9 @@ class ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: disabled ? null : onPressed,
+    return InkWell(
+      onTap: wrap || disabled ? null : onPressed,
+      borderRadius: BorderRadius.circular(radius ?? 30),
       child: Container(
         decoration: wrap
             ? null
@@ -45,37 +46,43 @@ class ActionButton extends StatelessWidget {
         alignment: Alignment.center,
         height: height,
         width: width ?? (wrap ? null : double.infinity),
-        margin: wrap
-            ? null
-            : EdgeInsets.symmetric(
+        margin:
+            // : wrap
+            //     ? null
+            //     :
+            EdgeInsets.symmetric(
                 vertical: margin ?? 10,
                 horizontal: half
                     ? context.screenWidth.percentValue(half ? 25 : 5)
                     : margin ?? 0),
         padding: wrap || height != null ? null : EdgeInsets.all(padding ?? 10),
         child: wrap
-            ? Container(
-                margin: EdgeInsets.all(margin ?? 20),
-                padding: EdgeInsets.all(padding ?? 10),
-                decoration: BoxDecoration(
-                    color: outline
-                        ? Colors.transparent
-                        : disabled
-                            ? disabledColor
-                            : color ?? primaryColor,
-                    borderRadius: BorderRadius.circular(radius ?? 30),
-                    border: Border.all(
+            ? InkWell(
+                onTap: disabled ? null : onPressed,
+                borderRadius: BorderRadius.circular(radius ?? 30),
+                child: Container(
+                  margin: EdgeInsets.all(margin ?? 0),
+                  padding: EdgeInsets.all(padding ?? 10),
+                  decoration: BoxDecoration(
+                      color: outline
+                          ? Colors.transparent
+                          : disabled
+                              ? disabledColor
+                              : color ?? primaryColor,
+                      borderRadius: BorderRadius.circular(radius ?? 30),
+                      border: Border.all(
+                          color: outline
+                              ? color ?? primaryColor
+                              : Colors.transparent,
+                          width: 2)),
+                  child: Text(
+                    text,
+                    style: TextStyle(
                         color: outline
                             ? color ?? primaryColor
-                            : Colors.transparent,
-                        width: 2)),
-                child: Text(
-                  text,
-                  style: TextStyle(
-                      color: outline
-                          ? color ?? primaryColor
-                          : textColor ?? Colors.white,
-                      fontSize: 20),
+                            : textColor ?? Colors.white,
+                        fontSize: 20),
+                  ),
                 ),
               )
             : Text(

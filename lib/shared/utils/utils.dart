@@ -1,28 +1,34 @@
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'package:gamesarena/core/firebase/extensions/firebase_extensions.dart';
 import 'package:gamesarena/core/firebase/firebase_methods.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
 
 import 'dart:io';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:gamesarena/main.dart';
+import 'package:hive/hive.dart';
+import 'package:hive_flutter/adapters.dart';
 
 import '../../../enums/emums.dart';
+import '../../features/game/models/match_outcome.dart';
+import '../../features/game/models/player.dart';
 import '../../features/game/services.dart';
-import '../../features/games/ludo/models/ludo.dart';
-import '../../features/games/whot/models/whot.dart';
-import '../../features/game/models/playing.dart';
+import '../../features/games/board/ludo/models/ludo.dart';
+import '../../features/games/card/whot/models/whot.dart';
+import '../../features/game/models/player.dart';
 import '../../features/user/models/user.dart';
+import '../extensions/special_context_extensions.dart';
 
 String get myId => currentUserId;
+bool get isAndroidAndIos => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+bool get isWindows => !kIsWeb && Platform.isWindows;
 
 // bool get darkMode =>
 //     SchedulerBinding.instance.window.platformBrightness == Brightness.dark;
-bool isWindows = !kIsWeb && Platform.isWindows;
 double statusBarHeight = window.padding.top / window.devicePixelRatio;
-String timeNow = DateTime.now().millisecondsSinceEpoch.toString();
+String get timeNow => DateTime.now().millisecondsSinceEpoch.toString();
 bool get darkMode => themeValue == 1;
 List<String> capsalphabets = [
   "A",
@@ -137,20 +143,119 @@ List<String> getRandomIndex(int size) {
 List<Ludo> getLudos() {
   return List.generate(16, (index) {
     final i = index ~/ 4;
-    return Ludo("$index", -1, -1, -1, i, i);
+    final pos = index % 4;
+    return Ludo("$index", -1, -1, -1, pos, i, i);
   });
 }
 
-List<int> getPlayersToRemove(List<User?> users, List<Playing> playing) {
+List<int> getPlayersToRemove(List<User?> users, List<Player> players) {
   List<int> indices = [];
   for (int i = 0; i < users.length; i++) {
     final user = users[i];
-    final index = playing.indexWhere((element) => element.id == user?.user_id);
+    final index = players.indexWhere((element) => element.id == user?.user_id);
     if (index == -1) {
       indices.add(i);
     }
   }
   return indices;
+}
+
+MatchOutcome getMatchOutcome(List<int> playersScores, List<String> playerIds) {
+  Map<int, List<int>> resultMap = {};
+  for (int i = 0; i < playersScores.length; i++) {
+    final score = playersScores[i];
+    if (resultMap[score] != null) {
+      resultMap[score]!.add(i);
+    } else {
+      resultMap[score] = [i];
+    }
+  }
+  final scores = resultMap.keys.toList();
+  final highestScore = scores.sortedList((value) => value, false).last;
+  final players = resultMap[highestScore]!;
+  final winners = players.map((index) => playerIds[index]).toList();
+  final others =
+      playerIds.where((player) => !winners.contains(player)).toList();
+  final othersIndices =
+      others.map((player) => playerIds.indexOf(player)).toList();
+  if (scores.length == 1) {
+    return MatchOutcome(
+        outcome: "draw",
+        winners: [],
+        winnersIndices: [],
+        others: playerIds,
+        othersIndices: players);
+  } else {
+    return MatchOutcome(
+        outcome: "win",
+        winners: winners,
+        winnersIndices: players,
+        others: others,
+        othersIndices: othersIndices);
+  }
+}
+
+List<String> getPlayersNames(List<Player> players,
+    {List<User?>? users, int playersSize = 2}) {
+  final usernames = users != null && players.isNotEmpty
+      ? players
+          .map((player) =>
+              users
+                  .firstWhereNullable((user) => user?.user_id == player.id)
+                  ?.username ??
+              "")
+          .toList()
+      : List.generate(playersSize, (index) => "Player ${index + 1}");
+  return usernames;
+}
+
+String getMatchOutcomeMessageFromScores(
+    List<int> playersScores, List<String> players,
+    {List<User?>? users}) {
+  final playerIds = users != null && players.isNotEmpty
+      ? players
+      : List.generate(playersScores.length, (index) => "$index");
+  final usernames = users != null && players.isNotEmpty
+      ? players
+          .map((player) =>
+              users
+                  .firstWhereNullable((user) => user?.user_id == player)
+                  ?.username ??
+              "")
+          .toList()
+      : List.generate(playersScores.length, (index) => "Player ${index + 1}");
+  final matchOutcome = getMatchOutcome(playersScores, playerIds);
+  if (matchOutcome.outcome == "draw") {
+    return "It's a draw";
+  } else {
+    if (matchOutcome.winnersIndices.length == 1) {
+      return "${usernames[matchOutcome.winnersIndices.first]} won";
+    } else {
+      return "It's a tie between ${matchOutcome.winnersIndices.map((index) => usernames[index]).toList().toStringWithCommaandAnd((t) => t)}";
+    }
+  }
+}
+
+String getMatchOutcomeMessageFromWinners(
+    List<int>? winners, List<String> players,
+    {List<User?>? users}) {
+  if (winners == null) return "Uncompleted";
+  if (winners.isEmpty) return "It's a draw";
+
+  final winnersUsernames = users != null
+      ? winners
+          .map((index) =>
+              users
+                  .firstWhereNullable((user) => user?.user_id == players[index])
+                  ?.username ??
+              "")
+          .toList()
+      : List.generate(winners.length, (index) => "Player ${index + 1}");
+  if (winnersUsernames.length == 1) {
+    return "${winnersUsernames.first} won";
+  } else {
+    return "It's a tie between ${winnersUsernames.toStringWithCommaandAnd((t) => t)}";
+  }
 }
 
 String getWinnerMessage(List<int> playersScores, List<User?>? users) {
@@ -173,7 +278,8 @@ String getWinnerMessage(List<int> playersScores, List<User?>? users) {
     } else {
       String tiePlayers = "";
       if (users != null) {
-        tiePlayers = users.toStringWithCommaandAnd((user) => user!.username);
+        tiePlayers =
+            users.toStringWithCommaandAnd((user) => user?.username ?? "");
       } else {
         tiePlayers = resultMap[highestScore]!
             .toStringWithCommaandAnd((value) => "${value + 1}", "Player ");
@@ -183,30 +289,30 @@ String getWinnerMessage(List<int> playersScores, List<User?>? users) {
   } else {
     final player = players.first;
     message = users != null
-        ? "${users[player]?.username} Won"
-        : "Player ${player + 1} Won";
+        ? "${users[player]?.username} won"
+        : "Player ${player + 1} won";
   }
 
   return message;
 }
 
-String getActionMessage(List<Playing> prevPlaying, List<Playing> newPlaying,
+String getActionMessage(List<Player> prevPlaying, List<Player> newPlaying,
     List<User> users, String game) {
   prevPlaying.sortList((value) => value.order, false);
   newPlaying.sortList((value) => value.order, false);
-  List<Playing> playing = newPlaying, toPlaying = prevPlaying;
+  List<Player> players = newPlaying, toPlaying = prevPlaying;
   String action = "";
   if (newPlaying.length > prevPlaying.length) {
     action = "joined";
-    playing = newPlaying;
+    players = newPlaying;
     toPlaying = prevPlaying;
   } else if (newPlaying.length < prevPlaying.length) {
     action = "left";
-    playing = prevPlaying;
+    players = prevPlaying;
     toPlaying = newPlaying;
   }
-  for (int i = 0; i < playing.length; i++) {
-    final value = playing[i];
+  for (int i = 0; i < players.length; i++) {
+    final value = players[i];
     final toValue = toPlaying[i];
     final username = users.isEmpty
         ? ""
@@ -221,12 +327,12 @@ String getActionMessage(List<Playing> prevPlaying, List<Playing> newPlaying,
   return "";
 }
 
-String getAction(List<Playing> playing) {
+String getAction(List<Player> players) {
   String action = "";
-  for (int i = 0; i < playing.length; i++) {
-    final player = playing[i];
+  for (int i = 0; i < players.length; i++) {
+    final player = players[i];
     if (action == "") {
-      action = player.action;
+      action = player.action ?? "";
     } else {
       if (action != player.action) {
         return "pause";
@@ -236,12 +342,48 @@ String getAction(List<Playing> playing) {
   return action;
 }
 
-String getChangedGame(List<Playing> playing) {
+Player? getMyPlayer(List<Player> players) {
+  for (int i = 0; i < players.length; i++) {
+    final player = players[i];
+    if (player.id == myId) {
+      return player;
+    }
+  }
+  return null;
+}
+
+String? getMyCallMode(List<Player> players) {
+  for (int i = 0; i < players.length; i++) {
+    final player = players[i];
+    if (player.id == myId) {
+      return player.callMode;
+    }
+  }
+  return null;
+}
+
+String? getCallMode(List<Player> players) {
+  String? callMode;
+  for (int i = 0; i < players.length; i++) {
+    final player = players[i];
+
+    if (callMode == null && player.callMode != null) {
+      callMode = player.callMode;
+    } else {
+      if (callMode != player.callMode) {
+        return "";
+      }
+    }
+  }
+  return callMode;
+}
+
+String getChangedGame(List<Player> players) {
   String game = "";
-  for (int i = 0; i < playing.length; i++) {
-    final player = playing[i];
+  for (int i = 0; i < players.length; i++) {
+    final player = players[i];
     if (game == "") {
-      game = player.game;
+      game = player.game ?? "";
     } else {
       if (game != player.game) {
         return "";
@@ -251,19 +393,21 @@ String getChangedGame(List<Playing> playing) {
   return game;
 }
 
-String getActionString(String action) {
-  return action == "start"
-      ? "started"
-      : action == "restart"
-          ? "restarted"
-          : action == "pause"
-              ? "paused"
-              : action;
+String getActionString(String? action) {
+  return action == null
+      ? ""
+      : action == "start"
+          ? "started"
+          : action == "restart"
+              ? "restarted"
+              : action == "pause"
+                  ? "paused"
+                  : action;
 }
 
 Future updateAction(
     BuildContext context,
-    List<Playing> playing,
+    List<Player> players,
     List<User?> users,
     String gameId,
     String matchId,
@@ -273,34 +417,34 @@ Future updateAction(
     bool started,
     int id,
     int duration) async {
-  final myPlaying = playing.firstWhere((element) => element.id == myId);
+  final myPlaying = players.firstWhere((element) => element.id == myId);
   final myAction = myPlaying.action;
   if (myAction != action) {
     if (action == "restart") {
-      await restartGame(game, gameId, matchId, playing, id, duration);
+      await restartGame(game, gameId, matchId, players, id, duration);
     } else if (action == "start") {
-      await startGame(game, gameId, matchId, playing, id, started);
+      await startGame(game, gameId, matchId, players, id, started);
     }
   }
-  final othersPlaying = playing.where((element) => element.id != myId).toList();
+  final othersPlaying = players.where((element) => element.id != myId).toList();
   final othersWithDiffAction = othersPlaying
       .where((element) => element.id != myId && element.action != myAction)
       .toList();
+
   if (othersWithDiffAction.isNotEmpty) {
     List<User> waitingUsers = [];
     for (int i = 0; i < othersWithDiffAction.length; i++) {
-      final player = othersWithDiffAction[i];
+      final players = othersWithDiffAction[i];
       final user = users.isEmpty
           ? null
           : users.firstWhere(
-              (element) => element != null && element.user_id == player.id);
+              (element) => element != null && element.user_id == players.id);
       if (user != null) {
         waitingUsers.add(user);
       }
     }
-    Fluttertoast.showToast(
-        msg:
-            "Waiting for ${waitingUsers.toStringWithCommaandAnd((user) => user.username)} to also $action");
+    showToast(
+        "Waiting for ${waitingUsers.toStringWithCommaandAnd((user) => user.username)} to also $action");
   }
 }
 
@@ -394,4 +538,17 @@ bool isValidPassword(String password) {
 bool hasValidLength(String input, int minLength, int maxLength) {
   final length = input.length;
   return length >= minLength && length <= maxLength;
+}
+
+Future<void> clearAllBoxes(List<String> boxNames) async {
+  // Ensure that Hive is initialized
+  //await Hive.initFlutter();
+
+  // Get a list of all open box names
+
+  // Loop through each box name and delete its contents
+  for (String boxName in boxNames) {
+    var box = Hive.box(boxName);
+    await box.clear(); // Clears all data in the box
+  }
 }

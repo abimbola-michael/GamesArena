@@ -1,37 +1,25 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:gamesarena/core/firebase/extensions/firebase_extensions.dart';
+import 'package:gamesarena/core/firebase/firebase_notification.dart';
 import 'package:gamesarena/core/firebase/firestore_methods.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
-import 'package:gamesarena/shared/utils/constants.dart';
-
+import 'package:gamesarena/shared/models/models.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../../shared/utils/utils.dart';
-import '../../shared/models/event_change.dart';
+import '../../shared/extensions/special_context_extensions.dart';
 import '../../shared/services.dart';
-import '../game/models/player.dart';
-import '../games/batball/services.dart';
-import '../games/chess/services.dart';
-import '../games/draught/services.dart';
-import '../games/ludo/services.dart';
-import '../games/whot/services.dart';
-import '../games/word_puzzle/services.dart';
-import '../games/xando/services.dart';
-import '../records/services.dart';
+import '../user/models/user.dart';
+import '../user/services.dart';
 import 'models/game.dart';
 import 'models/game_list.dart';
 import 'models/game_request.dart';
-import 'models/playing.dart';
+import 'models/player.dart';
 import 'models/match.dart';
 
 FirestoreMethods fm = FirestoreMethods();
-
-Future<List<Player>> readPlayers() async {
-  return fm.getValues((map) => Player.fromMap(map), ["users", myId, "players"]);
-}
-
-Future<List<Player>> readGroupPlayers(String groupId) async {
-  return fm
-      .getValues((map) => Player.fromMap(map), ["groups", groupId, "players"]);
-}
 
 Future<Game?> getGameFromPlayers(String playersString) async {
   List<String> playerIds =
@@ -43,237 +31,578 @@ Future<Game?> getGameFromPlayers(String playersString) async {
   return fm.getValue((map) => Game.fromMap(map), ["games", gameId]);
 }
 
-Future<GameRequest?> createGame(
-    String gameName, String groupId, List<String> playerIds) async {
-  String time = DateTime.now().millisecondsSinceEpoch.toString();
+Future createGameGroup(String groupName, List<String> playerIds) async {
+  final gameId = getId(["games"]);
+  Game game = Game(
+      game_id: gameId, groupName: groupName, time: timeNow, creatorId: myId);
+  await fm.setValue(["games", gameId], value: game.toMap());
+  await addPlayerToGameGroup(gameId, myId);
+  await addPlayersToGameGroup(gameId, playerIds);
+}
+
+Future deleteGameGroup(String gameId) async {
+  await fm.updateValue(["games", gameId], value: {"time_deleted": timeNow});
+}
+
+Future exitGameGroup(String gameId) {
+  return removePlayerFromGameGroup(gameId, myId);
+}
+
+Future updateGameGroupName(String gameId, String groupName) {
+  return fm.updateValue(["games", gameId], value: {"groupName": groupName});
+}
+
+Future updateGameGroupProfilePhoto(String gameId, String profilePhoto) {
+  return fm
+      .updateValue(["games", gameId], value: {"profilePhoto": profilePhoto});
+}
+
+Future<List<Player>> addPlayersToGameGroup(
+    String gameId, List<String> playerIds) async {
+  List<Player> players = [];
+  for (int i = 0; i < playerIds.length; i++) {
+    final id = playerIds[i];
+
+    final player = await addPlayerToGameGroup(gameId, id);
+    players.add(player);
+  }
+  return players;
+}
+
+Future<Player> addPlayerToGameGroup(String gameId, String playerId) async {
+  final player = Player(
+      id: playerId,
+      time: timeNow,
+      role: playerId == myId ? "creator" : "participant");
+  final gameList = GameList(game_id: gameId, time: timeNow);
+  await fm.setValue(["users", playerId, "gamelist", gameId],
+      value: gameList.toMap());
+  await fm
+      .setValue(["games", gameId, "players", playerId], value: player.toMap());
+  if (playerId == myId) {
+    Hive.box<String>("gamelists").put(gameId, gameList.toJson());
+  }
+  return player;
+}
+
+Future removePlayersFromGameGroup(String gameId, List<String> playerIds) async {
+  for (int i = 0; i < playerIds.length; i++) {
+    final id = playerIds[i];
+
+    await removePlayerFromGameGroup(gameId, id);
+  }
+}
+
+Future removePlayerFromGameGroup(String gameId, String playerId) async {
+  final time = timeNow;
+  await fm.updateValue(["users", playerId, "gamelist", gameId],
+      value: {"time_end": time});
+  await fm.removeValue(["games", gameId, "players", playerId]);
+  if (playerId == myId) {
+    final gameListBox = Hive.box<String>("gamelists");
+    final prevGameListJson = gameListBox.get(gameId);
+    if (prevGameListJson != null) {
+      final prevGameList = GameList.fromJson(prevGameListJson);
+      prevGameList.time_end = time;
+      gameListBox.put(gameId, prevGameList.toJson());
+      FirebaseNotification().unsubscribeFromTopic(gameId);
+    }
+  }
+}
+
+Future updatePlayerRole(String gameId, String playerId, String role) async {
+  await fm.updateValue(["games", gameId, "players", playerId],
+      value: {"role": role});
+}
+
+Future removeGameList(String gameId) async {
+  await fm.removeValue(["users", myId, "gamelist", gameId]);
+  Hive.box<String>("gamelists").delete(gameId);
+}
+
+Future updatePlayerRoleInGameGroup(
+    String gameId, String playerId, String role) async {
+  await fm.updateValue(["games", gameId, "players", playerId],
+      value: {"role": role});
+}
+
+Future updateTimeStart(String gameId, String matchId, Match match) async {
+  final time = timeNow;
+  match.time_modified = time;
+  sendPushNotification(gameId,
+      notificationType: "match", isTopic: true, data: match.toMap());
+  return fm.updateValue([
+    "games",
+    gameId,
+    "matches",
+    matchId
+  ], value: {
+    "time_start": match.time_start,
+    "time_modified": match.time_modified
+  });
+}
+
+Future updateMatch(String gameId, String matchId, Match match,
+    Map<String, dynamic> matchMap) async {
+  sendPushNotification(gameId,
+      notificationType: "match", isTopic: true, data: match.toMap());
+  return fm.updateValue(["games", gameId, "matches", matchId], value: matchMap);
+}
+
+Future updateScore(
+    String gameId, String matchId, Match match, int recordId) async {
+  final time = timeNow;
+  match.time_modified = time;
+  sendPushNotification(gameId,
+      notificationType: "match", isTopic: true, data: match.toMap());
+  return fm.updateValue([
+    "games",
+    gameId,
+    "matches",
+    matchId
+  ], value: {
+    "records": match.records,
+    "time_modified": time,
+    "outcome": match.outcome,
+    "winners": match.winners,
+    "others": match.others,
+  });
+  // return fm.updateValue(["games", gameId, "matches", matchId],
+  //     value: {"records.$recordId.scores.$playerIndex": score, "time_modified": time});
+}
+
+Future updateLastSeen(String gameId, String time) {
+  return fm.updateValue(["users", myId, "gamelist", gameId],
+      value: {"lastSeen": time});
+}
+
+Future<Player> addPlayer(String playerId) async {
+  final player = Player(id: playerId, time: timeNow);
+  await fm
+      .setValue(["users", myId, "players", playerId], value: player.toMap());
+  return player;
+}
+
+Future<Match?> createMatch(
+    String gameName, String? gameId, List<String> playerIds) async {
   if (playerIds.length < 2) {
-    Fluttertoast.showToast(msg: "Can't create game for only one user");
+    showErrorToast("Can't create match for only one user");
     return null;
   }
+  final time = timeNow;
 
-  playerIds.sort(((a, b) => a.compareTo(b)));
-  String gameId = getGameId(playerIds);
+  if (gameId == null || gameId.isEmpty) {
+    playerIds.sort(((a, b) => a.compareTo(b)));
+    gameId = getGameId(playerIds);
+  }
   final game = await fm.getValue((map) => Game.fromMap(map), ["games", gameId]);
   if (game == null) {
-    String players = playerIds.join(",");
-    Game game = Game(players: players, game_id: gameId, time: time);
-    await fm.setValue(["games", gameId], value: game.toMap());
-  }
-  List<int> orders = List.generate(playerIds.length, (index) => index + 1);
-  orders.shuffle();
-  List<Playing> playingList = [];
-  for (int i = 0; i < playerIds.length; i++) {
-    String playerId = playerIds[i];
-    final order = orders[i];
-    final playing = Playing(
-      id: playerId,
-      action: "pause",
-      game: gameName,
-      accept: playerId == myId,
-      order: order,
+    Game game = Game(
+      game_id: gameId,
+      time: time,
+      creatorId: myId,
+      players: playerIds,
+      firstMatchTime: time,
     );
-    playingList.add(playing);
+    await fm.setValue(["games", gameId], value: game.toMap());
+    await addPlayersToGameGroup(gameId, playerIds);
+  } else {
+    if (game.firstMatchTime == null) {
+      await fm.updateValue(["games", gameId], value: {"firstMatchTime": time});
+    }
   }
-  playingList.sortList((value) => value.order, false);
+
+  //playerIds.shuffle();
+
   String matchId = fm.getId(["games", gameId, "matches"]);
+
   final match = Match(
-    match_id: matchId,
-    creator_id: myId,
-    time_created: time,
-    player1: playingList.first.id,
-    player2: playingList.second?.id,
-    player3: playingList.third?.id,
-    player4: playingList.fourth?.id,
-  );
+      match_id: matchId,
+      game_id: gameId,
+      creator_id: myId,
+      game: gameName,
+      time_created: time,
+      time_modified: time,
+      players: playerIds,
+      records: {});
+
   await fm.setValue(["games", gameId, "matches", matchId],
       value: match.toMap().removeNull());
-  //await createGameDetails(gameName, gameId);
-  // if (gameName == "Ludo" || gameName == "Whot") {
-  // }
 
-  for (int i = 0; i < playingList.length; i++) {
-    final playing = playingList[i];
-    String playerId = playing.id;
-    await fm.setValue(["games", gameId, "playing", playerId],
-        value: playing.toMap());
+  for (int i = 0; i < playerIds.length; i++) {
+    String playerId = playerIds[i];
+    await fm.updateValue([
+      "games",
+      gameId,
+      "players",
+      playerId
+    ], value: {
+      "action": playerId == myId ? "pause" : "",
+      "order": i,
+      "matchId": matchId,
+      "gameId": gameId,
+      "game": gameName,
+      "callMode": null,
+      "isAudioOn": null,
+      "isFrontCamera": null,
+      "time_modified": timeNow,
+    });
   }
 
-  GameRequest request = GameRequest(
-    game_id: gameId,
-    match_id: matchId,
-    game: gameName,
-    creator_id: myId,
-  );
-  for (int i = 0; i < playingList.length; i++) {
-    final playing = playingList[i];
-    String playerId = playing.id;
-    await fm.setValue(["users", playerId, "game"], value: request.toMap());
-    await fm.setValue(["users", playerId, "gamelist", gameId],
-        value: GameList(game_id: gameId, time: time).toMap());
+  // GameRequest request = GameRequest(
+  //     game_id: gameId,
+  //     match_id: matchId,
+  //     game: gameName,
+  //     creator_id: myId,
+  //     time: timeNow);
+  for (int i = 0; i < playerIds.length; i++) {
+    final playerId = playerIds[i];
+
+    final gameListsBox = Hive.box<String>("gamelists");
+
+    if (gameListsBox.get(gameId) == null) {
+      GameList? gameList = await fm.getValue((map) => GameList.fromMap(map),
+          ["users", playerId, "gamelist", gameId]);
+      if (gameList == null) {
+        gameList = GameList(game_id: gameId, time: timeNow);
+        await fm.setValue(["users", playerId, "gamelist", gameId],
+            value: gameList.toMap());
+      }
+      gameListsBox.put(gameId, gameList.toJson());
+    }
+
     if (playerId != myId) {
-      if ((await fm.getValue((map) => Player.fromMap(map),
-              ["users", myId, "players", playerId])) ==
-          null) {
-        await fm.setValue(["users", myId, "players", playerId],
-            value: Player(id: playerId, time: time).toMap());
-      }
-      if ((await fm.getValue((map) => Player.fromMap(map),
-              ["users", playerId, "players", myId])) ==
-          null) {
-        await fm.setValue(["users", playerId, "players", myId],
-            value: Player(id: myId, time: time).toMap());
+      // await fm.setValue(["users", playerId, "requests", myId],
+      //     value: request.toMap());
+
+      final playersBox = Hive.box<String>("players");
+
+      if (playersBox.get(playerId) == null) {
+        final time = timeNow;
+        Player? player = await fm.getValue(
+            (map) => Player.fromMap(map), ["users", myId, "players", playerId]);
+        if (player == null) {
+          player = Player(id: playerId, time: time);
+          await fm.setValue(["users", myId, "players", playerId],
+              value: player.toMap());
+        }
+
+        Player? otherPlayer = await fm.getValue(
+            (map) => Player.fromMap(map), ["users", playerId, "players", myId]);
+        if (otherPlayer == null) {
+          otherPlayer = Player(id: myId, time: time);
+          await fm.setValue(["users", playerId, "players", myId],
+              value: otherPlayer.toMap());
+        }
+        playersBox.put(playerId, player.toJson());
       }
     }
   }
-  await sendPushNotificationToPlayers(gameName, playerIds);
-  return request;
+
+  sendPushNotificationToPlayers(gameId, gameName, playerIds, match);
+  sendPushNotification(gameId,
+      notificationType: "match", isTopic: true, data: match.toMap());
+
+  Hive.box<String>("matches").put(match.match_id, match.toJson());
+  return match;
 }
 
-// Future createGameDetails(String game, String gameId) async {
-//   switch (game) {
-//     case chessGame:
-//       return setChessDetails(gameId);
-//     case draughtGame:
-//       return setDraughtDetails(gameId);
-//     case batballGame:
-//       return setBatBallDetails(gameId);
-//     case xandoGame:
-//       return setXandODetails(gameId);
-//     case whotGame:
-//       return setWhotDetails(gameId);
-//     case ludoGame:
-//       return setLudoDetails(gameId);
-//     case wordPuzzleGame:
-//       return setWordPuzzleDetails(gameId);
-//   }
-// }
+Future sendPushNotificationToPlayers(
+    String gameId, String game, List<String> players, Match match) async {
+  final users = await playersToUsers(players);
+  String creatorName = users.isEmpty
+      ? ""
+      : users.firstWhere((element) => element.user_id == myId).username;
+  //players.remove(myId);
+  users.removeWhere((element) => element.user_id == myId);
+  for (int i = 0; i < players.length; i++) {
+    final player = players[i];
+    if (player == myId) continue;
+    List<User> otherUsers =
+        users.where((user) => user.user_id != player).toList();
+    final otherUsernames =
+        otherUsers.isEmpty ? [] : otherUsers.map((e) => e.username).toList();
+    otherUsernames.insert(0, "you");
 
-Future cancelGame(String gameId, String matchId, List<Playing> playing) async {
-  await fm.removeValue(["games", gameId, "playing"]);
-  await fm.removeValue(["games", gameId, "details"]);
-  for (var player in playing) {
-    await fm.removeValue(["users", player.id, "game"]);
+    final token = await getToken(player);
+    //print("userToken = $token");
+
+    if (token == null || token == "") return;
+    final body =
+        "$creatorName will like to play $game game with ${otherUsernames.toStringWithCommaandAnd((username) => username)}";
+    sendPushNotification(token,
+        title: creatorName,
+        body: body,
+        notificationType: "match",
+        data: match.toMap());
   }
 }
 
-Future joinGame(String gameId, String matchId) async {
-  await fm.updateValue(["games", gameId, "playing", myId],
-      value: {"accept": true, "time": timeNow});
+Future cancelMatch(String gameId, String matchId, List<Player> players) async {
+  if (players.isEmpty) return;
+
+  // await fm.removeValues(
+  //     ["games", gameId, "players"], players.map((e) => e.id).toList());
+  ////await removeGamedetails(gameId, matchId);
+  for (int i = 0; i < players.length; i++) {
+    final player = players[i];
+    //await fm.removeValue(["users", player.id, "game"]);
+    await fm.updateValue([
+      "games",
+      gameId,
+      "players",
+      player.id
+    ], value: {
+      "action": "",
+      "matchId": "",
+      "gameId": "",
+      "game": null,
+      "time_modified": timeNow
+    });
+  }
 }
 
-Future leaveGame(String gameId, String matchId, List<Playing> playing,
-    bool started, int id, int duration) async {
+Future joinMatch(
+    String gameId, String matchId, String game, List<Player> players) async {
+  await fm.updateValue(["games", gameId, "players", myId],
+      value: {"action": "pause", "time_modified": timeNow});
+  //value: {"accept": true, "time": timeNow});
+
+  final unstartedPlayers =
+      players.where((element) => element.action != "pause");
+  if (unstartedPlayers.length == 1) {
+    // await addMatchRecord(game, gameId, matchId, players, 0);
+    // await fm.updateValue(["games", gameId, "matches", matchId],
+    //     value: {"time_start": timeNow, "players": players});
+  }
+}
+
+Future leaveMatch(String gameId, String matchId, Match? match,
+    List<Player> players, bool started, int id, int duration) async {
+  if (players.isEmpty) return;
+  final time = timeNow;
+
+  final activePlayers = players.where((element) => element.action != "");
+
+  if (activePlayers.length == 1) {
+    await fm.updateValue(["games", gameId, "matches", matchId],
+        value: {"time_end": time, "time_modified": time});
+    if (match != null) {
+      match.time_end = time;
+      match.time_modified = time;
+      sendPushNotification(gameId,
+          notificationType: "match", isTopic: true, data: match.toMap());
+    }
+  }
+
   if (started) {
-    if (playing.length == 2) {
-      await fm.updateValue(["games", gameId, "matches", matchId],
-          value: {"time_end": timeNow});
-      await fm.removeValue(["games", gameId, "details"]);
+    if (players.length == 1) {
+      // await fm.updateValue(["games", gameId, "matches", matchId],
+      //     value: {"time_end": time, "time_modified": time});
+      //await removeGamedetails(gameId, matchId);
     }
-    if (playing.length > 2) {
-      await pauseGame(gameId, matchId, playing, id, duration);
+    if (players.length > 2) {
+      await pauseGame(gameId, matchId, players, id, duration);
     }
   }
-  await fm.removeValue(["users", myId, "game"]);
-  await fm.removeValue(["games", gameId, "playing", myId]);
+  //await fm.removeValue(["users", myId, "requests"]);
+
+  await fm.updateValue([
+    "games",
+    gameId,
+    "players",
+    myId
+  ], value: {
+    "action": "",
+    "matchId": "",
+    "gameId": "",
+    "game": null,
+    "time_modified": timeNow
+  });
+  //await fm.removeValue(["games", gameId, "players", myId]);
 }
 
 Future startGame(String game, String gameId, String matchId,
-    List<Playing> playing, int id, bool started) async {
-  await fm.updateValue(["games", gameId, "playing", myId],
-      value: {"action": "start", "game": game});
-  if (!started) {
-    final unstartedPlayers =
-        playing.where((element) => element.action != "start");
-    if (unstartedPlayers.length == 1) {
-      await addMatchRecord(game, gameId, matchId, playing, id);
-      if (id == 0) {
-        await fm.updateValue(["games", gameId, "matches", matchId],
-            value: {"time_start": timeNow});
-      }
-    }
-  }
+    List<Player> players, int id, bool started) async {
+  if (players.isEmpty) return;
+
+  await fm.updateValue(["games", gameId, "players", myId],
+      value: {"action": "start", "game": game, "time_modified": timeNow});
+  // if (!started) {
+  //   final unstartedPlayers =
+  //       players.where((element) => element.action != "start");
+  //   if (unstartedPlayers.length == 1) {
+  //     await addMatchRecord(game, gameId, matchId, players, id);
+  //     if (id == 0) {
+  //       await fm.updateValue(["games", gameId, "matches", matchId],
+  //           value: {"time_start": timeNow});
+  //     }
+  //   }
+  // }
 }
 
 Future restartGame(String game, String gameId, String matchId,
-    List<Playing> playing, int id, int duration) async {
-  await fm.updateValue(["games", gameId, "playing", myId],
-      value: {"action": "restart", "game": game});
+    List<Player> players, int id, int duration) async {
+  if (players.isEmpty) return;
+
+  await fm.updateValue(["games", gameId, "players", myId],
+      value: {"action": "restart", "game": game, "time_modified": timeNow});
 
   final unrestartedPlayers =
-      playing.where((element) => element.action != "restart");
+      players.where((element) => element.action != "restart");
   if (unrestartedPlayers.length == 1) {
-    await fm.updateValue(
-        ["games", gameId, "matches", matchId, "records", "$id"],
-        value: {"time_end": timeNow, "duration": duration});
+    //await updateMatchRecordEnd(gameId, matchId, id);
+    // await fm.updateValue(
+    //     ["games", gameId, "matches", matchId, "records", "$id"],
+    //     value: {"time_end": timeNow, "duration": duration});
 
-    await addMatchRecord(game, gameId, matchId, playing, id + 1);
+    //await addMatchRecord(game, gameId, matchId, players, id + 1);
   }
 }
 
 Future changeGame(String game, String gameId, String matchId,
-    List<Playing> playing, int id, int duration) async {
-  final gamePlayers = playing.where((element) => element.game != game);
+    List<Player> players, int id, int duration) async {
+  if (players.isEmpty) return;
+
+  final gamePlayers = players.where((element) => element.game != game);
   if (gamePlayers.length == 1) {
-    await fm.updateValue(
-        ["games", gameId, "matches", matchId, "records", "$id"],
-        value: {"time_end": timeNow, "duration": duration});
-    await fm.removeValue(["games", gameId, "details"]);
-    //await createGameDetails(game, gameId);
+    //await addMatchRecord(game, gameId, matchId, players, id + 1);
+    //await updateMatchRecordEnd(gameId, matchId, id);
+
+    // await fm.updateValue(
+    //     ["games", gameId, "matches", matchId, "records", "$id"],
+    //     value: {"time_end": timeNow, "duration": duration});
+    //await removeGamedetails(
+    //    gameId, matchId); //await createMatchDetails(game, gameId);
   }
-  await fm.updateValue(["games", gameId, "playing", myId],
-      value: {"game": game, "action": "pause"});
+  await fm.updateValue(["games", gameId, "players", myId],
+      value: {"game": game, "action": "pause", "time_modified": timeNow});
 }
 
-Future pauseGame(String gameId, String matchId, List<Playing> playing, int id,
+Future pauseGame(String gameId, String matchId, List<Player> players, int id,
     int duration) async {
-  if (playing.isNotEmpty) {
-    for (var player in playing) {
-      if (player.action != "pause") {
-        await fm.updateValue(["games", gameId, "playing", player.id],
-            value: {"action": "pause"});
-        await fm.updateValue(
-            ["games", gameId, "matches", matchId, "records", "$id"],
-            value: {"duration": duration});
-      }
-    }
-  }
+  if (players.isEmpty) return;
+
+  await fm.updateValue(["games", gameId, "players", myId],
+      value: {"action": "pause", "time_modified": timeNow});
+  // await fm.updateValue(["games", gameId, "matches", matchId, "records", "$id"],
+  //     value: {"duration": duration});
+  // for (var players in players) {
+  //   if (players.action != "pause") {
+  //     await fm.updateValue(["games", gameId, "players", players.id],
+  //         value: {"action": "pause"});
+  //     await fm.updateValue(
+  //         ["games", gameId, "matches", matchId, "records", "$id"],
+  //         value: {"duration": duration});
+  //   }
+  // }
 }
 
-Future removeGameRequest() async {
-  await fm.removeValue(["users", myId, "game"]);
+Future concedeGame(String gameId, String matchId, List<Player> players, int id,
+    int duration) async {
+  if (players.isEmpty) return;
+  await fm.updateValue(["games", gameId, "players", myId],
+      value: {"action": "concede", "time_modified": timeNow});
 }
 
-Future removeGameDetails(String gameId) async {
-  return fm.removeValue(["games", gameId, "details"]);
-}
+// Future removeGameRequests() async {
+//   await fm.removeValue(["users", myId, "requests"]);
+// }
+
+// Future removeGameRequest(String playerId) async {
+//   await fm.removeValue(["users", myId, "requests", playerId]);
+// }
+
+// Future //removeGamedetails(String gameId) async {
+//   return fm.removeValue(["games", gameId, "details"]);
+// }
 
 Stream<GameRequest?> getGameRequest() async* {
-  yield* fm.getValueStream(
-      (map) => GameRequest.fromMap(map), ["users", myId, "game"]);
+  yield* fm.getValueStream((map) => GameRequest.fromMap(map), [
+    "users",
+    myId,
+    "game"
+  ], queries: [
+    ["order", "time", true],
+    ["limit", 1]
+  ]);
 }
 
 Future<GameRequest?> checkGameRequest(String id) async {
-  return fm.getValue((map) => GameRequest.fromMap(map), ["users", id, "game"]);
-}
-
-Future<List<Playing>> getPlaying(String gameId) async {
   return fm
-      .getValues((map) => Playing.fromMap(map), ["games", gameId, "playing"]);
+      .getValue((map) => GameRequest.fromMap(map), ["users", id, "requests"]);
 }
 
-Stream<List<Playing>> readPlaying(String gameId) async* {
-  yield* fm.getValuesStream(
-      (map) => Playing.fromMap(map), ["games", gameId, "playing"]);
+Future<List<Player>> getMyPlayers({String? startTime, String? endTime}) async {
+  return fm.getValues((map) => Player.fromMap(map), [
+    "users",
+    myId,
+    "players"
+  ], queries: [
+    ["order", "time", true],
+    [
+      "where",
+      if (startTime != null) ...["time", ">", startTime],
+      if (endTime != null) ...["time", "<", endTime]
+    ],
+    if (startTime != null || endTime != null) ["limit", 10, startTime != null]
+  ]);
 }
 
-Stream<List<ValueChange<Playing>>> readPlayingChange(String gameId) async* {
+Future<List<Player>> getPlayers(String gameId,
+    {String? matchId,
+    bool excludingMe = true,
+    String? startTime,
+    String? endTime}) async {
+  return fm.getValues(
+    (map) => Player.fromMap(map),
+    ["games", gameId, "players"],
+    queries: [
+      ["order", matchId != "" ? "order" : "time_modified"],
+      [
+        "where",
+        if (excludingMe) ...["id", "!=", myId],
+        if (matchId != "") ...["matchId", "==", matchId],
+        if (startTime != null) ...["time_modified", "<", startTime],
+        if (endTime != null) ...["time_modified", ">", endTime]
+      ],
+      if (startTime != null || endTime != null) ["limit", 10, startTime != null]
+    ],
+  );
+}
+
+Stream<List<ValueChange<Player>>> getPlayersChange(String gameId,
+    {String? matchId,
+    String? lastTime,
+    bool excludingMe = true,
+    List<String>? players}) async* {
   yield* fm.getValuesChangeStream(
-      (map) => Playing.fromMap(map), ["games", gameId, "playing"],
-      order: ["order"], where: ["id", "!=", myId]);
+    (map) => Player.fromMap(map),
+    ["games", gameId, "players"],
+    queries: [
+      ["order", matchId != "" ? "order" : "time_modified"],
+      [
+        "where",
+        if (players != null) ...[
+          "id",
+          "in",
+          excludingMe
+              ? players.where((element) => element != myId).toList()
+              : players
+        ],
+        if (excludingMe && players == null) ...["id", "!=", myId],
+        if (matchId != "") ...["matchId", "==", matchId],
+        if (lastTime != null) ...["time_modified", ">", lastTime],
+      ]
+    ],
+  );
 }
 
 Future<Game?> getGame(String gameId) async {
-  return fm.getValue((map) => Game.fromMap(map), ["games", gameId]);
+  final game = await fm.getValue((map) => Game.fromMap(map), ["games", gameId]);
+  // if(game != null game.groupName == null){
+  // }
+  return game;
 }
 
 Future<Match?> getLastMatch(String gameId) async {
@@ -287,42 +616,237 @@ Future<Match?> getMatch(String gameId, String matchId) async {
       (map) => Match.fromMap(map), ["games", gameId, "matches", matchId]);
 }
 
-Future<List<Match>> getMatches(String gameId) async {
-  return fm
-      .getValues((map) => Match.fromMap(map), ["games", gameId, "matches"]);
+Stream<List<ValueChange<Player>>> getPlayerRequestStream() async* {
+  yield* fm.getValuesChangeStream((map) => Player.fromMap(map), ["players"],
+      isSubcollection: true,
+      queries: [
+        ["order", "time_modified", false],
+        ["where", "id", "==", myId],
+        ["where", "matchId", "!=", ""],
+        ["where", "action", "==", ""],
+        ["limit", 1, true]
+      ]);
 }
 
-Stream<List<Match>> readGameMatchesStream(String gameId) async* {
+Future<List<Player>> getPlayerRequest() async {
+  return fm.getValues((map) => Player.fromMap(map), ["players"],
+      isSubcollection: true,
+      queries: [
+        ["order", "time_modified", false],
+        ["where", "id", "==", myId],
+        ["where", "matchId", "!=", ""],
+        ["where", "action", "==", ""],
+        ["limit", 1, true]
+      ]);
+}
+
+Future<bool> isPlayingAMatch(String playerId) async {
+  // final matches = await fm.getValues(
+  //     (map) => map,
+  //     [
+  //       "matches",
+  //     ],
+  //     isSubcollection: true,
+  //     queries: [
+  //       ["order", "time_modified", false],
+  //       ["where", "players", "contains", playerId],
+  //       ["where", "creator_id", "!=", myId],
+  //       ["where", "time_end", "==", null]
+  //     ]);
+  final players = await fm.getValues((map) => Player.fromMap(map), ["players"],
+      isSubcollection: true,
+      queries: [
+        ["order", "time_modified", false],
+        ["where", "id", "==", playerId],
+        ["where", "action", "==", ""],
+        ["where", "matchId", "!=", ""],
+        ["limit", 1, true]
+      ]);
+  return players.isNotEmpty;
+}
+
+Stream<List<ValueChange<Match>>> getRequestedMatchesStream() async* {
+  yield* fm.getValuesChangeStream(
+      (map) => Match.fromMap(map),
+      [
+        "matches",
+      ],
+      isSubcollection: true,
+      queries: [
+        ["order", "time_modified", false],
+        ["where", "players", "contains", myId],
+        ["where", "creator_id", "!=", myId],
+        ["where", "time_end", "==", null]
+      ]);
+}
+
+Future<List<Match>> getRequestedMatches() async {
+  return fm.getValues(
+      (map) => Match.fromMap(map),
+      [
+        "matches",
+      ],
+      isSubcollection: true,
+      queries: [
+        ["order", "time_modified", false],
+        ["where", "players", "contains", myId],
+        ["where", "creator_id", "!=", myId],
+        ["where", "time_end", "==", null]
+      ]);
+}
+
+Future<List<Match>> getMatchesFromGameIds(List<String> gameIds,
+    {String? time}) async {
+  return fm.getValues((map) => Match.fromMap(map), ["matches"],
+      queries: [
+        ["order", "game_id", false],
+        ["where", "game_id", "in", gameIds],
+        ["order", "time_modified", false],
+        if (time != null) ...["where", "time_modified", ">", time]
+      ],
+      isSubcollection: true);
+}
+
+Future<List<Match>> getMatches(String gameId,
+    {String? time, int? limit}) async {
+  return fm.getValues((map) => Match.fromMap(map), [
+    "games",
+    gameId,
+    "matches"
+  ], queries: [
+    ["order", "time_modified", false],
+    if (time != null) ["where", "time_modified", ">", time],
+    if (limit != null) ["limit", limit, false]
+  ]);
+}
+
+Future<List<Match>> getPreviousMatches(String gameId,
+    {String? time, int? limit}) async {
+  return fm.getValues((map) => Match.fromMap(map), [
+    "games",
+    gameId,
+    "matches"
+  ], queries: [
+    ["order", "time_created", false],
+    if (time != null) ["where", "time_modified", "<", time],
+    if (limit != null) ["limit", limit, true]
+  ]);
+}
+
+Stream<List<ValueChange<Match>>> getMatchesChange(String gameId,
+    {String? time}) async* {
+  yield* fm.getValuesChangeStream((map) => Match.fromMap(map), [
+    "games",
+    gameId,
+    "matches"
+  ], queries: [
+    ["order", "time_created", false],
+    if (time != null) ["where", "time_modified", ">", time]
+  ]);
+}
+
+Stream<List<Match>> getGameMatchesStream(String gameId) async* {
   yield* fm.getValuesStream(
       (map) => Match.fromMap(map), ["games", gameId, "matches"]);
 }
 
-Stream<List<GameList>> readGameLists() async* {
-  yield* fm.getValuesStream(
-      (map) => GameList.fromMap(map), ["users", myId, "gamelist"]);
+Future<List<GameList>> getGameLists({String? time}) async {
+  return fm.getValues((map) => GameList.fromMap(map), [
+    "users",
+    myId,
+    "gamelist"
+  ], queries: [
+    ["order", "time", false],
+    if (time != null) ["where", "time", "", time]
+  ]);
 }
 
-Future<List<GameList>> readGames() async {
-  return fm
-      .getValues((map) => GameList.fromMap(map), ["users", myId, "gamelist"]);
+Stream<List<ValueChange<GameList>>> getGameListsChange({String? time}) async* {
+  yield* fm.getValuesChangeStream((map) => GameList.fromMap(map), [
+    "users",
+    myId,
+    "gamelist"
+  ], queries: [
+    ["order", "time", false],
+    if (time != null) ["where", "time", ">", time]
+    // "lastSeen",
+    // "==",
+    // null
+  ]);
 }
 
-Future<List<Match>> readGameMatches(String id) async {
+Future<List<Match>> getGameMatches(String id) async {
   return fm.getValues((map) => Match.fromMap(map), ["games", id, "matches"]);
 }
 
+Future startCall(String gameId, String callMode) {
+  return fm.updateValue([
+    "games",
+    gameId,
+    "players",
+    myId
+  ], value: {
+    "callMode": callMode,
+    "isAudioOn": true,
+    "isFrontCamera": true,
+    "time_modified": timeNow, // "id": myId,
+  });
+}
+
+Future endCall(String gameId) {
+  return fm.updateValue([
+    "games",
+    gameId,
+    "players",
+    myId
+  ], value: {
+    "callMode": null,
+    "isAudioOn": null,
+    "isFrontCamera": null,
+    "time_modified": timeNow
+  });
+}
+
+Future updateCallMode(String gameId, String matchId, String? callMode) {
+  return fm.updateValue(["games", gameId, "players", myId],
+      value: {"callMode": callMode, "time_modified": timeNow});
+}
+
+Future updateCallAudio(String gameId, String matchId, bool isAudioOn) {
+  return fm.updateValue(["games", gameId, "players", myId],
+      value: {"isAudioOn": isAudioOn, "time_modified": timeNow});
+}
+
+Future updateCallCamera(String gameId, String matchId, bool isFrontCamera) {
+  return fm.updateValue(["games", gameId, "players", myId],
+      value: {"isFrontCamera": isFrontCamera, "time_modified": timeNow});
+}
+
+// Future addSignal(String gameId, String userId, Map<String, dynamic> value) {
+//   return fm.updateValue([
+//     "games",
+//     gameId,
+//     "players",
+//     userId
+//   ], value: {
+//     "signal": {...value, "id": myId}
+//   });
+// }
+
 Stream<List<ValueChange<Map<String, dynamic>>>> streamChangeSignals(
-    String id) async* {
-  yield* fm.getValuesChangeStream((map) => map, ["games", id, "signal"],
-      where: ["id", "!=", myId]);
+    String gameId, String matchId) async* {
+  yield* fm.getValuesChangeStream(
+      (map) => map, ["games", gameId, "players", myId, "signal"]);
 }
 
-Future addSignal(String id, String userId, Map<String, dynamic> value) {
-  return fm.updateValue(["games", id, "signal", userId], value: value);
+Future addSignal(String gameId, String matchId, String userId,
+    Map<String, dynamic> value) async {
+  return fm.setValue(["games", gameId, "players", userId, "signal", myId],
+      value: {...value, "id": myId});
 }
 
-Future removeSignal(String id, String userId) {
-  return fm.removeValue(["games", id, "signal", userId]);
+Future removeSignal(String gameId, String matchId, String userId) {
+  return fm.removeValue(["games", gameId, "players", userId, "signal"]);
 }
 
 String getGameId(List<String> players) {
@@ -332,8 +856,8 @@ String getGameId(List<String> players) {
   String id = "";
   for (int i = 0; i < players.length; i++) {
     final player = players[i];
-    id += player.substring(player.length - splitSize);
-    //id += player.substring(0, splitSize);
+    //id += player.substring(players.length - splitSize);
+    id += player.substring(0, splitSize);
   }
   return id;
 }

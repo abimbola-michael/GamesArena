@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:gamesarena/core/firebase/auth_methods.dart';
+import 'package:gamesarena/core/firebase/extensions/firestore_extensions.dart';
+import 'package:gamesarena/core/firebase/firebase_notification.dart';
 import 'package:gamesarena/features/home/views/home_drawer.dart';
 import 'package:gamesarena/features/onboarding/pages/auth_page.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
@@ -11,19 +15,22 @@ import 'package:gamesarena/features/games/pages.dart';
 import 'package:gamesarena/features/home/tabs/matches_page.dart';
 import 'package:gamesarena/features/home/tabs/games_page.dart';
 import 'package:flutter/material.dart';
+import 'package:gamesarena/shared/widgets/app_appbar.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hive/hive.dart';
+import 'package:icons_plus/icons_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../shared/services.dart';
+import '../../../shared/extensions/special_context_extensions.dart';
 import '../../../shared/models/models.dart';
-import '../../../shared/widgets/action_button.dart';
-import '../../../theme/colors.dart';
-import '../../../shared/utils/constants.dart';
+
 import '../../../shared/utils/utils.dart';
-import '../../about/pages/about_game_page.dart';
+import '../../../shared/widgets/app_search_bar.dart';
+import '../../../theme/colors.dart';
+import '../../contact/services/services.dart';
 import '../../game/services.dart';
-import '../../games/ludo/services.dart';
-import '../../games/whot/services.dart';
 import '../../user/services.dart';
+import '../providers/search_games_provider.dart';
+import '../providers/search_matches_provider.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -37,38 +44,42 @@ class _HomePageState extends ConsumerState<HomePage> {
   String name = "";
   int currentIndex = 0;
   User? user;
-  StreamSubscription? subscription;
+  StreamSubscription? subscription, authSub;
   List<String> actions = ["Profile, Settings, About Games"];
   bool selectedGame = false;
   StreamSubscription<User?>? userSub;
   GlobalKey<GamesPageState> gamesPageKey = GlobalKey();
+  Match? currentMatch;
+  bool isSearch = false;
+  final searchController = TextEditingController();
+  final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+  AuthMethods am = AuthMethods();
 
   @override
   void initState() {
     super.initState();
-    //AuthMethods().logOut();
-    // if (myId != "") {
-    //   readUser();
-    // }
     readAuthUserChange();
   }
 
   @override
   void dispose() {
+    authSub?.cancel();
     userSub?.cancel();
     subscription?.cancel();
+    searchController.dispose();
+
     super.dispose();
   }
 
   void updateTheme(int value) async {
-    final pref = await SharedPreferences.getInstance();
-    pref.setInt("theme", value);
+    sharedPref.setInt("theme", value);
   }
 
   void readAuthUserChange() {
-    auth.FirebaseAuth.instance.authStateChanges().listen((authUser) {
+    authSub = auth.FirebaseAuth.instance.authStateChanges().listen((authUser) {
       if (authUser != null) {
         currentUserId = authUser.uid;
+        //FirebaseNotification().updateFirebaseToken();
         readUser();
       } else {
         currentUserId = "";
@@ -76,8 +87,40 @@ class _HomePageState extends ConsumerState<HomePage> {
         userSub = null;
         name = "";
         user = null;
+        final gameListsBox = Hive.box<String>("gamelists");
+        final matchesBox = Hive.box<String>("matches");
+        final usersBox = Hive.box<String>("users");
+
+        final playersBox = Hive.box<String>("players");
+        final contactsBox = Hive.box<String>("contacts");
+
+        final gameLists = gameListsBox.values.toList();
+
+        for (int i = 0; i < gameLists.length; i++) {
+          final value = gameLists[i];
+          final gamelist = GameList.fromJson(value);
+          FirebaseNotification().unsubscribeFromTopic(gamelist.game_id);
+        }
+
+        gameListsBox.clear();
+        matchesBox.clear();
+        usersBox.clear();
+        playersBox.clear();
+        contactsBox.clear();
       }
+      sharedPref.setString("currentUserId", currentUserId);
+      if (!mounted) return;
       setState(() {});
+    });
+  }
+
+  void logOut() {
+    am.logOut().then((value) {
+      Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: ((context) => const AuthPage())),
+          (route) => false);
+    }).onError((error, stackTrace) {
+      showErrorToast("Unable to logout");
     });
   }
 
@@ -85,105 +128,213 @@ class _HomePageState extends ConsumerState<HomePage> {
     userSub = getStreamUser(myId).listen((user) {
       name = user?.username ?? "";
       this.user = user;
-
-      // if (user == null) {
-      //   AuthMethods().logOut();
-      // }
+      if (name.isEmpty) {
+        context.pushTo(const AuthPage(mode: AuthMode.username));
+        return;
+      }
+      if (user?.time_deleted != null) {
+        logOut();
+        return;
+      }
+      if (user != null && user.answeredRequests != true) {
+        acceptPlayersRequests(user.phone);
+      }
       if (!mounted) return;
       setState(() {});
     });
-    final gameRequestStream = getGameRequest();
-    subscription = gameRequestStream.listen((request) async {
-      if (request != null) {
-        if (!mounted) return;
-        String gameId = request.game_id;
-        String matchId = request.match_id;
-        final playing = await getPlaying(gameId);
-        //if (playing.length == 1) return;
-        if (playing.length == 1 && playing.first.id == myId) {
-          leaveGame(gameId, matchId, playing, false, 0, 0);
-          removeGameDetails(gameId);
-          return;
-        }
-        if (playing.isEmpty ||
-            playing.indexWhere((element) => element.id == myId) == -1) {
-          removeGameRequest();
-          if (playing.isEmpty) {
-            removeGameDetails(gameId);
-          }
-          return;
-        }
-        playing.sort((a, b) => a.order.compareTo(b.order));
-        final users = await playersToUsers(playing.map((e) => e.id).toList());
-        if (playing.length != users.length) {
-          return;
-        }
-        final game = request.game;
-        String indices = "";
-        // if (game == "Ludo") {
-        //   indices = await getLudoIndices(gameId);
-        //   if (indices == "") return;
-        // } else if (game == "Whot") {
-        //   indices = await getWhotIndices(gameId);
-        //   if (indices == "") return;
-        // }
-        final creatorIndex = users
-            .indexWhere((element) => element.user_id == request.creator_id);
-        String creatorName = "";
-        if (creatorIndex != -1) {
-          creatorName = users[creatorIndex].username;
-        } else {
-          creatorName = (await getUser(request.creator_id))?.username ?? "";
-        }
-        if (!mounted) return;
 
-        context.pushTo(NewOnlineGamePage(
-          indices: indices,
-          playing: playing,
-          users: users,
-          game: request.game,
-          groupId: "",
-          matchId: request.match_id,
-          gameId: request.game_id,
-          creatorId: request.creator_id,
-          creatorName: creatorName,
-        ));
+    print("getPlayerRequestStream");
+
+    subscription = getPlayerRequestStream().listen((playerChanges) async {
+      print("playerChanges = $playerChanges");
+      // for (int i = 0; i < playerChanges.length; i++) {}
+      final playerChange = playerChanges.lastOrNull;
+      if (playerChange != null) {
+        final player = playerChange.value;
+        if (player.matchId == "" || playerChange.removed) return;
+        final match = await getMatch(player.gameId!, player.matchId!);
+        print("player = $player, match = $match");
+        if (match == null || !mounted) return;
+
+        final page = NewOnlineGamePage(
+          indices: "",
+          players: const [],
+          users: const [],
+          game: match.game ?? "",
+          matchId: match.match_id!,
+          gameId: match.game_id!,
+          creatorId: match.creator_id!,
+          match: match,
+          creatorName: "",
+        );
+
+        if (currentMatch == null) {
+          currentMatch = match;
+          await context.pushTo(page);
+          currentMatch = null;
+        } else {
+          showModalBottomSheet(context: context, builder: (context) => page);
+        }
       }
     });
+
+    // subscription = getRequestedMatchesStream().listen((matchesChange) async {
+    //   //print("matchesChange = $matchesChange");
+    //   for (int i = 0; i < matchesChange.length; i++) {
+    //     final matchChange = matchesChange[i];
+    //     final match = matchChange.value;
+    //     if (matchChange.added) {
+    //       currentMatch ??= match;
+    //     } else {
+    //       if (currentMatch != null &&
+    //           (matchChange.removed || !match.players!.contains(myId))) {
+    //         context.pop();
+    //       }
+    //     }
+    //   }
+    //   if (currentMatch != null) {
+    //     await context.pushTo(NewOnlineGamePage(
+    //       indices: "",
+    //       players: const [],
+    //       users: const [],
+    //       game: currentMatch!.game ?? "",
+    //       matchId: currentMatch!.match_id!,
+    //       gameId: currentMatch!.game_id!,
+    //       creatorId: currentMatch!.creator_id!,
+    //       creatorName: "",
+    //     ));
+    //     currentMatch = null;
+    //   }
+    // });
+    // final gameRequestStream = getGameRequest();
+    // subscription = gameRequestStream.listen((request) async {
+    //   if (!mounted || request == null) return;
+    //   context.pushTo(NewOnlineGamePage(
+    //     indices: "",
+    //     players: const [],
+    //     users: const [],
+    //     game: request.game,
+    //     matchId: request.match_id,
+    //     gameId: request.game_id,
+    //     creatorId: request.creator_id,
+    //     creatorName: "",
+    //   ));
+    //   // if (request != null) {
+    //   //   if (!mounted) return;
+    //   //   // String gameId = request.game_id;
+    //   //   // String matchId = request.match_id;
+
+    //   //   context.pushTo(NewOnlineGamePage(
+    //   //     indices: "",
+    //   //     players: const [],
+    //   //     users: const [],
+    //   //     game: request.game,
+    //   //     matchId: request.match_id,
+    //   //     gameId: request.game_id,
+    //   //     creatorId: request.creator_id,
+    //   //     creatorName: "",
+    //   //   ));
+    //   //   //   final players = await readPlayers(gameId, matchId);
+    //   //   //   //if (players.length == 1) return;
+    //   //   //   if (players.length == 1 && players.first.id == myId) {
+    //   //   //     leaveMatch(gameId, matchId, players, false, 0, 0);
+    //   //   //     //removeGamedetails(gameId, matchId);
+    //   //   //     return;
+    //   //   //   }
+    //   //   //   if (players.isEmpty ||
+    //   //   //       players.indexWhere((element) => element.id == myId) == -1) {
+    //   //   //     removeGameRequest();
+    //   //   //     if (players.isEmpty) {
+    //   //   //       //removeGamedetails(gameId, matchId);
+    //   //   //     }
+    //   //   //     return;
+    //   //   //   }
+    //   //   //   players.sort((a, b) => a.order?.compareTo(b.order ?? 0) ?? 0);
+    //   //   //   final users = await playersToUsers(players.map((e) => e.id).toList());
+    //   //   //   if (players.length != users.length) {
+    //   //   //     return;
+    //   //   //   }
+    //   //   //   final game = request.game;
+    //   //   //   String indices = "";
+    //   //   //   // if (game == "Ludo") {
+    //   //   //   //   indices = await getLudoIndices(gameId);
+    //   //   //   //   if (indices == "") return;
+    //   //   //   // } else if (game == "Whot") {
+    //   //   //   //   indices = await getWhotIndices(gameId);
+    //   //   //   //   if (indices == "") return;
+    //   //   //   // }
+    //   //   //   final creatorIndex = users
+    //   //   //       .indexWhere((element) => element.user_id == request.creator_id);
+    //   //   //   String creatorName = "";
+    //   //   //   if (creatorIndex != -1) {
+    //   //   //     creatorName = users[creatorIndex].username;
+    //   //   //   } else {
+    //   //   //     creatorName = (await getUser(request.creator_id))?.username ?? "";
+    //   //   //   }
+    //   //   //   if (!mounted) return;
+
+    //   //   //   context.pushTo(NewOnlineGamePage(
+    //   //   //     indices: indices,
+    //   //   //     players: players,
+    //   //   //     users: users,
+    //   //   //     game: request.game,
+    //   //   //     matchId: request.match_id,
+    //   //   //     gameId: request.game_id,
+    //   //   //     creatorId: request.creator_id,
+    //   //   //     creatorName: creatorName,
+    //   //   //   ));
+    //   // }
+    // });
   }
 
   void gotoLoginPage() {
     context.pushTo(const AuthPage());
-    // Navigator.of(context).push(
-    //     MaterialPageRoute(builder: (context) => const LoginPage(login: true)));
   }
 
-  // void gotoSettingPage() {
-  //   Navigator.of(context).push(
-  //       MaterialPageRoute(builder: (context) => const LoginPage(login: true)));
-  // }
-
   void gotoProfilePage() {
-    context.pushTo(ProfilePage(
-      id: myId,
-      type: "user",
-    ));
-
-    // Navigator.of(context).push(MaterialPageRoute(
-    //     builder: (context) => ProfilePage(
-    //           id: myId,
-    //           type: "user",
-    //         )));
+    context.pushTo(ProfilePage(id: myId));
   }
 
   void gotoAppInfoPage(String type) {
     context.pushTo(AppInfoPage(
       type: type,
     ));
-    // Navigator.of(context).push(MaterialPageRoute(
-    //     builder: (context) => AppInfoPage(
-    //           type: type,
-    //         )));
+  }
+
+  void gotoNewGroup() {
+    Navigator.of(context).push(MaterialPageRoute(
+        builder: (context) => myId == ""
+            ? const AuthPage()
+            : const PlayersSelectionPage(type: "group")));
+  }
+
+  void startSearch() {
+    isSearch = true;
+    setState(() {});
+  }
+
+  void updateSearch(String value) {
+    if (currentIndex == 0) {
+      ref
+          .read(searchGamesProvider.notifier)
+          .updateSearch(value.trim().toLowerCase());
+    } else {
+      ref
+          .read(searchMatchesProvider.notifier)
+          .updateSearch(value.trim().toLowerCase());
+    }
+  }
+
+  void stopSearch() {
+    if (currentIndex == 0) {
+      ref.read(searchGamesProvider.notifier).updateSearch("");
+    } else {
+      ref.read(searchMatchesProvider.notifier).updateSearch("");
+    }
+
+    searchController.clear();
+    isSearch = false;
+    setState(() {});
   }
 
   @override
@@ -191,205 +342,138 @@ class _HomePageState extends ConsumerState<HomePage> {
     return PopScope(
       canPop: !selectedGame || currentIndex != 0,
       onPopInvoked: (pop) {
-        if (selectedGame && currentIndex == 0) {
+        if (pop) return;
+        if (isSearch) {
+          stopSearch();
+        } else if (selectedGame && currentIndex == 0) {
           gamesPageKey.currentState?.goBackToGames();
         }
       },
-      child: SafeArea(
-        child: Scaffold(
-          appBar: AppBar(
-            centerTitle: true,
-            leading: selectedGame && currentIndex == 0
-                ? IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () {
-                      gamesPageKey.currentState?.goBackToGames();
-                    },
-                  )
-                : null,
-            title: Text(
-              "Games Arena",
-              style: GoogleFonts.merienda(fontSize: 18),
-              textAlign: TextAlign.center,
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: () {
-                  Navigator.of(context).push(MaterialPageRoute(
-                      builder: (context) => myId == ""
-                          ? const AuthPage()
-                          : const OnlinePlayersSelectionPage(
-                              type: "oneonone")));
-                },
-              ),
-            ],
-          ),
-          drawer:
-              selectedGame && currentIndex == 0 ? null : HomeDrawer(name: name),
-          // : Drawer(
-          //     child: Column(
-          //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          //       crossAxisAlignment: CrossAxisAlignment.start,
-          //       children: [
-          //         Expanded(
-          //           child: ListView(
-          //             children: [
-          //               DrawerHeader(
-          //                   child: myId == ""
-          //                       ? ActionButton(
-          //                           "Login",
-          //                           onPressed: () {
-          //                             gotoLoginPage();
-          //                           },
-          //                           wrap: true,
-          //                         )
-          //                       : Column(
-          //                           children: [
-          //                             CircleAvatar(
-          //                               radius: 40,
-          //                               backgroundColor: darkMode
-          //                                   ? lightestWhite
-          //                                   : lightestBlack,
-          //                               child: Text(
-          //                                 name.firstChar ?? "",
-          //                                 style: const TextStyle(
-          //                                     fontSize: 30,
-          //                                     color: Colors.blue),
-          //                               ),
-          //                             ),
-          //                             const SizedBox(
-          //                               height: 8,
-          //                             ),
-          //                             Text(
-          //                               name,
-          //                               style: const TextStyle(
-          //                                   fontSize: 18,
-          //                                   fontWeight: FontWeight.bold),
-          //                             ),
-          //                           ],
-          //                         )),
-          //               if (myId != "") ...[
-          //                 ListTile(
-          //                   title: const Text(
-          //                     "Profile",
-          //                     style: TextStyle(fontSize: 16),
-          //                   ),
-          //                   onTap: () {
-          //                     gotoProfilePage();
-          //                   },
-          //                 ),
-          //                 //const Divider(),
-          //               ],
-          //               ...List.generate(
-          //                 allGames.length,
-          //                 (index) {
-          //                   return ListTile(
-          //                     title: Text(
-          //                       "About ${allGames[index]}",
-          //                       style: const TextStyle(fontSize: 16),
-          //                     ),
-          //                     onTap: () {
-          //                       Navigator.of(context).push(
-          //                           MaterialPageRoute(
-          //                               builder: ((context) =>
-          //                                   AboutGamePage(
-          //                                     game: allGames[index],
-          //                                   ))));
-          //                     },
-          //                   );
-          //                 },
-          //               ),
-          //               ListTile(
-          //                 title: const Text(
-          //                   "Terms and Conditions and Privacy Policy",
-          //                   style: TextStyle(fontSize: 16),
-          //                 ),
-          //                 onTap: () {
-          //                   gotoAppInfoPage(
-          //                       "Terms and Conditions and Privacy Policy");
-          //                 },
-          //               ),
-          //               ListTile(
-          //                 title: const Text(
-          //                   "About Us",
-          //                   style: TextStyle(fontSize: 16),
-          //                 ),
-          //                 onTap: () {
-          //                   gotoAppInfoPage("About Us");
-          //                 },
-          //               ),
-          //             ],
-          //           ),
-          //         ),
-          //         Padding(
-          //           padding: const EdgeInsets.only(bottom: 8.0, left: 16),
-          //           child: Row(
-          //             mainAxisSize: MainAxisSize.min,
-          //             children: [
-          //               const Text(
-          //                 "Light Theme",
-          //                 style: TextStyle(fontSize: 16),
-          //               ),
-          //               const SizedBox(
-          //                 width: 8,
-          //               ),
-          //               Switch.adaptive(
-          //                   activeColor: Colors.blue,
-          //                   value: themeValue == 0,
-          //                   onChanged: (value) {
-          //                     themeValue = value ? 0 : 1;
-          //                     updateTheme(themeValue);
-          //                     setState(() {});
-          //                     ref
-          //                         .read(themeNotifierProvider.notifier)
-          //                         .toggleTheme(themeValue);
-          //                     // Provider.of<ThemeNotifier>(context,
-          //                     //         listen: false)
-          //                     //     .toggleTheme(themeValue);
-          //                   }),
-          //             ],
-          //           ),
-          //         ),
-          //       ],
-          //     ),
-          //   ),
-          body: IndexedStack(
-            index: currentIndex,
-            children: [
-              GamesPage(
-                key: gamesPageKey,
-                isTab: true,
-                gameCallback: (game) {
-                  selectedGame = game != "";
-                  setState(() {});
-                },
-              ),
-              MatchesPage(
-                playGameCallback: () {
-                  currentIndex = 0;
-                  setState(() {});
-                },
+      child: Scaffold(
+        key: scaffoldKey,
+        appBar: (isSearch
+            ? AppSearchBar(
+                hint: "Search ${currentIndex == 0 ? "Games" : "Matches"}",
+                controller: searchController,
+                onChanged: updateSearch,
+                onCloseSearch: stopSearch,
               )
-            ],
-          ),
-          bottomNavigationBar: BottomNavigationBar(
-              selectedItemColor: Colors.blue,
-              currentIndex: currentIndex,
-              onTap: (index) {
-                setState(() {
-                  currentIndex = index;
-                });
-              },
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.gamepad),
-                  label: "Games",
+            : AppAppBar(
+                title: "Games Arena",
+                subtitle: currentIndex == 0 ? "Games" : "Matches",
+                // style: GoogleFonts.merienda(
+                //   fontWeight: FontWeight.bold,
+                //   fontSize: 24,
+                //   color: tint,
+                // ),
+                leading: IconButton(
+                  onPressed: () {
+                    if (selectedGame && currentIndex == 0) {
+                      gamesPageKey.currentState?.goBackToGames();
+                    } else {
+                      scaffoldKey.currentState?.openDrawer();
+                    }
+                  },
+                  icon: Icon(selectedGame && currentIndex == 0
+                      ? EvaIcons.arrow_back
+                      : EvaIcons.menu_outline),
+                  color: tint,
                 ),
-                BottomNavigationBarItem(
-                    icon: Icon(Icons.play_arrow), label: "Matches"),
-              ]),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        gotoNewGroup();
+                      },
+                      icon: const Icon(EvaIcons.person_add_outline),
+                      color: tint,
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        startSearch();
+                      },
+                      icon: const Icon(EvaIcons.search),
+                      color: tint,
+                    ),
+                  ],
+                ),
+              )) as PreferredSizeWidget?,
+        // appBar: AppBar(
+        //   centerTitle: true,
+
+        //   leading: selectedGame && currentIndex == 0
+        //       ? IconButton(
+        //           icon: Icon(
+        //             EvaIcons.arrow_back,
+        //             color: tint,
+        //           ),
+        //           onPressed: () {
+        //             gamesPageKey.currentState?.goBackToGames();
+        //           },
+        //         )
+        //       : null,
+        //   //  IconButton(
+        //   //     icon: const Icon(EvaIcons.menu_2),
+        //   //     onPressed: () {
+        //   //       Scaffold.of(context).openDrawer();
+        //   //     },
+        //   //   ),
+        //   title: Text(
+        //     "Games Arena",
+        //     style: GoogleFonts.merienda(
+        //       fontSize: 18,
+        //       color: tint,
+        //     ),
+        //     textAlign: TextAlign.center,
+        //   ),
+        //   actions: [
+        //     IconButton(
+        //       icon: Icon(
+        //         EvaIcons.search,
+        //         color: tint,
+        //       ),
+        //       onPressed: () {},
+        //     ),
+        //   ],
+        // ),
+        drawer:
+            selectedGame && currentIndex == 0 ? null : HomeDrawer(name: name),
+        body: IndexedStack(
+          index: currentIndex,
+          children: [
+            GamesPage(
+              key: gamesPageKey,
+              isTab: true,
+              gameCallback: (game) {
+                selectedGame = game != "";
+                setState(() {});
+              },
+            ),
+            MatchesPage(
+              playGameCallback: () {
+                currentIndex = 0;
+                setState(() {});
+              },
+            )
+          ],
         ),
+        bottomNavigationBar: BottomNavigationBar(
+            selectedItemColor: Colors.blue,
+            currentIndex: currentIndex,
+            onTap: (index) {
+              setState(() {
+                currentIndex = index;
+              });
+            },
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.gamepad),
+                label: "Games",
+              ),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.play_arrow), label: "Matches"),
+            ]),
       ),
     );
   }

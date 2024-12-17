@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:country_code_picker_plus/country_code_picker_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,8 @@ import 'package:gamesarena/shared/widgets/app_text_field.dart';
 import 'package:gamesarena/theme/colors.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/firebase/firebase_notification.dart';
+import '../../../shared/utils/country_code_utils.dart';
 import '../../../shared/utils/utils.dart';
 import '../../app_info/pages/app_info_page.dart';
 import '../../user/models/user.dart';
@@ -41,6 +44,9 @@ class _AuthPageState extends State<AuthPage> {
       emailController,
       passwordController,
       phoneController;
+
+  String countryDialCode = "";
+  String countryCode = "";
   @override
   void initState() {
     super.initState();
@@ -49,6 +55,7 @@ class _AuthPageState extends State<AuthPage> {
     emailController = TextEditingController();
     phoneController = TextEditingController();
     passwordController = TextEditingController();
+    getCountryCode();
   }
 
   @override
@@ -77,12 +84,18 @@ class _AuthPageState extends State<AuthPage> {
     return false;
   }
 
+  void getCountryCode() async {
+    final code = await getCurrentCountryCode();
+    countryCode = code ?? "";
+    setState(() {});
+  }
+
   void googleSignIn() async {
-    context.showLoading(message: "Google Signin in...");
+    showLoading(message: "Google Signin in...");
 
     authMethods.signInWithGoogle().then((cred) async {
       if (cred == null || cred.user == null) {
-        context.showToast("Google Signin Failed");
+        showErrorToast("Google Signin Failed");
         return;
       }
       final user = cred.user!;
@@ -91,11 +104,17 @@ class _AuthPageState extends State<AuthPage> {
       final needsUsername = userData == null || userData.username.isEmpty;
 
       if (userData == null) {
+        final phoneNumer = user.phoneNumber ?? "";
+        final phone = phoneNumer.isNotEmpty
+            ? phoneNumer.startsWith("+")
+                ? phoneNumer.substring(1)
+                : phoneNumer
+            : "";
         final newUser = User(
           email: user.email ?? "",
           user_id: userId,
           username: "",
-          phone: user.phoneNumber ?? "",
+          phone: phone,
           time: timeNow,
           last_seen: timeNow,
           token: "",
@@ -111,23 +130,24 @@ class _AuthPageState extends State<AuthPage> {
         gotoHomePage();
       }
     }).onError((error, stackTrace) {
-      context.showErrorSnackbar(error.toString().onlyErrorMessage,
+      showErrorSnackbar(error.toString().onlyErrorMessage,
           onPressed: googleSignIn);
     }).whenComplete(() => context.hideDialog);
   }
 
   Future createAccount() async {
     if (!acceptTerms) {
-      context.showErrorToast("Read and Accept Terms and Conditions First");
-      //context.showToast( "Read and Accept Terms and Conditions First");
+      showErrorToast("Read and Accept Terms and Conditions First");
       return;
     }
-    context.showLoading(message: "Creating Account...");
+    showLoading(message: "Creating Account...");
 
     final email = emailController.text.trim();
     final username =
         usernameController.text.toLowerCase().replaceAll(" ", "").trim();
-    final phone = phoneController.text.trim();
+    final phoneNumber = phoneController.text.trim();
+    final phone =
+        phoneNumber.startsWith("0") ? phoneNumber.substring(1) : phoneNumber;
     final password = passwordController.text.trim();
 
     usernameExist = await usernameExists(username);
@@ -136,7 +156,7 @@ class _AuthPageState extends State<AuthPage> {
       // Fluttertoast.showToast(
       //     msg: "Username already exist", toastLength: Toast.LENGTH_LONG);
       // ignore: use_build_context_synchronously
-      context.showErrorToast("Username already exist");
+      showErrorToast("Username already exist");
       if (!mounted) return;
       context.hideDialog();
       return;
@@ -145,7 +165,7 @@ class _AuthPageState extends State<AuthPage> {
     authMethods.createAccount(email, password).then((value) async {
       await authMethods.sendEmailVerification();
       if (!mounted) return;
-      context.showToast(
+      showToast(
         "A verification link has been sent to your mail. Click to comfirm",
       );
       // Fluttertoast.showToast(
@@ -155,7 +175,7 @@ class _AuthPageState extends State<AuthPage> {
         email: email,
         user_id: "",
         username: username,
-        phone: phone,
+        phone: "$countryDialCode$phone",
         time: timeNow,
         last_seen: timeNow,
         token: "",
@@ -167,23 +187,23 @@ class _AuthPageState extends State<AuthPage> {
       clearControllers();
       setState(() {});
     }).onError((error, stackTrace) {
-      context.showErrorSnackbar(error.toString().onlyErrorMessage,
+      showErrorSnackbar(error.toString().onlyErrorMessage,
           onPressed: createAccount);
     }).whenComplete(() => context.hideDialog);
   }
 
   Future login() async {
     //duration: const Duration(seconds: 5)
-    context.showLoading(message: "Logging in...");
+    showLoading(message: "Logging in...");
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
     authMethods.login(email, password).then((value) async {
       final verified = await authMethods.isEmailVerified();
       if (!verified) {
-        context.showErrorToast("Email not verified");
+        showErrorToast("Email not verified");
         if (!mounted) return;
-        await context.showSuccessSnackbar(
+        await showSuccessSnackbar(
           "A verification link has been sent to your mail. Click to comfirm\nIf not found Resend",
           action: "Resend",
           onPressed: () => authMethods.sendEmailVerification(),
@@ -194,7 +214,7 @@ class _AuthPageState extends State<AuthPage> {
 
       final user = await getUser(getCurrentUserId());
       if (user == null) {
-        context.showToast("User not found");
+        showErrorToast("User not found");
         authMethods.logOut();
         return;
       }
@@ -203,12 +223,13 @@ class _AuthPageState extends State<AuthPage> {
           mode = AuthMode.username;
         });
       } else {
-        context.showSuccessToast("Login Successfully");
+        showSuccessToast("Login Successfully");
+        FirebaseNotification().updateFirebaseToken();
+
         gotoHomePage();
       }
     }).onError((error, stackTrace) {
-      context.showErrorSnackbar(error.toString().onlyErrorMessage,
-          onPressed: login);
+      showErrorSnackbar(error.toString().onlyErrorMessage, onPressed: login);
     }).whenComplete(() => context.hideDialog);
   }
 
@@ -218,12 +239,11 @@ class _AuthPageState extends State<AuthPage> {
     authMethods.sendPasswordResetEmail(email).then((value) {
       clearControllers();
       mode = AuthMode.login;
-      Fluttertoast.showToast(
-          msg: "A password reset email has been sent to you.\nCheck your mail",
-          toastLength: Toast.LENGTH_LONG);
+      showToast(
+          "A password reset email has been sent to you.\nCheck your mail");
       setState(() {});
     }).onError((error, stackTrace) {
-      context.showErrorSnackbar(error.toString().onlyErrorMessage,
+      showErrorSnackbar(error.toString().onlyErrorMessage,
           onPressed: resetPassword);
     }).whenComplete(() => context.pop());
   }
@@ -234,8 +254,7 @@ class _AuthPageState extends State<AuthPage> {
     usernameExist = await usernameExists(username);
 
     if (usernameExist) {
-      Fluttertoast.showToast(
-          msg: "Username already exist", toastLength: Toast.LENGTH_LONG);
+      showErrorToast("Username already exist");
       if (!mounted) return;
       context.pop();
       return;
@@ -365,6 +384,31 @@ class _AuthPageState extends State<AuthPage> {
                         AppTextField(
                           controller: phoneController,
                           hintText: "Phone",
+                          validator: (value) {
+                            if (value!.startsWith("+")) {
+                              return "Select Country dial code and just input the rest of your number";
+                            }
+                            return null;
+                          },
+                          prefix: SizedBox(
+                            width: 50,
+                            child: CountryCodePicker(
+                              textStyle:
+                                  context.bodyMedium?.copyWith(color: tint),
+                              padding: const EdgeInsets.only(left: 10),
+                              mode: CountryCodePickerMode.bottomSheet,
+                              initialSelection:
+                                  countryCode.isNotEmpty ? countryCode : "US",
+                              showFlag: false,
+                              showDropDownButton: false,
+                              dialogBackgroundColor: tint,
+                              onChanged: (country) {
+                                setState(() {
+                                  countryDialCode = country.dialCode;
+                                });
+                              },
+                            ),
+                          ),
                         ),
                       if (mode == AuthMode.signUp)
                         Row(

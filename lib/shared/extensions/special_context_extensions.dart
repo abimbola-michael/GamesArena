@@ -5,6 +5,8 @@ import 'package:gamesarena/main.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/theme/colors.dart';
 
+import '../dialogs/comfirmation_dialog.dart';
+import '../dialogs/text_input_dialog.dart';
 import '../views/error_or_success_view.dart';
 import '../views/loading_view.dart';
 
@@ -70,10 +72,13 @@ Future? showMessage(String message,
   );
 }
 
-Future? showToast(String message,
-    {DurationLength durationLength = DurationLength.long}) {
+Future? showToast(
+  String message, {
+  DurationLength durationLength = DurationLength.long,
+  isError = false,
+}) {
   return navigatorKey.currentContext
-      ?.showToast(message, durationLength: durationLength);
+      ?.showToast(message, durationLength: durationLength, isError: isError);
 }
 
 Future? showErrorToast(String message,
@@ -117,6 +122,36 @@ Future? hideDialog() {
 }
 
 extension SpecialContextExtensions on BuildContext {
+  Future showComfirmationDialog({
+    required String title,
+    String? message,
+    List<String>? actions,
+  }) {
+    return showDialog(
+        context: this,
+        builder: (context) {
+          return ComfirmationDialog(
+              title: title, message: message, actions: actions);
+        });
+  }
+
+  Future showTextInputDialog({
+    required String title,
+    String? message,
+    String? hintText,
+    List<String>? actions,
+  }) {
+    return showDialog(
+        context: this,
+        builder: (context) {
+          return TextInputDialog(
+              title: title,
+              message: message,
+              hintText: hintText,
+              actions: actions);
+        });
+  }
+
   Future showLoading(
       {bool transparent = true,
       Color? backgroundColor,
@@ -230,18 +265,20 @@ extension SpecialContextExtensions on BuildContext {
       bool isError = false,
       DurationLength durationLength = DurationLength.short}) async {
     if (!mounted) return;
-    if (loading && duration == null) {
-      duration = const Duration(seconds: 3);
-    }
+
     if (duration != null &&
         (displayType == DisplayType.dialog ||
             displayType == DisplayType.bottomsheet)) {
       await Future.delayed(duration);
     }
+
     if (duration == null &&
         (displayType == DisplayType.toast ||
             displayType == DisplayType.snackbar)) {
       duration = getDuration(durationLength);
+    }
+    if (loading && duration == null) {
+      duration = const Duration(seconds: 3);
     }
     await hideDialog();
 
@@ -291,14 +328,17 @@ extension SpecialContextExtensions on BuildContext {
               : SnackBarAction(label: action, onPressed: onPressed),
         ),
       );
-    } else {
+    } else if (displayType == DisplayType.toast) {
       ScaffoldMessenger.of(this).removeCurrentSnackBar();
 
       result = ScaffoldMessenger.of(this).showSnackBar(
         SnackBar(
           duration: duration!,
-          backgroundColor: bgColor,
-          content: Center(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          content: Container(
+            alignment: Alignment.center,
+            color: Colors.transparent,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
@@ -349,16 +389,20 @@ extension SpecialContextExtensions on BuildContext {
     return result;
   }
 
-  Future showToast(String message,
-      {DurationLength durationLength = DurationLength.long}) {
+  Future showToast(
+    String message, {
+    DurationLength durationLength = DurationLength.short,
+    isError = false,
+  }) {
     return showMessage(message,
         displayType: DisplayType.toast,
         durationLength: durationLength,
-        backgroundColor: black);
+        backgroundColor: black,
+        isError: isError);
   }
 
   Future showErrorToast(String message,
-      {DurationLength durationLength = DurationLength.long}) {
+      {DurationLength durationLength = DurationLength.short}) {
     return showMessage(message,
         displayType: DisplayType.toast,
         durationLength: durationLength,
@@ -366,7 +410,7 @@ extension SpecialContextExtensions on BuildContext {
   }
 
   Future showSuccessToast(String message,
-      {DurationLength durationLength = DurationLength.long}) {
+      {DurationLength durationLength = DurationLength.short}) {
     return showMessage(message,
         displayType: DisplayType.toast,
         durationLength: durationLength,
@@ -411,7 +455,7 @@ extension SpecialContextExtensions on BuildContext {
 
   Future hideDialog() async {
     if (dialogContext != null && dialogContext!.mounted) {
-      await dialogContext!.pop();
+      dialogContext!.pop();
       dialogContext = null;
     }
   }

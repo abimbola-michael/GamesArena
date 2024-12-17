@@ -1,7 +1,12 @@
+import 'package:gamesarena/features/game/services.dart';
 import 'package:gamesarena/shared/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:gamesarena/shared/widgets/app_appbar.dart';
+import 'package:gamesarena/shared/widgets/app_text_field.dart';
+import '../../../shared/extensions/special_context_extensions.dart';
+import '../../../shared/views/loading_overlay.dart';
 import '../../user/services.dart';
 import '../../user/widgets/user_item.dart';
 import '../../../shared/models/models.dart';
@@ -20,9 +25,9 @@ class NewGroupPage extends StatefulWidget {
 
 class _NewGroupPageState extends State<NewGroupPage> {
   TextEditingController controller = TextEditingController();
-  List<User> users = [];
   String gameId = "";
   bool creating = false;
+  GlobalKey<FormState> formFieldStateKey = GlobalKey();
   @override
   void initState() {
     super.initState();
@@ -36,80 +41,81 @@ class _NewGroupPageState extends State<NewGroupPage> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-        child: Scaffold(
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: SizedBox(
-              height: 50,
-              child: TextField(
-                controller: controller,
-                keyboardType: TextInputType.text,
-                decoration: InputDecoration(
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: lightTint)),
-                    hintText: "Enter groupname"),
-              ),
+    return Scaffold(
+      appBar: const AppAppBar(
+        title: "New Group",
+        subtitle: "Enter Group name",
+      ),
+      body: LoadingOverlay(
+        loading: creating,
+        child: Form(
+          key: formFieldStateKey,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Column(
+              // mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AppTextField(controller: controller, hintText: "Groupname"),
+                const SizedBox(height: 8),
+                Text(
+                  "${widget.users.length} Players",
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                Expanded(
+                  child: GridView.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4),
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: widget.users.length,
+                      itemBuilder: (context, index) {
+                        final user = widget.users[index];
+                        return UserItem(
+                          user: user,
+                          type: "",
+                          onPressed: () {},
+                        );
+                      }),
+                ),
+              ],
             ),
           ),
-          Text(
-            "${users.length} Players",
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4),
-              shrinkWrap: true,
-              padding: const EdgeInsets.all(16),
-              itemCount: users.length,
-              itemBuilder: (context, index) {
-                final user = users[index];
-                return UserItem(
-                  user: user,
-                  type: "",
-                  onPressed: () {},
-                );
-              }),
-        ],
+        ),
       ),
-      bottomNavigationBar: ActionButton("Create Group", onPressed: () {
-        createGroup();
-      }, height: 50),
-    ));
+      bottomNavigationBar: ActionButton(
+        "Create",
+        onPressed: () {
+          createGroup();
+        },
+        height: 50,
+        wrap: true,
+      ),
+    );
   }
 
   void createGroup() async {
-    if (creating) return;
+    if (!(formFieldStateKey.currentState?.validate() ?? false)) return;
     final groupname = controller.text;
-    final groupId = getId(["groups"]);
-    if (groupname != "") {
-      final group =
-          Group(group_id: groupId, groupname: groupname, creator_id: myId);
-      setState(() {
-        creating = true;
-      });
-      await creatGroup(group, users.map((e) => e.user_id).toList());
-      //await createGame(group_id, users.map((e) => e.user_id).toList());
-      Navigator.pop(context, true);
-    } else {
-      Fluttertoast.showToast(msg: "Groupname is required");
-    }
-  }
 
-  void searchForUser() async {
-    String value = controller.text;
-    String type = "";
-    if (value.isValidEmail()) {
-      type = "email";
-    } else if (value.isOnlyNumber()) {
-      type = "phone";
-    } else {
-      type = "username";
+    if (creating) return;
+    if (groupname.isEmpty) {
+      showToast("Group name is required");
+      return;
     }
-    final user = await searchUser(type, value);
+    setState(() {
+      creating = true;
+    });
+    try {
+      await createGameGroup(
+          groupname, widget.users.map((e) => e.user_id).toList());
+      if (!mounted) return;
+      context.pop(true);
+    } catch (e) {
+      setState(() {
+        creating = false;
+      });
+    }
   }
 }

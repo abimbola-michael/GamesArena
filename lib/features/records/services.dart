@@ -1,51 +1,130 @@
-import 'package:gamesarena/core/firebase/extensions/firebase_extensions.dart';
-import 'package:gamesarena/shared/extensions/extensions.dart';
+import 'package:gamesarena/shared/models/models.dart';
+import 'package:gamesarena/shared/utils/utils.dart';
 
 import '../../core/firebase/firestore_methods.dart';
-import '../../shared/utils/utils.dart';
-import '../game/models/playing.dart';
-import 'models/match_record.dart';
+import 'models/game_stat.dart';
 
 FirestoreMethods fm = FirestoreMethods();
-
-Future<MatchRecord?> getMatchRecord(
-    String gameId, String matchId, int id) async {
-  return fm.getValue((map) => MatchRecord.fromMap(map),
-      ["games", gameId, "matches", matchId, "records", "$id"]);
+Future<Player?> getPlayer(String gameId, String playerId) {
+  return fm.getValue(
+      (map) => Player.fromMap(map), ["games", gameId, "players", playerId]);
 }
 
-Future<List<MatchRecord>> getMatchRecords(
-  String gameId,
-  String matchId, {
-  String? lastTime,
-}) async {
-  return fm.getValues((map) => MatchRecord.fromMap(map),
-      ["games", gameId, "matches", matchId, "records"],
-      order: ["time_start", true], limit: [10], start: [lastTime, true]);
+Future<List<Player>> getGamePlayers(Game game,
+    {String? role, String? lastTime, int limit = 10}) async {
+  final gameId = game.game_id;
+  //final creatorId = game.creatorId;
+  return fm.getValues(
+    (map) => Player.fromMap(map), ["games", gameId, "players"],
+    where: [
+      ...["id", "!=", myId],
+      if (role != null) ...["role", "==", role],
+      if (lastTime != null) ...["time", ">", lastTime]
+    ],
+    order: ["time", false],
+    limit: [limit],
+    //start: lastTime == null ? [] : [lastTime, true]
+  );
 }
 
-Future addMatchRecord(String game, String gameId, String matchId,
-    List<Playing> playing, int id) async {
-  if (playing.isNotEmpty) {
-    MatchRecord record = MatchRecord(
-      id: id,
-      game: game,
-      time_start: timeNow,
-      time_end: "",
-      duration: 0,
-      player1Score: 0,
-      player2Score: playing.second != null ? 0 : null,
-      player3Score: playing.third != null ? 0 : null,
-      player4Score: playing.fourth != null ? 0 : null,
-    );
-    await fm.setValue(["games", gameId, "matches", matchId, "records", "$id"],
-        value: record.toMap().removeNull());
-  }
+Future<List<Match>> getPlayedMatches(String gameId,
+    {String? type, String? lastTime, int limit = 10}) async {
+  return fm.getValues(
+    (map) => Match.fromMap(map),
+    ["games", gameId, "matches"],
+    where: [
+      "players",
+      "contains",
+      myId,
+      if (type != null) ...[
+        "outcome",
+        "==",
+        type == "loss" ? "win" : type,
+        [type == "win" ? "winners" : "others", "contains", myId],
+
+        // if (type == "win") ...["winners", "contains", myId],
+        // if (type == "loss") ...["others", "contains", myId],
+      ],
+      if (lastTime != null) ...["time_created", "<", lastTime]
+    ],
+    order: ["time_created", true],
+    limit: [limit],
+    //start: lastTime == null ? [] : [lastTime, true],
+  );
 }
 
-Future updateMatchRecord(
-    String gameId, String matchId, int playerIndex, int id, int score) async {
-  String player = "player${playerIndex + 1}Score";
-  await fm.updateValue(["games", gameId, "matches", matchId, "records", "$id"],
-      value: {player: score});
+Future<GameStat> getGameStats(String gameId, int? playersCount) async {
+  int allMatches = await fm.getSnapshotCount(["games", gameId, "matches"]);
+  int players =
+      playersCount ?? await fm.getSnapshotCount(["games", gameId, "players"]);
+
+  int playedMatches = await fm.getSnapshotCount([
+    "games",
+    gameId,
+    "matches"
+  ], where: [
+    "players",
+    "contains",
+    myId,
+    "outcome",
+    "!=",
+    "",
+    "outcome",
+    "!=",
+    null,
+  ]);
+
+  int wins = await fm.getSnapshotCount([
+    "games",
+    gameId,
+    "matches"
+  ], where: [
+    "players",
+    "contains",
+    myId,
+    "outcome",
+    "==",
+    "win",
+    "winners",
+    "contains",
+    myId
+  ]);
+
+  // int losses = await fm.getSnapshotCount([
+  //   "games",
+  //   gameId,
+  //   "matches"
+  // ], where: [
+  //   "players",
+  //   "contains",
+  //   myId,
+  //   "outcome",
+  //   "==",
+  //   "win",
+  //   "winner",
+  //   "!=",
+  //   myId
+  // ]);
+
+  int draws = await fm.getSnapshotCount([
+    "games",
+    gameId,
+    "matches"
+  ], where: [
+    "players",
+    "contains",
+    myId,
+    "outcome",
+    "==",
+    "draw",
+  ]);
+  //int playedMatches = wins + ties + losses + draws;
+  int losses = playedMatches - (wins + draws);
+  return GameStat(
+      allMatches: allMatches,
+      playedMatches: playedMatches,
+      players: players,
+      wins: wins,
+      draws: draws,
+      losses: losses);
 }

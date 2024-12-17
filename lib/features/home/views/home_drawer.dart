@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamesarena/features/onboarding/pages/auth_page.dart';
+import 'package:gamesarena/features/settings/pages/settings_and_more_page.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/theme/colors.dart';
 
@@ -10,8 +11,9 @@ import '../../../shared/utils/utils.dart';
 import '../../../shared/widgets/action_button.dart';
 import '../../about/pages/about_game_page.dart';
 import '../../app_info/pages/app_info_page.dart';
-import '../../onboarding/pages/login_page.dart';
 import '../../profile/pages/profile_page.dart';
+import '../../subscription/pages/subscription_page.dart';
+import '../widgets/drawer_tile.dart';
 
 class HomeDrawer extends ConsumerStatefulWidget {
   final String name;
@@ -23,22 +25,33 @@ class HomeDrawer extends ConsumerStatefulWidget {
 
 class _HomeDrawerState extends ConsumerState<HomeDrawer> {
   void gotoLoginPage() {
-    //context.pushTo(const LoginPage(login: true));
+    //context.pop();
     context.pushTo(const AuthPage());
   }
 
   void gotoAppInfoPage(String type) {
+    //context.pop();
     context.pushTo(AppInfoPage(type: type));
   }
 
   void gotoAppGamePage(int index) {
-    context.pushTo(AboutGamePage(
-      game: allGames[index],
-    ));
+    //context.pop();
+    context.pushTo(AboutGamePage(game: allGames[index]));
   }
 
   void gotoProfilePage() {
-    context.pushTo(ProfilePage(id: myId, type: "user"));
+    //context.pop();
+    context.pushTo(ProfilePage(id: myId));
+  }
+
+  void gotoSettingPage() {
+    //context.pop();
+    context.pushTo(const SettingsAndMorePage());
+  }
+
+  void gotoSubscriptionPage() {
+    //context.pop();
+    context.pushTo(const SubscriptionPage());
   }
 
   void updateTheme(bool value) {
@@ -51,99 +64,70 @@ class _HomeDrawerState extends ConsumerState<HomeDrawer> {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ListView(
-              children: [
-                DrawerHeader(
-                    child: myId.isEmpty
-                        ? ActionButton(
-                            "Login",
-                            onPressed: () {
-                              gotoLoginPage();
-                            },
-                            wrap: true,
-                          )
-                        : Column(
-                            children: [
-                              CircleAvatar(
-                                radius: 40,
-                                backgroundColor: lightestTint,
-                                child: Text(
-                                  widget.name.firstChar ?? "",
-                                  style: const TextStyle(
-                                      fontSize: 30, color: Colors.blue),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ListView(
+                children: [
+                  DrawerHeader(
+                      child: myId.isEmpty
+                          ? Center(
+                              child: ActionButton(
+                                "Login",
+                                onPressed: () {
+                                  gotoLoginPage();
+                                },
+                                wrap: true,
+                              ),
+                            )
+                          : Column(
+                              children: [
+                                CircleAvatar(
+                                  radius: 40,
+                                  backgroundColor: lightestTint,
+                                  child: Text(
+                                    widget.name.firstChar ?? "",
+                                    style: const TextStyle(
+                                        fontSize: 30, color: Colors.blue),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(
-                                height: 8,
-                              ),
-                              Text(
-                                widget.name,
-                                style: const TextStyle(
-                                    fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          )),
-                if (myId != "") ...[
-                  ListTile(
-                    title: const Text(
-                      "Profile",
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    onTap: () {
-                      gotoProfilePage();
-                    },
-                  ),
-                  //const Divider(),
+                                const SizedBox(
+                                  height: 8,
+                                ),
+                                Text(
+                                  widget.name,
+                                  style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            )),
+                  if (myId != "") ...[
+                    DrawerTile(title: "Profile", onPressed: gotoProfilePage),
+                    DrawerTile(title: "Settings", onPressed: gotoSettingPage),
+                    DrawerTile(
+                        title: "Subscription", onPressed: gotoSubscriptionPage),
+                    DrawerTile(
+                        title: "Terms and Conditions",
+                        onPressed: () =>
+                            gotoAppInfoPage("Terms and Conditions")),
+                    DrawerTile(
+                        title: "Privacy Policies",
+                        onPressed: () => gotoAppInfoPage("Privacy Policies")),
+                    DrawerTile(
+                        title: "About Us",
+                        onPressed: () => gotoAppInfoPage("About Us")),
+                  ],
                 ],
-                ...List.generate(
-                  allGames.length,
-                  (index) {
-                    return ListTile(
-                      title: Text(
-                        "About ${allGames[index]}",
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      onTap: () {
-                        gotoAppGamePage(index);
-                      },
-                    );
-                  },
-                ),
-                ListTile(
-                  title: const Text(
-                    "Terms and Conditions and Privacy Policy",
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  onTap: () {
-                    gotoAppInfoPage("Terms and Conditions and Privacy Policy");
-                  },
-                ),
-                ListTile(
-                  title: const Text(
-                    "About Us",
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  onTap: () {
-                    gotoAppInfoPage("About Us");
-                  },
-                ),
-              ],
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8.0, left: 16),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+            Row(
               children: [
-                const Text(
-                  "Light Theme",
-                  style: TextStyle(fontSize: 16),
-                ),
+                Expanded(
+                    child: DrawerTile(title: "Light Theme", onPressed: () {})),
                 const SizedBox(
                   width: 8,
                 ),
@@ -153,8 +137,8 @@ class _HomeDrawerState extends ConsumerState<HomeDrawer> {
                     onChanged: updateTheme),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

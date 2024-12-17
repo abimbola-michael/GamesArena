@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/theme/colors.dart';
 import 'package:gamesarena/shared/utils/utils.dart';
 
@@ -21,14 +22,15 @@ class GameItemWidget extends StatelessWidget {
       //height: width + 24,
       padding: const EdgeInsets.all(8),
       alignment: Alignment.topLeft,
-      child: GestureDetector(
-        onTap: onPressed,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: width - 16,
-              height: width - 16,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: width - 16,
+            height: width - 16,
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(20),
               child: Card(
                   semanticContainer: true,
                   clipBehavior: Clip.antiAliasWithSaveLayer,
@@ -37,39 +39,79 @@ class GameItemWidget extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20)),
                   child: Image.asset(getImageAsset(), fit: BoxFit.cover)),
             ),
-            const SizedBox(
-              height: 4,
-            ),
-            Text(
-              game,
-              style: const TextStyle(
-                fontSize: 16,
-              ),
-              textAlign: TextAlign.center,
-            )
-          ],
-        ),
+          ),
+          const SizedBox(
+            height: 4,
+          ),
+          Text(
+            game,
+            style: const TextStyle(fontSize: 14),
+            textAlign: TextAlign.center,
+          )
+        ],
       ),
     );
   }
 
   String getImageAsset() {
-    String asset = "";
+    String asset = "batball.jpeg";
     if (game == batballGame) {
-      asset = "assets/images/batball.jpeg";
+      asset = "batball.jpeg";
     } else if (game == whotGame) {
-      asset = "assets/images/whot.jpeg";
+      asset = "whot.jpeg";
     } else if (game == ludoGame) {
-      asset = "assets/images/ludo.jpeg";
+      asset = "ludo.jpeg";
     } else if (game == draughtGame) {
-      asset = "assets/images/draught.jpeg";
+      asset = "draught.jpeg";
     } else if (game == chessGame) {
-      asset = "assets/images/chess.jpeg";
+      asset = "chess.jpeg";
     } else if (game == xandoGame) {
-      asset = "assets/images/xando.jpeg";
+      asset = "xando.jpeg";
     } else if (game == wordPuzzleGame) {
-      asset = "assets/images/word_puzzle.jpg";
+      asset = "word_puzzle.jpg";
+    } else if (game == artQuizGame) {
+      asset = "art_quiz.jpg";
+    } else if (game == bibleQuizGame) {
+      asset = "bible_quiz.png";
+    } else if (game == brainTeaserQuizGame) {
+      asset = "brain_teaser.jpg";
+    } else if (game == chemistryQuizGame) {
+      asset = "chemistry_quiz.jpg";
+    } else if (game == currentAffairsQuizGame) {
+      asset = "current_affairs_quiz.png";
+    } else if (game == engineeringQuizGame) {
+      asset = "engineering_quiz.jpg";
+    } else if (game == englishLiteratureQuizGame) {
+      asset = "english_literature_quiz.jpg";
+    } else if (game == englishQuizGame) {
+      asset = "english_quiz.png";
+    } else if (game == generalKnowledgeQuizGame) {
+      asset = "general_knowledge_quiz.jpg";
+    } else if (game == mathsQuizGame) {
+      asset = "math_quiz.jpg";
+    } else if (game == medicalQuizGame) {
+      asset = "medical_quiz.jpg";
+    } else if (game == physisQuizGame) {
+      asset = "physics_quiz.jpg";
+    } else if (game == quantitativeAptQuizGame) {
+      asset = "quantitative_aptitude_quiz.jpg";
+    } else if (game == quranQuizGame) {
+      asset = "quran_quiz.jpg";
+    } else if (game == scienceQuizGame) {
+      asset = "science_quiz.jpg";
+    } else if (game == techQuizGame) {
+      asset = "tech_quiz.jpg";
+    } else if (game == verbalAptQuizGame) {
+      asset = "verbal_aptitude_quiz.jpg";
+    } else if (game == vocationalAptQuizGame) {
+      asset = "vocational_aptitude_quiz.jpg";
+    } else if (game == yourTopicQuizGame) {
+      asset = "your_topic_quiz.jpg";
+    } else if (game == biologyQuizGame) {
+      asset = "biology_quiz.jpg";
+    } else if (game == lawQuizGame) {
+      asset = "law_quiz.jpg";
     }
-    return asset;
+    return asset.toImage;
   }
 }

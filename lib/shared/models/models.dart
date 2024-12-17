@@ -5,6 +5,5 @@ export '../../features/records/models/match_record.dart';
 export '../../features/game/models/game_request.dart';
 export '../../features/game/models/game.dart';
 export '../../features/game/models/match.dart';
-export '../../features/game/models/playing.dart';
-export '../../features/game/models/players_formation.dart';
+export '../../features/game/models/player.dart';
 export '../../features/game/models/game_list.dart';

@@ -70,7 +70,7 @@ enum KingCheckDirection {
 
 enum BallHitPoint { x, y }
 
-enum GameMode { idle, loading, playing, paused }
+enum GameMode { idle, loading, players, paused }
 
 enum WhotCardShape { circle, triangle, cross, square, star, whot }
 
@@ -91,7 +91,8 @@ enum LudoHousePosition {
   bottomLeft,
 }
 
-enum XandOChar { x, o, empty }
+//empty
+enum XandOChar { x, o }
 
 enum LineDirection { vertical, horizontal, lowerDiagonal, upperDiagonal }
 
