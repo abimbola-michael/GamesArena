@@ -89,63 +89,12 @@ List<String> alphabets = [
 List<String> numbers = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 List<String> alphanumeric = [...alphabets, ...capsalphabets, ...numbers];
 
-List<LudoColor> ludoColors = [
-  LudoColor.yellow,
-  LudoColor.green,
-  LudoColor.red,
-  LudoColor.blue
-];
-List<WhotCardShape> whotCardShapes = [
-  WhotCardShape.circle,
-  WhotCardShape.triangle,
-  WhotCardShape.cross,
-  WhotCardShape.square,
-  WhotCardShape.star,
-  WhotCardShape.whot
-];
-
-List<Whot> getWhots() {
-  List<Whot> whots = [
-    ...List.generate(14, (index) => Whot("", index + 1, 0))
-        .where((value) => value.number != 6 && value.number != 9),
-    ...List.generate(14, (index) => Whot("", index + 1, 1))
-        .where((value) => value.number != 6 && value.number != 9),
-    ...List.generate(14, (index) => Whot("", index + 1, 2)).where((value) =>
-        value.number != 6 &&
-        value.number != 9 &&
-        value.number != 4 &&
-        value.number != 8 &&
-        value.number != 12),
-    ...List.generate(14, (index) => Whot("", index + 1, 3)).where((value) =>
-        value.number != 6 &&
-        value.number != 9 &&
-        value.number != 4 &&
-        value.number != 8 &&
-        value.number != 12),
-    ...List.generate(8, (index) => Whot("", index + 1, 4))
-        .where((value) => value.number != 6),
-    ...List.generate(5, (index) => Whot("", 20, 5)),
-  ];
-  for (int i = 0; i < whots.length; i++) {
-    whots[i].id = "$i";
-  }
-  return whots;
-}
-
 List<String> getRandomIndex(int size) {
   List<String> indices = List.generate(size, (index) => "$index");
   for (int i = 0; i < 10; i++) {
     indices.shuffle();
   }
   return indices;
-}
-
-List<Ludo> getLudos() {
-  return List.generate(16, (index) {
-    final i = index ~/ 4;
-    final pos = index % 4;
-    return Ludo("$index", -1, -1, -1, pos, i, i);
-  });
 }
 
 List<int> getPlayersToRemove(List<User?> users, List<Player> players) {
@@ -411,20 +360,17 @@ Future updateAction(
     List<User?> users,
     String gameId,
     String matchId,
-    String myId,
     String action,
-    String game,
-    bool started,
-    int id,
-    int duration) async {
+    String game) async {
   final myPlaying = players.firstWhere((element) => element.id == myId);
   final myAction = myPlaying.action;
   if (myAction != action) {
-    if (action == "restart") {
-      await restartGame(game, gameId, matchId, players, id, duration);
-    } else if (action == "start") {
-      await startGame(game, gameId, matchId, players, id, started);
-    }
+    // if (action == "restart") {
+    //   await restartGame(game, gameId, matchId, players, id, duration);
+    // } else if (action == "start") {
+    //   await startGame(game, gameId, matchId, players, id, started);
+    // }
+    await updatePlayerAction(gameId, matchId, action, game);
   }
   final othersPlaying = players.where((element) => element.id != myId).toList();
   final othersWithDiffAction = othersPlaying

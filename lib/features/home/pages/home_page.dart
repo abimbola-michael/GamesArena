@@ -153,6 +153,15 @@ class _HomePageState extends ConsumerState<HomePage> {
         final player = playerChange.value;
         if (player.matchId == "" || playerChange.removed) return;
         final match = await getMatch(player.gameId!, player.matchId!);
+        if (match != null) {
+          if (match.users == null && match.players != null) {
+            List<User> users = await playersToUsers(match.players!);
+            match.users = users;
+          } else if (match.players == null || match.players!.isEmpty) {
+            final game = await getGame(match.game_id!);
+            match.game = game;
+          }
+        }
         print("player = $player, match = $match");
         if (match == null || !mounted) return;
 
@@ -160,7 +169,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           indices: "",
           players: const [],
           users: const [],
-          game: match.game ?? "",
+          game: match.games?.firstOrNull ?? "",
           matchId: match.match_id!,
           gameId: match.game_id!,
           creatorId: match.creator_id!,
@@ -462,6 +471,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             selectedItemColor: Colors.blue,
             currentIndex: currentIndex,
             onTap: (index) {
+              if (currentIndex == index) return;
               setState(() {
                 currentIndex = index;
               });

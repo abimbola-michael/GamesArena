@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:gamesarena/core/firebase/extensions/firebase_extensions.dart';
+import 'package:gamesarena/features/game/models/match_overall_outcome.dart';
 import 'package:gamesarena/features/game/services.dart';
 import 'package:gamesarena/features/user/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
@@ -198,18 +199,18 @@ String getPlayersVs(List<User> users) {
   return users.map((e) => e.username).join(" vs ");
 }
 
-String getMatchRecordMessage(Match match) {
-  final records = match.records;
-  if (records == null || records.isEmpty || match.players == null) {
-    return "Missed Match";
-  }
+// String getMatchRecordMessage(Match match) {
+//   final records = match.records;
+//   if (records == null || records.isEmpty || match.players == null) {
+//     return "Missed Match";
+//   }
 
-  List<String> games = getMatchGames(match);
-  List<int> scores = getMatchOverallScores(match);
+//   List<String> games = getgames(match);
+//   List<int> scores = getMatchOverallScores(match);
 
-  //return "${scores.join(" - ")} . ${games.toStringWithCommaandAnd((t) => t)} . ${match.recordsCount} records";
-  return "Scores: ${scores.join(" - ")} • Games: ${games.toStringWithCommaandAnd((t) => t)} • Rounds: ${match.recordsCount} • Duration: ${getMatchDuration(match)}";
-}
+//   //return "${scores.join(" - ")} . ${games.toStringWithCommaandAnd((t) => t)} . ${match.recordsCount} records";
+//   return "Scores: ${scores.join(" - ")} • Games: ${games.toStringWithCommaandAnd((t) => t)} • Rounds: ${match.recordsCount} • Duration: ${getMatchDuration(match)}";
+// }
 
 String getMatchDuration(Match? match) {
   if (match == null || match.time_start == null) return "";
@@ -218,7 +219,7 @@ String getMatchDuration(Match? match) {
   return (duration ~/ 1000).toDurationString();
 }
 
-List<String> getMatchGames(Match match) {
+List<String> getgames(Match match) {
   if (match.records == null) return [];
   List<String> games = [];
   for (int i = 0; i < match.records!.length; i++) {
@@ -296,19 +297,18 @@ List<MatchRound> getMatchRecordRounds(MatchRecord record) {
 // }
 
 List<int> getMatchOverallScores(Match match) {
-  if (match.records == null) return [];
+  //if (match.records == null) return [];
 
-  List<int> scores = List.generate(match.players!.length, (index) => 0);
+  List<int> scores = List.generate(
+      match.players!.length, (index) => match.records == null ? -1 : 0);
+  if (match.records == null) {
+    return scores;
+  }
   for (int i = 0; i < match.records!.length; i++) {
     final record = MatchRecord.fromMap(match.records!["$i"]);
-    List<int> matchScores = [];
-    for (int j = 0; j < record.players.length; j++) {
-      final score = record.scores["$j"];
-      if (score != null) {
-        matchScores.add(score);
-      }
-    }
-    final matchOutcome = getMatchOutcome(matchScores, record.players);
+
+    final matchOutcome =
+        getMatchOutcome(record.scores.toList().cast(), record.players);
     if (matchOutcome.outcome == "win") {
       for (int i = 0; i < matchOutcome.winners.length; i++) {
         final player = matchOutcome.winners[i];
@@ -323,7 +323,50 @@ List<int> getMatchOverallScores(Match match) {
   return scores;
 }
 
-List<List<int?>> getMatchScores(Match match) {
+String getGamesWonMessage(List<String> games) {
+  List<String> messages = [];
+  Map<String, int> gamesMap = {};
+  for (int i = 0; i < games.length; i++) {
+    final game = games[i];
+    gamesMap[game] = gamesMap[game] == null ? 1 : gamesMap[game]! + 1;
+  }
+  for (var entry in gamesMap.entries) {
+    messages.add("${entry.value} ${entry.key}");
+  }
+  return "${messages.isEmpty ? "0" : messages.toStringWithCommaandAnd((t) => t.capitalize)} game${games.length == 1 ? "" : "s"}";
+}
+
+MatchOverallOutcome getMatchOverallOutcome(Match match) {
+  List<List<String>> games =
+      List.generate(match.players!.length, (index) => []);
+
+  List<int> scores = List.generate(
+      match.players!.length, (index) => match.records == null ? -1 : 0);
+  if (match.records == null) {
+    return MatchOverallOutcome(scores: scores, games: games);
+  }
+  for (int i = 0; i < match.records!.length; i++) {
+    final record = MatchRecord.fromMap(match.records!["$i"]);
+
+    final matchOutcome =
+        getMatchOutcome(record.scores.toList().cast(), record.players);
+    if (matchOutcome.outcome == "win") {
+      for (int i = 0; i < matchOutcome.winners.length; i++) {
+        final player = matchOutcome.winners[i];
+        final playerIndex =
+            match.players!.indexWhere((element) => element == player);
+        if (playerIndex != -1) {
+          scores[playerIndex]++;
+          games[playerIndex].add(record.game);
+        }
+      }
+    }
+  }
+
+  return MatchOverallOutcome(scores: scores, games: games);
+}
+
+List<List<int?>> getMatchOverallTotalScores(Match match) {
   if (match.records == null) return [];
   List<List<int?>> allScores = [];
   List<int> overallScores = List.generate(match.players!.length, (index) => 0);
@@ -366,3 +409,9 @@ String getMoreInfoOnComfirmation(String comfirmationType) {
   }
   return "";
 }
+
+bool isChessOrDraught(String gameName) =>
+    gameName == chessGame || gameName == draughtGame;
+bool isPuzzle(String gameName) => allPuzzleGames.contains(gameName);
+bool isQuiz(String gameName) => gameName.endsWith("Quiz");
+bool isCard(String gameName) => allCardGames.contains(gameName);

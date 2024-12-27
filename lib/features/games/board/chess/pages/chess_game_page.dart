@@ -355,9 +355,6 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
   }
 
   void moveChess(int pos, [bool isClick = true]) async {
-    // if (isClick) {
-    //   updateDetails(pos);
-    // }
     final chessTile = chessTiles[pos];
     final coordinates = convertToGrid(pos, gridSize);
     final x = coordinates[0];
@@ -1589,10 +1586,10 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
       x > gridSize - 1 || x < 0 || y > gridSize - 1 || y < 0;
 
   @override
-  int? maxGameTime = 10.minToSec;
+  int? maxGameTime;
 
   @override
-  int? maxPlayerTime;
+  int? maxPlayerTime = 10.minToSec;
 
   @override
   void onConcede(int index) {
@@ -1684,7 +1681,6 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
   }
   @override
   Widget buildBody(BuildContext context) {
-    //finishedRound = true;
     return Stack(
       children: [
         Center(
@@ -1753,36 +1749,38 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
                 decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(5)),
-                child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    shrinkWrap: true,
+                child: Row(
                     children: List.generate(4, (index) {
-                      return GestureDetector(
-                        onTap: () {
-                          updateChessPromotion(index);
-                        },
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        updateChessPromotion(index);
+                      },
+                      child: Center(
                         child: ChessWidget(
                             chessShape: chessPromotionShapes[index],
                             player: currentPlayer,
-                            size: size),
-                        // child: Container(
-                        //   height: size,
-                        //   width: size,
-                        //   alignment: Alignment.center,
-                        //   child: RotatedBox(
-                        //     quarterTurns: currentPlayer == 0 ? 2 : 0,
-                        //     child: SvgPicture.asset(
-                        //       getAsset(chessPromotionShapes[index]),
-                        //       width: size / 2,
-                        //       height: size / 2,
-                        //       color: currentPlayer == 1
-                        //           ? Colors.white
-                        //           : Colors.black,
-                        //     ),
-                        //   ),
-                        // ),
-                      );
-                    })),
+                            size: size / 1.5),
+                      ),
+                      // child: Container(
+                      //   height: size,
+                      //   width: size,
+                      //   alignment: Alignment.center,
+                      //   child: RotatedBox(
+                      //     quarterTurns: currentPlayer == 0 ? 2 : 0,
+                      //     child: SvgPicture.asset(
+                      //       getAsset(chessPromotionShapes[index]),
+                      //       width: size / 2,
+                      //       height: size / 2,
+                      //       color: currentPlayer == 1
+                      //           ? Colors.white
+                      //           : Colors.black,
+                      //     ),
+                      //   ),
+                      // ),
+                    ),
+                  );
+                })),
               ))
         ],
       ],

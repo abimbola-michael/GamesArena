@@ -10,6 +10,7 @@ import 'package:gamesarena/shared/models/models.dart';
 import 'package:gamesarena/shared/views/loading_overlay.dart';
 import '../../../shared/widgets/action_button.dart';
 import '../../../shared/widgets/app_appbar.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../user/widgets/user_item.dart';
 import '../../../shared/services.dart';
 import 'package:gamesarena/features/game/models/match.dart';
@@ -63,10 +64,7 @@ class _MatchRoundsPageState extends State<MatchRoundsPage> {
     setState(() {});
   }
 
-  void gotoGame(int recordId, int roundId) {
-    final game = match.game;
-    if (game == null) return;
-
+  void gotoGame(String game, int recordId, int roundId) {
     gotoGamePage(context, game, match.game_id!, match.match_id!,
         match: match, users: users, recordId: recordId, roundId: roundId);
   }
@@ -81,22 +79,33 @@ class _MatchRoundsPageState extends State<MatchRoundsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             //MatchListItem(matches: [match], position: 0, isMatchRecords: true),
-            MatchRecordItem(
-                match: match,
-                record: widget.record,
-                index: widget.record.id,
-                showPlayers: false,
-                onWatchPressed: () => gotoGame(widget.record.id, 0)),
+            // MatchRecordItem(
+            //     match: match,
+            //     record: widget.record,
+            //     index: widget.record.id,
+            //     showPlayers: false,
+            //     onWatchPressed: () => gotoGame(widget.record.id, 0)),
             Expanded(
               child: ListView.builder(
-                itemCount: matchRounds.length,
+                itemCount:
+                    matchRounds.length + (matchRounds.isNotEmpty ? 1 : 0),
                 itemBuilder: (context, index) {
+                  if (matchRounds.isNotEmpty && index == matchRounds.length) {
+                    return MatchRecordItem(
+                        match: match,
+                        record: widget.record,
+                        index: widget.record.id,
+                        onWatchPressed: () =>
+                            gotoGame(widget.record.game, widget.record.id, 0));
+                  }
                   final round = matchRounds[index];
+
                   return MatchRoundItem(
                       match: match,
                       round: round,
                       index: index,
-                      onWatchPressed: () => gotoGame(widget.record.id, index));
+                      onWatchPressed: () => gotoGame(
+                          widget.record.game, widget.record.id, index));
                 },
               ),
             )
@@ -105,12 +114,10 @@ class _MatchRoundsPageState extends State<MatchRoundsPage> {
       ),
       bottomNavigationBar: matchRounds.isEmpty
           ? null
-          : ActionButton(
-              "Watch",
-              onPressed: () => gotoGame(widget.record.id, 0),
-              height: 50,
-              color: Colors.blue,
-              wrap: true,
+          : AppButton(
+              title: "Watch",
+              onPressed: () => gotoGame(
+                  widget.match.games?.firstOrNull ?? "", widget.record.id, 0),
             ),
     );
   }

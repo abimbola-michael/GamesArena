@@ -86,6 +86,7 @@ dependencies:
   geolocator:
   geocoding:
   in_app_purchase:
+  visibility_detector:
 
 dev_dependencies:
   flutter_test:

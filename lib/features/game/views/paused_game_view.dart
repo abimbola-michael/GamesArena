@@ -11,6 +11,7 @@ import '../../../shared/dialogs/comfirmation_dialog.dart';
 import '../../../shared/utils/constants.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/widgets/action_button.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/call_action_button.dart';
 import '../../../theme/colors.dart';
 import '../../about/utils/about_game_words.dart';
@@ -35,6 +36,7 @@ class PausedGameView extends StatefulWidget {
   final int playersSize;
   final bool finishedRound;
   final bool startingRound;
+
   final VoidCallback onWatch;
   final VoidCallback onRewatch;
   final VoidCallback onStart;
@@ -69,18 +71,14 @@ class PausedGameView extends StatefulWidget {
   final bool isFirstPage;
   final bool isLastPage;
   final String gameId;
-  final int duration;
+  final double duration;
   final List<int>? winners;
-  final int watchTime;
-  final int timeStart;
-  final int timeEnd;
+  final double endDuration;
 
   const PausedGameView({
     super.key,
     required this.duration,
-    required this.watchTime,
-    required this.timeStart,
-    required this.timeEnd,
+    required this.endDuration,
     required this.winners,
     required this.context,
     required this.game,
@@ -156,7 +154,8 @@ class _PausedGameViewState extends State<PausedGameView> {
       widget.players?.indexWhere((player) => player.id == myId) != -1;
 
   bool get showPlayGameActions =>
-      widget.gameId.isEmpty || (amAPlayer && widget.match?.time_end == null);
+      widget.isLastPage &&
+      (widget.gameId.isEmpty || (amAPlayer && widget.match?.time_end == null));
 
   bool itsAllZerosScores() {
     for (int i = 0; i < widget.playersScores.length; i++) {
@@ -222,7 +221,10 @@ class _PausedGameViewState extends State<PausedGameView> {
                       break;
                     case "change":
                       final game = await context.pushTo(
-                        GamesPage(currentGame: widget.game, isCallback: true),
+                        GamesPage(
+                            currentGame: widget.game,
+                            playersSize: widget.playersSize,
+                            isCallback: true),
                       );
                       if (game != null) {
                         widget.onChange(game);
@@ -374,355 +376,314 @@ class _PausedGameViewState extends State<PausedGameView> {
                                 left: 0,
                                 right: 0,
                                 bottom: 0,
-                                child: ActionButton(
-                                  "Got It",
+                                child: AppButton(
+                                  title: "Got It",
                                   onPressed: () {
                                     widget.onReadAboutGame();
                                     setState(() {
                                       aboutGameMode = false;
                                     });
                                   },
-                                  height: 50,
                                 ),
                               )
                             ],
                           )
-                        : changeGameMode
-                            ? GamesPage(
-                                currentGame: widget.game,
-                                isChangeGame: true,
-                                onBackPressed: () {
-                                  setState(() {
-                                    changeGameMode = false;
-                                  });
-                                },
-                                gameCallback: (game) {
-                                  widget.onChange(game);
-                                  setState(() {
-                                    changeGameMode = false;
-                                  });
-                                },
-                              )
-                            : Center(
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.vertical,
-                                  child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          widget.finishedRound
-                                              ? getMatchOutcomeMessageFromWinners(
-                                                  widget.winners,
-                                                  widget.players
-                                                          ?.map((e) => e.id)
-                                                          .toList() ??
-                                                      [],
-                                                  users: widget.users)
-                                              : widget.startingRound
-                                                  ? "New Round"
-                                                  : "Ongoing Round",
-                                          style: const TextStyle(
-                                            fontSize: 30,
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                        if (widget.finishedRound)
+                        // : changeGameMode
+                        //     ? GamesPage(
+                        //         currentGame: widget.game,
+                        //         isChangeGame: true,
+                        //         onBackPressed: () {
+                        //           setState(() {
+                        //             changeGameMode = false;
+                        //           });
+                        //         },
+                        //         gameCallback: (game) {
+                        //           widget.onChange(game);
+                        //           setState(() {
+                        //             changeGameMode = false;
+                        //           });
+                        //         },
+                        //       )
+                        : Column(
+                            children: [
+                              Expanded(
+                                child: Center(
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.vertical,
+                                    child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
                                           Text(
-                                            "So far ${getMatchOutcomeMessageFromScores(widget.playersScores, widget.players?.map((e) => e.id).toList() ?? [], users: widget.users)}",
+                                            "Record ${widget.recordId + 1} - Round ${widget.roundId + 1}",
                                             style: const TextStyle(
-                                              fontSize: 18,
+                                              fontSize: 30,
                                               color: Colors.white,
-                                              fontWeight: FontWeight.w600,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          Text(
+                                            widget.finishedRound
+                                                ? "${getMatchOutcomeMessageFromWinners(widget.winners, widget.players?.map((e) => e.id).toList() ?? [], users: widget.users)}\n${(widget.reason ?? "").isNotEmpty ? "(${widget.reason})" : ""}"
+                                                : widget.startingRound
+                                                    ? "New Round"
+                                                    : "Ongoing Round",
+                                            style: const TextStyle(
+                                              fontSize: 20,
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
 
-                                        Text(
-                                          widget.finishedRound
-                                              ? "${((widget.watchTime - widget.timeStart) ~/ 1000).toDurationString()} / ${((widget.timeEnd - widget.timeStart) ~/ 1000).toDurationString()}"
-                                              : widget.duration
-                                                  .toDurationString(),
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w400,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-
-                                        Text(
-                                          "Record ${widget.recordId + 1} - Round ${widget.roundId + 1}",
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                        // Text(
-                                        //   widget.finishedRound
-                                        //       ? getWinnerMessage(
-                                        //           widget.playersScores,
-                                        //           widget.users)
-                                        //       : "Ongoing",
-                                        //   style: const TextStyle(
-                                        //     fontSize: 30,
-                                        //     color: Colors.white,
-                                        //     fontWeight: FontWeight.bold,
-                                        //   ),
-                                        //   textAlign: TextAlign.center,
-                                        // ),
-                                        if ((widget.reason ?? "").isNotEmpty &&
-                                            widget.finishedRound) ...[
-                                          Padding(
-                                            padding: const EdgeInsets.all(8.0),
-                                            child: Text(
-                                              widget.reason!.capitalize,
+                                          if (widget.finishedRound)
+                                            Text(
+                                              "So far ${getMatchOutcomeMessageFromScores(widget.playersScores, widget.players?.map((e) => e.id).toList() ?? [], users: widget.users)}",
                                               style: const TextStyle(
-                                                  fontSize: 18,
-                                                  color: Colors.white),
+                                                fontSize: 18,
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                               textAlign: TextAlign.center,
                                             ),
+
+                                          Text(
+                                            widget.finishedRound
+                                                ? "${widget.duration.toInt().toDurationString()} / ${widget.endDuration.toInt().toDurationString()}"
+                                                : widget.duration
+                                                    .toInt()
+                                                    .toDurationString(),
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w400,
+                                            ),
+                                            textAlign: TextAlign.center,
                                           ),
-                                        ],
-                                        const SizedBox(
-                                          height: 20,
-                                        ),
-                                        SizedBox(
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceEvenly,
-                                            children: List.generate(
-                                                (widget.playersSize * 2) - 1,
-                                                (index) {
-                                              if (index.isOdd) {
-                                                return Container(
-                                                  height: 10,
-                                                  width: 20,
-                                                  decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              10),
-                                                      color: Colors.white),
-                                                );
-                                              } else {
-                                                final i = index ~/ 2;
-                                                final user = widget.users !=
-                                                            null &&
-                                                        widget.users!.isNotEmpty
-                                                    ? widget.users![i]
-                                                    : null;
-                                                final player = widget.users !=
-                                                            null &&
-                                                        widget.players !=
-                                                            null &&
-                                                        widget.users!.length ==
-                                                            widget
-                                                                .players!.length
-                                                    ? widget.players![i]
-                                                    : null;
-                                                final concedeOrLeft =
-                                                    getConcedeOrLeft(i);
-                                                return Expanded(
-                                                  child: GameScoreItem(
-                                                    username: user?.username ??
-                                                        "Player ${i + 1}",
-                                                    profilePhoto:
-                                                        user?.profile_photo,
-                                                    score:
-                                                        widget.playersScores[i],
-                                                    action: concedeOrLeft !=
-                                                            null
-                                                        ? getConcedeOrLeftMessage(
-                                                            concedeOrLeft)
-                                                        : player == null ||
-                                                                player.game ==
-                                                                    null
-                                                            ? ""
-                                                            : player.game !=
-                                                                    widget.game
-                                                                ? "Changed to ${player.game}"
-                                                                : (player
-                                                                        .action ??
-                                                                    ""),
-                                                    callMode: player?.callMode,
-                                                  ),
-                                                );
-                                              }
-                                            }),
+
+                                          const SizedBox(
+                                            height: 20,
                                           ),
-                                        ),
-                                        if (widget.isWatch) ...[
-                                          ActionButton(
-                                            "Watch",
-                                            onPressed: () {
-                                              widget.onWatch();
-                                              // setState(() {
-                                              //   watchMode = true;
-                                              // });
-                                            },
-                                            width: 150,
-                                            height: 50,
+                                          SizedBox(
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.spaceEvenly,
+                                              children: List.generate(
+                                                  (widget.playersSize * 2) - 1,
+                                                  (index) {
+                                                if (index.isOdd) {
+                                                  return Container(
+                                                    height: 10,
+                                                    width: 20,
+                                                    decoration: BoxDecoration(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(10),
+                                                        color: Colors.white),
+                                                  );
+                                                } else {
+                                                  final i = index ~/ 2;
+                                                  final user =
+                                                      widget.users != null &&
+                                                              widget.users!
+                                                                  .isNotEmpty
+                                                          ? widget.users![i]
+                                                          : null;
+                                                  final player =
+                                                      widget.users != null &&
+                                                              widget.players !=
+                                                                  null &&
+                                                              widget.users!
+                                                                      .length ==
+                                                                  widget
+                                                                      .players!
+                                                                      .length
+                                                          ? widget.players![i]
+                                                          : null;
+                                                  final concedeOrLeft =
+                                                      getConcedeOrLeft(i);
+                                                  return Expanded(
+                                                    child: GameScoreItem(
+                                                      username:
+                                                          user?.username ??
+                                                              "Player ${i + 1}",
+                                                      profilePhoto:
+                                                          user?.profile_photo,
+                                                      score: widget
+                                                          .playersScores[i],
+                                                      action: concedeOrLeft !=
+                                                              null
+                                                          ? getConcedeOrLeftMessage(
+                                                              concedeOrLeft)
+                                                          : widget.gameId
+                                                                      .isEmpty &&
+                                                                  widget.pauseIndex ==
+                                                                      i
+                                                              ? "Paused"
+                                                              : player == null ||
+                                                                      player.game ==
+                                                                          null
+                                                                  ? ""
+                                                                  : player.game !=
+                                                                          widget
+                                                                              .game
+                                                                      ? "Changed to ${player.game}"
+                                                                      : (player
+                                                                              .action ??
+                                                                          ""),
+                                                      callMode:
+                                                          player?.callMode,
+                                                    ),
+                                                  );
+                                                }
+                                              }),
+                                            ),
                                           ),
-                                          if (widget.isWatching)
-                                            ActionButton(
-                                              "ReWatch",
+                                          if (widget.isWatch) ...[
+                                            AppButton(
+                                              title: "Watch",
                                               onPressed: () {
-                                                showComfirmationDialog(
-                                                    "rewatch");
+                                                widget.onWatch();
+                                                // setState(() {
+                                                //   watchMode = true;
+                                                // });
                                               },
                                               width: 150,
-                                              height: 50,
                                             ),
-                                        ],
-                                        if (widget.finishedRound) ...[
-                                          ActionButton(
-                                            "Checkout",
-                                            onPressed: () {
-                                              widget.onCheckOut();
-                                            },
-                                            width: 150,
-                                            height: 50,
-                                          ),
-                                        ],
-                                        if (showPlayGameActions)
-                                          ActionButton(
-                                            widget.finishedRound
-                                                ? "Continue"
-                                                : concedeOrLeft == null &&
-                                                        widget.match != null &&
-                                                        widget.players !=
-                                                            null &&
-                                                        getMyPlayer(widget
-                                                                    .players!)
-                                                                ?.action !=
-                                                            "pause"
-                                                    ? "Pause"
-                                                    : widget.startingRound
-                                                        ? "Start"
-                                                        : "Resume",
-                                            onPressed: widget.onStart,
-                                            width: 150,
-                                            height: 50,
-                                          ),
-
-                                        // if (!widget.isFirstPage)
-                                        //   ActionButton(
-                                        //     "Go to Previous",
-                                        //     onPressed: () {
-                                        //       showComfirmationDialog(
-                                        //           "previous");
-                                        //       // setState(() {
-                                        //       //   comfirmationType =
-                                        //       //       "previous";
-                                        //       // });
-                                        //     },
-                                        //     width: 150,
-                                        //     height: 50,
-                                        //   ),
-                                        if (showPlayGameActions &&
-                                            widget.finishedRound &&
-                                            !itsAllZerosScores()) ...[
-                                          ActionButton(
-                                            "Restart",
-                                            onPressed: () {
-                                              showComfirmationDialog("restart");
-                                            },
-                                            width: 150,
-                                            height: 50,
-                                          ),
-                                        ],
-                                        // if (widget.finishedRound || widget.startingRound) ...[
-
-                                        // ],
-                                        if (showPlayGameActions)
-                                          ActionButton(
-                                            "Change",
-                                            onPressed: () async {
-                                              await showComfirmationDialog(
-                                                  "change");
-                                            },
-                                            width: 150,
-                                            height: 50,
-                                          ),
-                                        // if (widget.isWatch &&
-                                        //     widget.match?.recordsCount !=
-                                        //         null &&
-                                        //     widget.recordId <
-                                        //         widget.match!.recordsCount!)
-                                        //   ActionButton(
-                                        //     "Go to Next",
-                                        //     onPressed: () {
-                                        //       showComfirmationDialog("next");
-                                        //       // setState(() {
-                                        //       //   comfirmationType = "next";
-                                        //       // });
-                                        //     },
-                                        //     width: 150,
-                                        //     height: 50,
-                                        //   ),
-                                        if (showPlayGameActions &&
-                                            widget.hasPlayedForAMinute &&
-                                            !widget.finishedRound &&
-                                            concedeOrLeft == null)
-                                          ActionButton(
-                                            "Concede",
-                                            onPressed: () {
-                                              showComfirmationDialog("concede");
-                                            },
-                                            width: 150,
-                                            height: 50,
-                                            color: Colors.yellow,
-                                            textColor: Colors.black,
-                                          ),
-                                        if (concedeOrLeft == null ||
-                                            concedeOrLeft.action == "concede")
-                                          ActionButton(
-                                            "Leave",
-                                            onPressed: () {
-                                              showLeaveComirmationDialog();
-                                            },
-                                            width: 150,
-                                            height: 50,
-                                            color: Colors.red,
-                                          ),
-
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            if (!widget.isFirstPage)
-                                              CallActionButton(
-                                                icon:
-                                                    EvaIcons.arrow_back_outline,
-                                                bgColor: primaryColor,
-                                                onPressed: widget.onPrevious,
-                                              ),
-                                            if (!widget.isFirstPage &&
-                                                !widget.isLastPage)
-                                              const SizedBox(width: 10),
-                                            if (!widget.isLastPage)
-                                              CallActionButton(
-                                                icon: EvaIcons
-                                                    .arrow_forward_outline,
-                                                bgColor: primaryColor,
-                                                onPressed: widget.onNext,
+                                            if (widget.isWatching)
+                                              AppButton(
+                                                title: "ReWatch",
+                                                onPressed: () {
+                                                  showComfirmationDialog(
+                                                      "rewatch");
+                                                },
+                                                width: 150,
                                               ),
                                           ],
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            setState(() {
-                                              aboutGameMode = true;
-                                            });
-                                          },
-                                          child: const Text("About Game"),
-                                        ),
-                                        const SizedBox(height: 100),
-                                      ]),
+                                          if (widget.finishedRound) ...[
+                                            AppButton(
+                                              title: "Checkout",
+                                              onPressed: () {
+                                                widget.onCheckOut();
+                                              },
+                                              width: 150,
+                                            ),
+                                          ],
+                                          if (showPlayGameActions)
+                                            AppButton(
+                                              title: widget.finishedRound
+                                                  ? "Continue"
+                                                  : concedeOrLeft == null &&
+                                                          widget.match !=
+                                                              null &&
+                                                          widget.players !=
+                                                              null &&
+                                                          getMyPlayer(widget
+                                                                      .players!)
+                                                                  ?.action !=
+                                                              "pause"
+                                                      ? "Pause"
+                                                      : widget.startingRound
+                                                          ? "Start"
+                                                          : "Resume",
+                                              onPressed: widget.onStart,
+                                              width: 150,
+                                            ),
+
+                                          if (showPlayGameActions &&
+                                              widget.finishedRound &&
+                                              !itsAllZerosScores()) ...[
+                                            AppButton(
+                                              title: "Restart",
+                                              onPressed: () {
+                                                showComfirmationDialog(
+                                                    "restart");
+                                              },
+                                              width: 150,
+                                            ),
+                                          ],
+                                          // if (widget.finishedRound || widget.startingRound) ...[
+
+                                          // ],
+                                          if (showPlayGameActions)
+                                            AppButton(
+                                              title: "Change",
+                                              onPressed: () async {
+                                                await showComfirmationDialog(
+                                                    "change");
+                                              },
+                                              width: 150,
+                                            ),
+
+                                          if (showPlayGameActions &&
+                                              widget.hasPlayedForAMinute &&
+                                              !widget.finishedRound &&
+                                              concedeOrLeft == null)
+                                            AppButton(
+                                              title: "Concede",
+                                              onPressed: () {
+                                                showComfirmationDialog(
+                                                    "concede");
+                                              },
+                                              width: 150,
+                                              bgColor: Colors.yellow,
+                                              color: Colors.black,
+                                            ),
+                                          if (concedeOrLeft == null ||
+                                              concedeOrLeft.action == "concede")
+                                            AppButton(
+                                              title: "Leave",
+                                              onPressed: () {
+                                                showLeaveComirmationDialog();
+                                              },
+                                              width: 150,
+                                              bgColor: Colors.red,
+                                            ),
+
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (!widget.isFirstPage)
+                                                CallActionButton(
+                                                  icon: EvaIcons
+                                                      .arrow_back_outline,
+                                                  bgColor: primaryColor,
+                                                  onPressed: widget.onPrevious,
+                                                ),
+                                              if (!widget.isFirstPage &&
+                                                  !widget.isLastPage)
+                                                const SizedBox(width: 10),
+                                              if (!widget.isLastPage)
+                                                CallActionButton(
+                                                  icon: EvaIcons
+                                                      .arrow_forward_outline,
+                                                  bgColor: primaryColor,
+                                                  onPressed: widget.onNext,
+                                                ),
+                                            ],
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              setState(() {
+                                                aboutGameMode = true;
+                                              });
+                                            },
+                                            child: const Text("About Game"),
+                                          ),
+                                          // const SizedBox(height: 100),
+                                        ]),
+                                  ),
                                 ),
                               ),
+                              if (showPlayGameActions &&
+                                  widget.users != null &&
+                                  widget.users!.isNotEmpty &&
+                                  !checkoutMode &&
+                                  !watchMode &&
+                                  !aboutGameMode)
+                                const SizedBox(height: 60),
+                            ],
+                          ),
               ),
             ),
             if (showPlayGameActions &&
@@ -730,9 +691,9 @@ class _PausedGameViewState extends State<PausedGameView> {
                 widget.users!.isNotEmpty &&
                 !checkoutMode &&
                 !watchMode &&
-                !aboutGameMode)
+                !aboutGameMode) ...[
               Positioned(
-                bottom: 30,
+                bottom: 20,
                 left: 0,
                 right: 0,
                 child: Row(
@@ -787,6 +748,7 @@ class _PausedGameViewState extends State<PausedGameView> {
                   ],
                 ),
               )
+            ],
           ],
         ),
       ),

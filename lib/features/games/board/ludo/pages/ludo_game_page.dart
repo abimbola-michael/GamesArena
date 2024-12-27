@@ -43,6 +43,13 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
   bool started = false;
   bool sixsix = false;
 
+  List<LudoColor> ludoColors = [
+    LudoColor.yellow,
+    LudoColor.green,
+    LudoColor.red,
+    LudoColor.blue
+  ];
+
   LudoTile? selectedLudoTile;
   Ludo? selectedLudo;
   List<LudoColor> colors = [];
@@ -133,6 +140,14 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
         }
       }
     }
+  }
+
+  List<Ludo> getLudos() {
+    return List.generate(16, (index) {
+      final i = index ~/ 4;
+      final pos = index % 4;
+      return Ludo("$index", -1, -1, -1, pos, i, i);
+    });
   }
 
   void initLudos() {
@@ -1249,6 +1264,7 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
 
   @override
   Widget buildBottomOrLeftChild(int index) {
+    // print("gameDetails = $gameDetails");
     if (!showRollDice || roll || index != currentPlayer) return Container();
     return StreamBuilder<int>(
         stream: timerController.stream,
@@ -1263,6 +1279,7 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
 
   @override
   Widget buildBody(BuildContext context) {
+    // print("gameDetails = $gameDetails");
     return Center(
       child: AspectRatio(
           aspectRatio: 1 / 1,

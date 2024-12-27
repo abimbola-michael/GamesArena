@@ -61,18 +61,22 @@ class Whot {
 class WhotDetails {
   String? whotIndices;
   int? playPos;
+  int? shapePos;
   WhotDetails({
     this.whotIndices,
     this.playPos,
+    this.shapePos,
   });
 
   WhotDetails copyWith({
     String? whotIndices,
     int? playPos,
+    int? shapePos,
   }) {
     return WhotDetails(
       whotIndices: whotIndices ?? this.whotIndices,
       playPos: playPos ?? this.playPos,
+      shapePos: shapePos ?? this.shapePos,
     );
   }
 
@@ -80,6 +84,7 @@ class WhotDetails {
     return <String, dynamic>{
       'whotIndices': whotIndices,
       'playPos': playPos,
+      'shapePos': shapePos,
     };
   }
 
@@ -88,6 +93,7 @@ class WhotDetails {
       whotIndices:
           map['whotIndices'] != null ? map['whotIndices'] as String : null,
       playPos: map['playPos'] != null ? map['playPos'] as int : null,
+      shapePos: map['shapePos'] != null ? map['shapePos'] as int : null,
     );
   }
 
@@ -98,15 +104,18 @@ class WhotDetails {
 
   @override
   String toString() =>
-      'WhotDetails(whotIndices: $whotIndices, playPos: $playPos)';
+      'WhotDetails(whotIndices: $whotIndices, playPos: $playPos, shapePos: $shapePos)';
 
   @override
   bool operator ==(covariant WhotDetails other) {
     if (identical(this, other)) return true;
 
-    return other.whotIndices == whotIndices && other.playPos == playPos;
+    return other.whotIndices == whotIndices &&
+        other.playPos == playPos &&
+        other.shapePos == shapePos;
   }
 
   @override
-  int get hashCode => whotIndices.hashCode ^ playPos.hashCode;
+  int get hashCode =>
+      whotIndices.hashCode ^ playPos.hashCode ^ shapePos.hashCode;
 }

@@ -149,9 +149,7 @@ class FirebaseNotification {
 
     //updateFirebaseToken();
 
-    messaging.onTokenRefresh.listen((token) {
-      updateToken(token);
-    });
+    messaging.onTokenRefresh.listen(updateToken);
     initPushNotification();
     initLocalNotification();
   }

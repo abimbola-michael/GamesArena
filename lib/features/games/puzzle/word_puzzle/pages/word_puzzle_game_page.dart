@@ -274,13 +274,13 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
 
   Future updateGridDetails(String words, String puzzles) async {
     final details = WordPuzzleDetails(words: words, puzzles: puzzles);
-    await setDetail(details.toMap(), true);
+    await setDetail(details.toMap());
   }
 
   Future updateDetails(int playPos) async {
     final details = WordPuzzleDetails(
         startPos: playersSelectedPos[currentPlayer], endPos: playPos);
-    await setDetail(details.toMap(), false);
+    await setDetail(details.toMap(), add: false);
   }
 
   String getWord(Offset start, Offset end) {
@@ -729,7 +729,8 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
 
   @override
   Widget buildBody(BuildContext context) {
-    //print("gameDetails = $gameDetails");
+    // print("currentPlayer= $currentPlayer, $playersSize");
+    // print("gameDetails = $gameDetails");
     return Center(
       child: AspectRatio(
           aspectRatio: 1 / 1,

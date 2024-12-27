@@ -1,7 +1,9 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter/material.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
+import 'package:icons_plus/icons_plus.dart';
 
+import '../../theme/colors.dart';
 import '../utils/utils.dart';
 import 'app_back_button.dart';
 
@@ -36,7 +38,7 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 60 + statusBarHeight,
-      padding: EdgeInsets.only(left: 15, right: 15, top: statusBarHeight),
+      padding: EdgeInsets.only(top: statusBarHeight),
       child: SizedBox(
         height: 60,
         child: Stack(
@@ -90,10 +92,11 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
                           onPressed: onBackPressed,
                           color: color,
                         ),
-                    if (icon != null) ...[
-                      const SizedBox(width: 4),
-                      icon!,
-                    ]
+                    // IconButton(
+                    //   onPressed: onBackPressed,
+                    //   icon: Icon(EvaIcons.arrow_back_outline, color: tint),
+                    // ),
+                    if (icon != null) ...[const SizedBox(width: 4), icon!]
                   ],
                 ),
               ),

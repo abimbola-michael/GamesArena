@@ -33,7 +33,7 @@ class EditProfilePage extends StatefulWidget {
 
 class _EditProfilePageState extends State<EditProfilePage> {
   late TextEditingController textController;
-  late TextEditingController passwordController;
+  TextEditingController? passwordController;
 
   GlobalKey<FormState> formFieldStateKey = GlobalKey<FormState>();
   bool? passwordComfirmed;
@@ -52,16 +52,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
     value = widget.value;
     name = type.toLowerCase();
     textController = TextEditingController(text: value);
-    passwordController = TextEditingController();
 
     passwordComfirmed = widget.groupId != null;
+    if (widget.groupId == null) {
+      passwordController = TextEditingController();
+    }
     //controller.text = passwordComfirmed == null ? "" : value;
   }
 
   @override
   void dispose() {
     textController.dispose();
-    passwordController.dispose();
+    passwordController?.dispose();
     super.dispose();
   }
 
@@ -73,17 +75,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
       loading = true;
     });
 
-    final password = passwordController.text.trim();
+    final password = passwordController?.text.trim() ?? "";
     try {
       passwordComfirmed = await am.comfirmPassword(password);
       if (passwordComfirmed == false) {
-        passwordController.clear();
+        passwordController?.clear();
         showErrorToast("Incorrect Password. Retry");
       }
     } catch (e) {
       print("e = $e");
       showErrorToast("${e.toString().split("]").second}");
-      passwordController.clear();
+      passwordController?.clear();
 
       passwordComfirmed = false;
     } finally {
@@ -95,7 +97,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void saveDetail(String type) async {
     if (!(formFieldStateKey.currentState?.validate() ?? false)) return;
 
-    if (passwordComfirmed == null || !passwordComfirmed!) {
+    if (widget.groupId == null &&
+        (passwordComfirmed == null || !passwordComfirmed!)) {
       await comfirmPassword();
       if (!passwordComfirmed! || !mounted) return;
     }
@@ -168,29 +171,24 @@ class _EditProfilePageState extends State<EditProfilePage> {
           key: formFieldStateKey,
           child: Column(
             children: [
-              if (widget.groupId == null) ...[
-                AppTextField(
-                    controller: passwordController,
-                    titleText: "Password",
-                    hintText: "Enter Password"),
-                const SizedBox(height: 10),
-              ],
               AppTextField(
                   controller: textController,
                   titleText: "New ${type.capitalize}",
                   hintText: "Enter New ${type.capitalize}"),
+              if (widget.groupId == null) ...[
+                const SizedBox(height: 10),
+                AppTextField(
+                    controller: passwordController,
+                    titleText: "Password",
+                    hintText: "Enter Password"),
+              ],
               const SizedBox(height: 10),
               AppButton(
-                wrapped: true,
                 loading: loading,
                 title: passwordComfirmed != null && passwordComfirmed!
                     ? "Saving..."
                     : "Save",
-                // loading
-                //     ? passwordComfirmed != null && passwordComfirmed!
-                //         ? "Saving..."
-                //         : "Comfirming Password..."
-                //     : "Save",
+
                 onPressed: () {
                   if (loading) return;
                   saveDetail(type.toLowerCase());
@@ -302,7 +300,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
     //         ),
     //         if (loading) ...[const Center(child: CircularProgressIndicator())],
     //         if (myId != "") ...[
-    //           ActionButton(
+    //           AppButton(
+//title:
     //             passwordComfirmed != null && passwordComfirmed!
     //                 ? loading
     //                     ? "Saving..."

@@ -3,10 +3,10 @@ import 'package:gamesarena/features/game/utils.dart';
 import 'package:gamesarena/features/home/providers/search_games_provider.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/features/game/pages/new_offline_game_page.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:gamesarena/shared/extensions/special_context_extensions.dart';
 import 'package:icons_plus/icons_plus.dart';
+import '../../../shared/utils/utils.dart';
 import '../../../shared/widgets/game_card.dart';
 import '../../../theme/colors.dart';
 import '../../game/services.dart';
@@ -14,6 +14,8 @@ import '../../game/widgets/game_item.dart';
 import '../../../shared/utils/constants.dart';
 import '../../games/pages.dart';
 import '../../onboarding/pages/auth_page.dart';
+import '../../user/models/user.dart';
+import '../../user/services.dart';
 
 class GamesPage extends ConsumerStatefulWidget {
   final bool isTab;
@@ -79,15 +81,22 @@ class GamesPageState extends ConsumerState<GamesPage>
     playersSize = widget.playersSize ?? 2;
     gameCallback = widget.gameCallback;
 
-    if (playersSize > 2) {
-      boardGames.add(ludoGame);
-      boardGames.add(whotGame);
+    if (playersSize == 1) {
+      puzzleGames.addAll(allPuzzleGames);
+      quizGames.addAll(allQuizGames);
     } else {
-      boardGames.addAll(allBoardGames);
+      if (playersSize > 2) {
+        boardGames.add(ludoGame);
+        boardGames.add(whotGame);
+      } else {
+        boardGames.addAll(allBoardGames);
+      }
+      cardGames.addAll(allCardGames);
+      if ((widget.gameId ?? "").isNotEmpty) {
+        puzzleGames.addAll(allPuzzleGames);
+        quizGames.addAll(allQuizGames);
+      }
     }
-    cardGames.addAll(allCardGames);
-    puzzleGames.addAll(allPuzzleGames);
-    quizGames.addAll(allQuizGames);
 
     if (widget.currentGame != null) {
       if (boardGames.contains(widget.currentGame)) {
@@ -361,14 +370,24 @@ class GamesPageState extends ConsumerState<GamesPage>
     try {
       final match = await createMatch(game, null, List.from(players!));
       if (!mounted || match == null) return;
+      if (match.users == null && match.players != null) {
+        List<User> users = await playersToUsers(match.players!);
+        match.users = users;
+      } else if (match.players == null || match.players!.isEmpty) {
+        final game = await getGame(match.game_id!);
+        match.game = game;
+      }
+      if (!mounted) return;
+
       context.pushTo(NewOnlineGamePage(
         indices: "",
         players: const [],
         users: const [],
-        game: match.game!,
+        game: match.games?.firstOrNull ?? "",
         matchId: match.match_id!,
         gameId: match.game_id!,
         creatorId: match.creator_id!,
+        match: match,
         creatorName: "",
       ));
     } finally {
@@ -389,17 +408,21 @@ class GamesPageState extends ConsumerState<GamesPage>
               builder: (context) => NewOfflineGamePage(game: game)),
           result: true);
     } else {
-      await Navigator.of(context).push(MaterialPageRoute(
+      final result = await Navigator.of(context).push(MaterialPageRoute(
           builder: (context) => NewOfflineGamePage(game: game)));
-      setState(() {
-        current = "game";
-      });
+      if (!mounted) return;
+      if (result == true) {
+        goBackToGames();
+      }
+      // setState(() {
+      //   current = "game";
+      // });
     }
   }
 
   void gotoSelectPlayers() async {
     final players = (await Navigator.of(context).push(MaterialPageRoute(
-        builder: (context) => FirebaseAuth.instance.currentUser == null
+        builder: (context) => myId.isEmpty
             ? const AuthPage()
             : PlayersSelectionPage(
                 type: "",
@@ -410,7 +433,9 @@ class GamesPageState extends ConsumerState<GamesPage>
     if (players != null) {
       this.players = players;
       if (creating) return;
+
       createNewGame();
+      goBackToGames();
     }
   }
 

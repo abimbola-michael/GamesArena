@@ -9,6 +9,7 @@ import 'package:gamesarena/features/game/models/match.dart';
 
 import '../../../shared/widgets/action_button.dart';
 import '../../../shared/widgets/app_appbar.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../../theme/colors.dart';
 import '../../game/services.dart';
 import '../../game/utils.dart';
@@ -244,8 +245,8 @@ class _GameRecordsPageState extends State<GameRecordsPage> {
       // players.isEmpty
       // ? null
       // :
-      bottomNavigationBar: ActionButton(
-        "Play",
+      bottomNavigationBar: AppButton(
+        title: "Play",
         onPressed: () {
           context.pushTo(
             GamesPage(
@@ -255,9 +256,6 @@ class _GameRecordsPageState extends State<GameRecordsPage> {
             ),
           );
         },
-        height: 50,
-        color: Colors.blue,
-        wrap: true,
       ),
     );
   }

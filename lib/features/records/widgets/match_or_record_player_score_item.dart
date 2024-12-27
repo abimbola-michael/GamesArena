@@ -13,13 +13,14 @@ class MatchOrRecordPlayerScoreItem extends StatelessWidget {
   final String playerId;
   final int score;
   final List<String>? winners;
-  const MatchOrRecordPlayerScoreItem({
-    super.key,
-    required this.users,
-    required this.playerId,
-    required this.score,
-    required this.winners,
-  });
+  final String message;
+  const MatchOrRecordPlayerScoreItem(
+      {super.key,
+      required this.users,
+      required this.playerId,
+      required this.score,
+      required this.winners,
+      this.message = ""});
 
   @override
   Widget build(BuildContext context) {
@@ -38,9 +39,22 @@ class MatchOrRecordPlayerScoreItem extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              name,
-              style: context.bodyMedium,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: context.bodyMedium,
+                ),
+                if (message.isNotEmpty) ...[
+                  // const SizedBox(height: 2),
+                  Text(
+                    message,
+                    style: context.bodySmall?.copyWith(color: lighterTint),
+                  ),
+                ]
+              ],
             ),
           ),
           if (win) ...[

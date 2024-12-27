@@ -33,14 +33,15 @@ class ErrorOrSuccessView extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (isError || title != null)
+            if (isError || title != null) ...[
               Text(
                 title ?? (isError ? "Opps!" : "Kudos!"),
                 style: context.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
-            const SizedBox(
-              height: 2,
-            ),
+              const SizedBox(
+                height: 2,
+              ),
+            ],
             Text(
               message,
               style: context.bodyMedium,
@@ -49,15 +50,13 @@ class ErrorOrSuccessView extends StatelessWidget {
             const SizedBox(
               height: 10,
             ),
-            if (action != null)
-              AppButton(
-                bgColor: primaryColor,
-                title: action ?? (isError ? "Retry" : "Done"),
-                wrapped: true,
-                onPressed: () {
-                  context.pop(true);
-                },
-              )
+            // if (action != null)
+            AppButton(
+              bgColor: primaryColor,
+              title: action ?? (isError ? "Retry" : "Done"),
+              wrapped: true,
+              onPressed: onPressed,
+            )
           ],
         ),
       ),

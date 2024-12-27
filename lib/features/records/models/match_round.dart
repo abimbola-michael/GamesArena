@@ -12,6 +12,8 @@ class MatchRound {
   List<String> players;
   List<int>? winners;
   Map<String, dynamic> scores;
+  int detailsLength;
+  double duration;
   MatchRound({
     required this.id,
     required this.game,
@@ -20,6 +22,8 @@ class MatchRound {
     required this.players,
     this.winners,
     required this.scores,
+    required this.detailsLength,
+    required this.duration,
   });
 
   MatchRound copyWith({
@@ -30,6 +34,8 @@ class MatchRound {
     List<String>? players,
     List<int>? winners,
     Map<String, dynamic>? scores,
+    int? detailsLength,
+    double? duration,
   }) {
     return MatchRound(
       id: id ?? this.id,
@@ -39,6 +45,8 @@ class MatchRound {
       players: players ?? this.players,
       winners: winners ?? this.winners,
       scores: scores ?? this.scores,
+      detailsLength: detailsLength ?? this.detailsLength,
+      duration: duration ?? this.duration,
     );
   }
 
@@ -51,6 +59,8 @@ class MatchRound {
       'players': players,
       'winners': winners,
       'scores': scores,
+      'detailsLength': detailsLength,
+      'duration': duration,
     };
   }
 
@@ -66,6 +76,8 @@ class MatchRound {
           : null,
       scores:
           Map<String, dynamic>.from((map['scores'] as Map<String, dynamic>)),
+      detailsLength: map['detailsLength'] as int,
+      duration: map['duration'] as double,
     );
   }
 
@@ -76,21 +88,22 @@ class MatchRound {
 
   @override
   String toString() {
-    return 'MatchRound(id: $id, game: $game, time_start: $time_start, time_end: $time_end, players: $players, winners: $winners, scores: $scores)';
+    return 'MatchRound(id: $id, game: $game, time_start: $time_start, time_end: $time_end, players: $players, winners: $winners, scores: $scores, detailsLength: $detailsLength, duration: $duration)';
   }
 
   @override
   bool operator ==(covariant MatchRound other) {
     if (identical(this, other)) return true;
-    final collectionEquals = const DeepCollectionEquality().equals;
 
     return other.id == id &&
         other.game == game &&
         other.time_start == time_start &&
         other.time_end == time_end &&
-        collectionEquals(other.players, players) &&
-        collectionEquals(other.winners, winners) &&
-        collectionEquals(other.scores, scores);
+        listEquals(other.players, players) &&
+        listEquals(other.winners, winners) &&
+        mapEquals(other.scores, scores) &&
+        other.detailsLength == detailsLength &&
+        other.duration == duration;
   }
 
   @override
@@ -101,6 +114,8 @@ class MatchRound {
         time_end.hashCode ^
         players.hashCode ^
         winners.hashCode ^
-        scores.hashCode;
+        scores.hashCode ^
+        detailsLength.hashCode ^
+        duration.hashCode;
   }
 }

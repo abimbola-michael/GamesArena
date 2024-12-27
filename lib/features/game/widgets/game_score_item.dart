@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:icons_plus/icons_plus.dart';
 import '../../../theme/colors.dart';
 import '../../../shared/utils/utils.dart';
+import 'profile_photo.dart';
 
 class GameScoreItem extends StatelessWidget {
   final String username;
@@ -26,37 +27,30 @@ class GameScoreItem extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Stack(
-          children: [
-            CircleAvatar(
-              radius: 25,
-              backgroundImage: profilePhoto != null
-                  ? CachedNetworkImageProvider(profilePhoto!)
-                  : null,
-              backgroundColor: lightestWhite,
-              child: profilePhoto != null
-                  ? null
-                  : Text(
-                      username.firstChar ?? "",
-                      style: const TextStyle(fontSize: 30, color: Colors.blue),
+        SizedBox(
+          height: 50,
+          width: 50,
+          child: Stack(
+            children: [
+              ProfilePhoto(
+                  profilePhoto: profilePhoto, name: username, size: 50),
+              if (action == "start") ...[
+                const Positioned(
+                  bottom: 4,
+                  right: 4,
+                  child: CircleAvatar(
+                    radius: 8,
+                    backgroundColor: Colors.blue,
+                    child: Icon(
+                      EvaIcons.checkmark,
+                      size: 8,
+                      color: Colors.white,
                     ),
-            ),
-            if (action == "start") ...[
-              const Positioned(
-                bottom: 4,
-                right: 4,
-                child: CircleAvatar(
-                  radius: 8,
-                  backgroundColor: Colors.blue,
-                  child: Icon(
-                    EvaIcons.checkmark,
-                    size: 8,
-                    color: Colors.white,
                   ),
-                ),
-              )
+                )
+              ],
             ],
-          ],
+          ),
         ),
         const SizedBox(
           height: 4,
@@ -65,29 +59,36 @@ class GameScoreItem extends StatelessWidget {
           username,
           style: const TextStyle(fontSize: 16, color: Colors.white),
           textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(
-          height: 4,
-        ),
-        Text(
-          '$score',
-          style: const TextStyle(
-              fontWeight: FontWeight.bold, fontSize: 60, color: Colors.white),
-          textAlign: TextAlign.center,
-        ),
-        if (action != "") ...[
-          // const SizedBox(
-          //   height: 4,
-          // ),
-          Text(
-            getActionString(action).capitalize,
+        // const SizedBox(
+        //   height: 4,
+        // ),
+        SizedBox(
+          child: Text(
+            '$score',
             style: const TextStyle(
-              fontSize: 14,
-              color: Colors.white,
-            ),
+                fontWeight: FontWeight.bold,
+                fontSize: 60,
+                height: 1,
+                color: Colors.white),
             textAlign: TextAlign.center,
           ),
-        ],
+        ),
+        // if (action != "") ...[
+        // const SizedBox(
+        //   height: 4,
+        // ),
+        Text(
+          getActionString(action).capitalize,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.white,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        // ],
         if (callMode != null) ...[
           const SizedBox(
             height: 4,
@@ -97,6 +98,8 @@ class GameScoreItem extends StatelessWidget {
             style: const TextStyle(
                 fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ]
       ],

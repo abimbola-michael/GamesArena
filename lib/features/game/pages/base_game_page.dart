@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:gamesarena/features/game/views/watch_game_controls_view.dart';
+import 'package:gamesarena/features/game/widgets/profile_photo.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:icons_plus/icons_plus.dart';
 
@@ -19,12 +20,14 @@ import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/shared/extensions/special_context_extensions.dart';
 import 'package:gamesarena/shared/services.dart';
 import 'package:gamesarena/shared/utils/constants.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../records/models/match_round.dart';
 import '../models/concede_or_left.dart';
 import '../models/game_action.dart';
+import '../models/game_page_infos.dart';
 import '../providers/game_action_provider.dart';
-import '../providers/game_page_provider.dart';
+import '../providers/game_page_infos_provider.dart';
 import '../views/paused_game_view.dart';
 import '../services.dart';
 import '../utils.dart';
@@ -77,6 +80,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   abstract int? maxPlayerTime;
   abstract int? maxGameTime;
 
+  bool isVisible = true;
+
   //watch
 
   int detailDelay = 2000;
@@ -86,25 +91,34 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   bool awaitingDetails = false;
 
   bool showWatchControls = false;
-  int watchDetailIndex = -1;
-  int moreWatchDetailIndex = -1;
-  int moreWatchDetailParentIndex = -1;
+  int gameDetailsLength = 0;
+
+  int detailIndex = -1;
+  int moreDetailIndex = -1;
+
+  int? newDetailIndex;
+  int? newMoreDetailIndex;
+
+  // int nextDetailIndex = 0;
+  // int nextMoreDetailIndex = 0;
+
+  double? newDuration;
+  double endDuration = 0;
+
+  int nextwatchPosition = 0;
+
   int controlsVisiblityTimer = 0;
   int maxControlsVisiblityTimer = 5;
 
   int watchDetailsLimit = 3;
-  int durationSkipLimit = 10 * 1000;
+  int durationSkipLimit = 10;
   //int watchInterval = 0;
   //int maxWatchInterval = 3;
   bool watching = false;
 
-  int timeStart = 0;
-  int watchTime = 0;
-  int? timeEnd;
-
   //match
 
-  int playerTime = 0;
+  //int playerTime = 0;
   String gameName = "";
   int pauseIndex = 0;
   bool stopPlayerTime = false;
@@ -120,9 +134,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   String? indices;
   int recordId = 0;
   int roundId = 0;
-  int lastRecordId = 0;
-  int lastRecordIdRoundId = 0;
-  int page = 0;
+  GamePageInfos? pageInfos;
 
   //String timeStart = "";
 
@@ -146,14 +158,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   //bool isWatch = false;
   bool isWatchMode = false;
 
-  //bool finishedReadingDetails = false;
-
-  //Map<String, dynamic>? gatheredGameDetails;
   List<Map<String, dynamic>> gatheredGameDetails = [];
 
-  List<Map<String, dynamic>>? gameDetails;
-  // Map<int, List<Map<String, dynamic>>?> recordGameDetails = {};
-  Map<int, Map<int, List<Map<String, dynamic>>?>> recordGameDetails = {};
+  List<Map<String, dynamic>> gameDetails = [];
+  // Map<int, Map<int, List<Map<String, dynamic>>?>> recordGameDetails = {};
 
   StreamSubscription? playersSub;
   StreamSubscription? detailsSub;
@@ -161,6 +169,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   int pageIndex = 0;
   int myPageIndex = -1;
 
+  List<int> playersLeft = [];
   List<Player> players = [];
   List<Player> allPlayers = [];
   List<Player> currentPlayers = [];
@@ -172,12 +181,13 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   bool isCheckoutMode = false;
   String reason = "";
   late StreamController<int> timerController;
-  StreamController<int>? timerController2;
-  late StreamController<int> watchTimerController;
+  late StreamController<double> watchTimerController;
 
   //Time
-  Timer? timer, watchTimer;
-  int duration = 0, gameTime = 0, gameTime2 = 0;
+  Timer? timer;
+  double duration = 0;
+  int gameTime = 0;
+  //, gameTime2 = 0
 
   //Ads
   int adsCount = 0;
@@ -188,6 +198,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   InterstitialAd? _interstitialAd;
 
   bool paused = true,
+      startedRound = false,
       finishedRound = false,
       checkout = false,
       pausePlayerTime = false;
@@ -205,6 +216,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   double cardWidth = 0, cardHeight = 0;
 
   String message = "", hintMessage = "";
+
+  List<int> playersTimes = [];
 
   List<int> playersCounts = [];
   List<int> playersScores = [];
@@ -235,12 +248,12 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   void initState() {
     super.initState();
     maxPlayerTime ??= 30;
-    resetPlayerTime();
 
     WidgetsBinding.instance.addObserver(this);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
     onInitState();
     init();
+    resetPlayerTime();
   }
 
   @override
@@ -253,33 +266,12 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     padding = context.remainingSize;
     cardHeight = (minSize - 80) / 3;
     cardWidth = cardHeight.percentValue(65);
-    // padding = (context.screenHeight - context.screenWidth).abs() / 2;
-    // if (!gottenDependencies) {
-    //   if (context.args != null) {
-    //     gameName = context.args["gameName"] ?? "";
-    //     matchId = context.args["matchId"] ?? "";
-    //     gameId = context.args["gameId"] ?? "";
-    //     match = context.args["match"];
-
-    //     users = context.args["users"];
-    //     players = context.args["players"] ?? [];
-    //     playersSize = context.args["playersSize"] ?? 2;
-    //     indices = context.args["indices"];
-    //     recordId = context.args["recordId"] ?? 1;
-    //     recordGameDetails = context.args["recordGameDetails"] ?? {};
-    //     isWatch = context.args["isWatch"] ?? false;
-    //     adsTime = context.args["adsTime"] ?? 0;
-    //   }
-    //   gottenDependencies = true;
-    //   init();
-    // }
   }
 
   @override
   void dispose() {
     pageController?.dispose();
     timerController.close();
-    timerController2?.close();
     watchTimerController.close();
 
     WidgetsBinding.instance.removeObserver(this);
@@ -322,8 +314,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       indices = arguments["indices"];
       recordId = arguments["recordId"] ?? 0;
       roundId = arguments["roundId"] ?? 0;
-      page = arguments["page"] ?? 0;
-      recordGameDetails = arguments["recordGameDetails"] ?? {};
+      //recordGameDetails = arguments["recordGameDetails"] ?? {};
       //isWatch = arguments["isWatch"] ?? false;
       adsTime = arguments["adsTime"] ?? 0;
       pageIndex = arguments["pageIndex"] ?? 0;
@@ -339,23 +330,19 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     isMyTurn = currentPlayerId == myId;
 
     timerController = StreamController.broadcast();
-    if (isChessOrDraught) {
-      timerController2 = StreamController.broadcast();
-    }
+
     watchTimerController = StreamController.broadcast();
 
     matchEnded = match?.time_end != null;
-    //recordId = match?.records?.values.length ?? 0;
 
     checkFirstime();
     checkSubscription();
-    //if (playersScores.isEmpty) initScores();
     initMessages();
     initPlayersCounts();
     initToasts();
+    initPlayersTimes();
     getCurrentPlayer();
     readPlayers();
-    //if (!isWatch)
     readDetails();
     onStart();
     if (gameId.isEmpty) onInit();
@@ -366,16 +353,18 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                 ? 1
                 : 2
         : myPlayer;
-    if (maxGameTime != null) {
-      gameTime = maxGameTime!;
-      gameTime2 = maxGameTime!;
-    } else {
-      gameTime = 0;
-      gameTime2 = 0;
-    }
-    if (isTournament) {
-      pageController = PageController();
-    }
+    // if (maxGameTime != null) {
+    //   gameTime = maxGameTime!;
+    //   gameTime2 = maxGameTime!;
+    // } else {
+    //   gameTime = 0;
+    //   gameTime2 = 0;
+    // }
+    gameTime = maxGameTime ?? 0;
+
+    // if (isTournament) {
+    //   pageController = PageController();
+    // }
   }
 
   void getOfflineDetails() {
@@ -385,9 +374,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   bool get isMyMove =>
       !awaiting && gameId.isNotEmpty && currentPlayerId == myId;
 
-  void resetPlayerTime() {
+  void resetPlayerTime([int? maxTime]) {
     stopPlayerTime = false;
-    playerTime = maxPlayerTime!;
+    // playerTime = maxPlayerTime!;
+    playersTimes[currentPlayer] = maxTime ?? maxPlayerTime ?? 30;
   }
 
   void stopTimer([bool pause = true]) {
@@ -395,29 +385,36 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
     timer?.cancel();
     timer = null;
-    watchTimer?.cancel();
-    watchTimer = null;
   }
 
   void startTimer() {
     pausePlayerTime = false;
     paused = false;
     timer?.cancel();
-    timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted || awaiting) return;
+    timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (!mounted || awaiting || loadingDetails) return;
 
-      if (isWatch & isWatchMode && !loadingDetails && watchTime < end) {
-        if (showWatchControls) {
-          if (controlsVisiblityTimer >= maxControlsVisiblityTimer) {
-            controlsVisiblityTimer = 0;
-            showWatchControls = false;
-            setState(() {});
-          } else {
-            controlsVisiblityTimer++;
-          }
+      if (isWatch & isWatchMode && duration <= endDuration) {
+        readWatchDetails();
+      }
+
+      duration = (duration + 0.1).toStringAsFixed(1).toDouble;
+
+      if (!finishedRound) {
+        endDuration = duration;
+      }
+
+      if (duration != 0 && (duration * 10) % 10 != 0) return;
+
+      if (showWatchControls) {
+        if (controlsVisiblityTimer >= maxControlsVisiblityTimer) {
+          controlsVisiblityTimer = 0;
+          showWatchControls = false;
+          setState(() {});
+        } else {
+          controlsVisiblityTimer++;
         }
       }
-      if (!loadingDetails) duration++;
 
       if (isSubscribed != null) {
         if (isSubscribed!) {
@@ -439,61 +436,38 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         }
       }
 
-      if (currentPlayer == 1 && isChessOrDraught) {
-        if (maxGameTime != null && gameTime2 <= 0) {
-          timer.cancel();
-          onTimeEnd();
-          updateWin(0);
-        }
-
-        gameTime2--;
-        timerController2?.sink.add(gameTime2);
-      } else {
-        if (maxGameTime != null && gameTime <= 0) {
-          timer.cancel();
-          onTimeEnd();
-          if (isChessOrDraught) {
-            updateWin(1);
-          }
-        }
-        if (maxGameTime != null) {
-          gameTime--;
-        } else {
-          gameTime++;
-        }
-        timerController.sink.add(gameTime);
+      if (maxGameTime != null && gameTime <= 0) {
+        timer.cancel();
+        onTimeEnd();
       }
-      if (!isChessOrDraught && !stopPlayerTime) {
+      if (maxGameTime != null) {
+        gameTime--;
+      } else {
+        gameTime++;
+      }
+      timerController.sink.add(gameTime);
+
+      if (!stopPlayerTime) {
         if (playerTime <= 0) {
-          playerTime = maxPlayerTime!;
           onPlayerTimeEnd();
-          setState(() {});
           if (isPuzzle) {
             setGatheredDetails();
           }
+          if (isChessOrDraught) {
+            updateWin(getNextPlayerIndex(currentPlayer));
+          }
+          setState(() {});
         } else {
-          playerTime--;
+          playersTimes[currentPlayer]--;
         }
-      }
-    });
-
-    if (!isWatch || !isWatchMode) return;
-
-    watchTimer?.cancel();
-    watchTimer = Timer.periodic(const Duration(milliseconds: 60), (timer) {
-      if (!mounted || awaitingDetails) return;
-
-      if (!loadingDetails && watchTime < end) {
-        watchTime += 60;
-        if (watchTime >= end) {
-          watchTime = end;
-        }
-        watchTimerController.sink.add(watchTime);
-
-        readWatchDetails();
       }
     });
   }
+
+  int get playerTime =>
+      currentPlayer >= 0 && currentPlayer < playersTimes.length
+          ? playersTimes[currentPlayer]
+          : maxPlayerTime ?? 30;
 
   void checkSubscription() async {
     final duration = await getAvailableDuration();
@@ -507,14 +481,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   bool _onKey(KeyEvent event) {
     final key = event.logicalKey;
-    final gamePageId = ref.read(gamePageProvider);
-    final pageId = "$recordId-$roundId";
-    // final pageId =
-    //     "${widget.arguments?["recordId"]}-${widget.arguments?["roundId"]}";
-
-    // print(
-    //     "gamePageId = $gamePageId, pageId = $pageId, ${pageId == gamePageId}");
-    if (pageId != gamePageId) return false;
+    if (!isVisible) return false;
     if (event is KeyDownEvent) {
       if ((key == LogicalKeyboardKey.backspace ||
               key == LogicalKeyboardKey.escape) &&
@@ -524,7 +491,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         }
       } else if (key == LogicalKeyboardKey.enter ||
           key == LogicalKeyboardKey.space) {
-        // print("spance = $isWatchMode, $paused, $finishedRound");
         if (isWatchMode) {
           togglePlayPause();
         } else {
@@ -539,18 +505,26 @@ abstract class BaseGamePageState<T extends BaseGamePage>
           }
         }
       } else {
-        if (isWatchMode) {
+        if (paused) {
           if (key == LogicalKeyboardKey.arrowLeft) {
-            rewind();
+            previous();
           } else if (key == LogicalKeyboardKey.arrowRight) {
-            forward();
-          } else if (key == LogicalKeyboardKey.arrowUp) {
-            nextDetail();
-          } else if (key == LogicalKeyboardKey.arrowDown) {
-            previousDetail();
+            next();
           }
         } else {
-          onKeyEvent(event);
+          if (isWatchMode) {
+            if (key == LogicalKeyboardKey.arrowLeft) {
+              rewind();
+            } else if (key == LogicalKeyboardKey.arrowRight) {
+              forward();
+            } else if (key == LogicalKeyboardKey.arrowUp) {
+              nextDetail();
+            } else if (key == LogicalKeyboardKey.arrowDown) {
+              previousDetail();
+            }
+          } else {
+            onKeyEvent(event);
+          }
         }
       }
     }
@@ -561,8 +535,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     if (gameId != "") {
       final playerIds = players.map((e) => e.id).toList();
       currentPlayerId = isPuzzle || isQuiz ? myId : playerIds.last;
-      final currentPlayerIndex =
-          playerIds.indexWhere((element) => element == currentPlayerId);
+      final currentPlayerIndex = playerIds.indexWhere(
+          (element) => isPuzzle ? element == myId : element == currentPlayerId);
       currentPlayer = currentPlayerIndex;
     } else {
       currentPlayer = playersSize - 1;
@@ -593,11 +567,14 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       setState(() {});
       return;
     }
-    //setGatheredDetails();
-    playerTime = maxPlayerTime!;
+
+    //playerTime = maxPlayerTime!;
     //message = "Play";
     getNextPlayer();
     if (suspend) getNextPlayer();
+    if (!isChessOrDraught) {
+      playersTimes[currentPlayer] = maxPlayerTime!;
+    }
     setState(() {});
   }
 
@@ -833,13 +810,12 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     showToast("You $action${action.endsWith("e") ? "d" : "ed"}");
 
     final outputAction = executeGameAction();
-    if (((maxGameTime != null && gameTime == maxGameTime) ||
-            (maxGameTime == null && gameTime == 0) ||
-            finishedRound) &&
+    if ((!finishedRound) &&
         (outputAction == "start" || outputAction == "restart")) {
       getCurrentPlayer();
       onInit();
     }
+    print("outputAction = $outputAction, players = $players,");
     if (!mounted) return;
     setState(() {});
   }
@@ -975,38 +951,26 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   Future readPlayers() async {
-    bool hasEnded = false;
-
-    // if (match != null && match!.time_end != null) {
-    //   if (!isWatch &&
-    //       match!.recordsCount != null &&
-    //       recordId < match!.recordsCount!) {
-    //     recordId = match!.recordsCount!;
-    //   }
-    //   hasEnded = true;
-    //   final playersIds = match!.players!;
-    //   players = playersIds.map((e) => Player(id: e, time: timeNow)).toList();
-    // }
-
-    // if (users == null || users!.length != players.length) {
-    //   users = await playersToUsers(players.map((e) => e.id).toList());
-    // }
-
-    //recordId = (match!.records?.keys.length ?? 1) - 1;
-
     if (match?.records?["$recordId"]?["rounds"]?["$roundId"] != null) {
       final record = MatchRecord.fromMap(match!.records?["$recordId"]);
       MatchRound round = MatchRound.fromMap(
           match!.records?["$recordId"]["rounds"]["$roundId"]);
-      players = List.generate(
-          round.players.length,
-          (index) =>
-              Player(id: round.players[index], time: timeNow, order: index));
+      if (players.isEmpty) {
+        players = List.generate(
+            round.players.length,
+            (index) =>
+                Player(id: round.players[index], time: timeNow, order: index));
+      }
       playersScores = round.scores.toList().cast();
       winners = round.winners;
-      hasEnded = round.time_end != null;
+      finishedRound = round.time_end != null;
+
+      gameDetailsLength = round.detailsLength;
+      endDuration = round.duration;
     } else {
-      initScores();
+      if (playersScores.isEmpty) {
+        initScores();
+      }
       if (gameId.isNotEmpty && match != null) {
         if (players.isEmpty) {
           players = List.generate(
@@ -1029,9 +993,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
     final index = players.indexWhere((element) => element.id == myId);
     myPlayer = index;
+    getCurrentPlayer();
 
     setState(() {});
-    if (hasEnded) {
+    if (finishedRound) {
       return;
     }
     final lastTime = players
@@ -1146,231 +1111,242 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     });
   }
 
-  int get end => (timeEnd ?? timeStart + (duration * 1000));
+  // int get end => (timeEnd ?? timeStart + (duration * 1000));
 
-  Future readWatchDetails(
-      {int? time,
-      int? detailIndex,
-      int? moreDetailIndex,
-      int? prevTime,
-      int? prevDetailIndex,
-      int? prevMoreDetailIndex}) async {
+  Future readWatchDetails() async {
     //trying to match the watch position
 
-    if (time != null || detailIndex != null || moreDetailIndex != null) {
+    bool isBack = false;
+    if (newDuration != null || newDetailIndex != null) {
+      if ((newDuration != null && newDuration! < duration) ||
+          (newDetailIndex != null &&
+              (newDetailIndex! < detailIndex ||
+                  (newMoreDetailIndex != null &&
+                      newDetailIndex == detailIndex &&
+                      newMoreDetailIndex! < moreDetailIndex)))) {
+        isBack = true;
+        gameTime = maxGameTime ?? 0;
+
+        detailIndex = 0;
+        moreDetailIndex = -1;
+        start(true, true);
+      }
+    }
+
+    if (newDetailIndex != null && newMoreDetailIndex != null) {
+      int newDetailIndex = this.newDetailIndex!;
+      int newMoreDetailIndex = this.newMoreDetailIndex!;
+
       seeking = true;
+      if (detailIndex >= 0 && detailIndex <= newDetailIndex) {
+        while (detailIndex <= newDetailIndex) {
+          final gameDetail = gameDetails[detailIndex];
 
-      // if ((time != null && prevTime != null && time < prevTime) ||
-      //     (detailIndex != null &&
-      //         prevDetailIndex != null &&
-      //         (detailIndex < prevDetailIndex ||
-      //             (moreDetailIndex != null &&
-      //                 prevMoreDetailIndex != null &&
-      //                 detailIndex == watchDetailIndex &&
-      //                 moreDetailIndex < prevMoreDetailIndex)))) {
-      //   start(true, true);
-      //   watchDetailIndex = 0;
-      //   moreWatchDetailIndex = -1;
-      //   watchTime = 0;
-      // } else {
-      //   if (prevTime != null) {
-      //     watchTime = prevTime;
-      //   }
-      //   if (prevDetailIndex != null) {
-      //     watchDetailIndex = prevDetailIndex;
-      //   }
-      //   if (prevMoreDetailIndex != null) {
-      //     moreWatchDetailIndex = prevMoreDetailIndex;
-      //   }
-      // }
+          final moreDetails = gameDetail["moreDetails"] as List<dynamic>?;
 
-      if (detailIndex != null && moreDetailIndex != null) {
-        if (watchDetailIndex >= 0 && watchDetailIndex <= detailIndex) {
-          while (watchDetailIndex <= detailIndex) {
-            final gameDetail = gameDetails![watchDetailIndex];
-            print(
-                "detailIndex = $detailIndex, moreWatchDetailIndex = $moreWatchDetailIndex");
-
-            final moreDetails =
-                gameDetail["moreDetails"] as List<Map<String, dynamic>>?;
-
-            if (moreDetails != null && moreDetails.isNotEmpty) {
-              print("Starting");
-
-              if (moreWatchDetailIndex == -1) {
-                updateGameDetails(gameDetail);
-                watchTime = (gameDetail["time"] as String).toInt;
-
-                if (watchDetailIndex == detailIndex && moreDetailIndex == -1) {
-                  break;
-                }
-                moreWatchDetailIndex = 0;
+          if (detailIndex == newDetailIndex &&
+              moreDetailIndex == newMoreDetailIndex) {
+            if (!isBack) {
+              if (moreDetailIndex != -1 &&
+                  moreDetails != null &&
+                  moreDetails.isNotEmpty) {
+                updateGameDetails(moreDetails[moreDetailIndex]);
               } else {
-                print("More");
-
-                final moreGameDetail = moreDetails[moreWatchDetailIndex];
-                updateGameDetails(moreGameDetail);
-                watchTime = (moreGameDetail["time"] as String).toInt;
-
-                if (watchDetailIndex == detailIndex &&
-                    moreWatchDetailIndex == moreDetailIndex) {
-                  break;
-                }
-
-                if (moreWatchDetailIndex == moreDetails.length - 1) {
-                  print("isLast");
-                  if (watchDetailIndex == detailIndex) {
-                    break;
-                  }
-                  watchDetailIndex++;
-                  moreWatchDetailIndex = -1;
-                } else {
-                  print("Incrementing");
-
-                  moreWatchDetailIndex++;
-                }
+                updateGameDetails(gameDetail);
               }
-            } else {
-              print("No More");
-              updateGameDetails(gameDetail);
-              watchTime = (gameDetail["time"] as String).toInt;
-              if (watchDetailIndex == detailIndex && moreDetailIndex == -1) {
-                break;
-              }
-              watchDetailIndex++;
-              moreWatchDetailIndex = -1;
+
+              getNextCurrent();
             }
+
+            break;
           }
-        }
-      } else if (time != null) {
-        if (time >= timeStart && time <= end) {
-          while (watchDetailIndex < gameDetails!.length) {
-            final gameDetail = gameDetails![watchDetailIndex];
 
-            final gameTime = (gameDetail["time"] as String).toInt;
-            if (gameTime > time) {
-              break;
-            }
-            final moreDetails =
-                gameDetail["moreDetails"] as List<Map<String, dynamic>>?;
-
-            if (moreDetails != null && moreDetails.isNotEmpty) {
-              if (moreWatchDetailIndex == -1) {
-                updateGameDetails(gameDetail);
-                moreWatchDetailIndex = 0;
-              } else {
-                final moreGameDetail = moreDetails[moreWatchDetailIndex];
-                final moreGameTime = (moreGameDetail["time"] as String).toInt;
-                if (moreGameTime > time) {
-                  break;
-                }
-                updateGameDetails(moreGameDetail);
-
-                if (moreWatchDetailIndex == moreDetails.length - 1) {
-                  watchDetailIndex++;
-                  moreWatchDetailIndex = -1;
-                } else {
-                  moreWatchDetailIndex++;
-                }
-              }
-            } else {
+          if (moreDetails != null && moreDetails.isNotEmpty) {
+            if (moreDetailIndex == -1) {
               updateGameDetails(gameDetail);
-              watchDetailIndex++;
-              moreWatchDetailIndex = -1;
-            }
 
-            //watchTime = (gameDetail["time"] as String).toInt;
+              moreDetailIndex = 0;
+            } else {
+              final moreGameDetail = moreDetails[moreDetailIndex];
+              updateGameDetails(moreGameDetail);
+
+              if (moreDetailIndex == moreDetails.length - 1) {
+                detailIndex++;
+                moreDetailIndex = -1;
+              } else {
+                moreDetailIndex++;
+              }
+            }
+          } else {
+            updateGameDetails(gameDetail);
+
+            detailIndex++;
+            moreDetailIndex = -1;
           }
         }
       }
+
       seeking = false;
-    } else {
-      if (gameDetails != null &&
-          watchDetailIndex >= 0 &&
-          watchDetailIndex < gameDetails!.length) {
-        final gameDetail = gameDetails![watchDetailIndex];
-        final detailTime = (gameDetail["time"] as String).toInt;
-        if (watchTime >= detailTime) {
-          final moreDetails =
-              gameDetail["moreDetails"] as List<Map<String, dynamic>>?;
+    } else if (newDuration != null) {
+      if (detailIndex == -1) {
+        detailIndex = 0;
+      }
+      double newDuration = this.newDuration!;
+      seeking = true;
+      if (newDuration >= 0 && newDuration <= endDuration) {
+        while (detailIndex < gameDetails.length) {
+          final gameDetail = gameDetails[detailIndex];
+
+          final gameDuration = (gameDetail["duration"] as double);
+          if (gameDuration > newDuration) {
+            break;
+          }
+          final moreDetails = gameDetail["moreDetails"] as List<dynamic>?;
 
           if (moreDetails != null && moreDetails.isNotEmpty) {
-            if (moreWatchDetailIndex == -1) {
+            if (moreDetailIndex == -1) {
               updateGameDetails(gameDetail);
-              moreWatchDetailIndex = 0;
+              moreDetailIndex = 0;
             } else {
-              final moreGameDetail = moreDetails[moreWatchDetailIndex];
-              final moreGameTime = (moreGameDetail["time"] as String).toInt;
+              final moreGameDetail = moreDetails[moreDetailIndex];
+              final moreGameDuration = (moreGameDetail["duration"] as double);
+              if (moreGameDuration > newDuration) {
+                break;
+              }
+              updateGameDetails(moreGameDetail);
 
-              if (watchTime >= moreGameTime) {
+              if (moreDetailIndex == moreDetails.length - 1) {
+                detailIndex++;
+                moreDetailIndex = -1;
+              } else {
+                moreDetailIndex++;
+              }
+            }
+          } else {
+            updateGameDetails(gameDetail);
+            detailIndex++;
+            moreDetailIndex = -1;
+          }
+        }
+      }
+
+      seeking = false;
+    } else {
+      if (detailIndex == -1) {
+        detailIndex = 0;
+      }
+      seeking = false;
+      if (detailIndex >= 0 && detailIndex < gameDetails.length) {
+        final gameDetail = gameDetails[detailIndex];
+        final detailDuration = (gameDetail["duration"] as double);
+
+        if (duration >= detailDuration) {
+          final moreDetails = gameDetail["moreDetails"] as List<dynamic>?;
+
+          if (moreDetails != null && moreDetails.isNotEmpty) {
+            if (moreDetailIndex == -1) {
+              updateGameDetails(gameDetail);
+
+              moreDetailIndex = 0;
+            } else {
+              final moreGameDetail = moreDetails[moreDetailIndex];
+              final moreGameDuration = (moreGameDetail["duration"] as double);
+
+              if (duration >= moreGameDuration) {
                 updateGameDetails(moreGameDetail);
 
-                if (moreWatchDetailIndex == moreDetails.length - 1) {
-                  moreWatchDetailIndex = -1;
-                  watchDetailIndex++;
+                if (moreDetailIndex == moreDetails.length - 1) {
+                  detailIndex++;
+                  moreDetailIndex = -1;
                 } else {
-                  moreWatchDetailIndex++;
+                  moreDetailIndex++;
                 }
               }
             }
           } else {
             updateGameDetails(gameDetail);
-            moreWatchDetailIndex = -1;
-            //moreWatchDetailParentIndex = -1;
-            watchDetailIndex++;
+
+            moreDetailIndex = -1;
+            detailIndex++;
           }
         }
       }
     }
 
-    if (watchDetailIndex >= gameDetails!.length - watchDetailsLimit &&
+    if (detailIndex >= gameDetails.length - watchDetailsLimit &&
         gameId.isNotEmpty &&
-        !finishedRound) {
+        !loadingDetails &&
+        gameDetails.length < gameDetailsLength) {
       final playerIds = players.map((player) => player.id).toList();
 
-      var lastTime = gameDetails?.lastOrNull?["time"];
+      var lastTime = gameDetails.lastOrNull?["time"];
 
-      if (detailIndex != null) {
+      if (newDetailIndex != null) {
+        seeking = true;
         if (!loadingDetails) {
           loadingDetails = true;
-
           setState(() {});
         }
-        final remaining = detailIndex - gameDetails!.length - 1;
+        // final remaining = newDetailIndex - gameDetails.length - 1;
         final newGameDetails = await getGameDetails(
             gameId, matchId, recordId, roundId,
-            time: lastTime, limit: remaining, players: playerIds);
-        gameDetails!.addAll(newGameDetails);
-      } else if (time != null) {
+            time: lastTime, index: newDetailIndex, players: playerIds);
+        gameDetails.addAll(newGameDetails);
+        seeking = false;
+
+        if (newGameDetails.isNotEmpty) readWatchDetails();
+      } else if (newDuration != null) {
+        seeking = true;
         if (!loadingDetails) {
           loadingDetails = true;
-
           setState(() {});
         }
-
         final newGameDetails = await getGameDetails(
             gameId, matchId, recordId, roundId,
-            time: lastTime, timeEnd: time.toString(), players: playerIds);
-        gameDetails!.addAll(newGameDetails);
+            time: lastTime, duration: newDuration, players: playerIds);
+        gameDetails.addAll(newGameDetails);
+        seeking = false;
+
+        if (newGameDetails.isNotEmpty) readWatchDetails();
       }
-      if (watchDetailIndex >= gameDetails!.length - watchDetailsLimit) {
+
+      if (detailIndex >= gameDetails.length - watchDetailsLimit &&
+          gameDetails.length < gameDetailsLength) {
         if (!loadingDetails) {
           loadingDetails = true;
-
           setState(() {});
         }
+        final lastTime = gameDetails.lastOrNull?["time"];
 
-        lastTime = gameDetails?.lastOrNull?["time"];
         final newGameDetails = await getGameDetails(
             gameId, matchId, recordId, roundId,
             time: lastTime, limit: watchDetailsLimit, players: playerIds);
-        gameDetails!.addAll(newGameDetails);
+        gameDetails.addAll(newGameDetails);
+
+        if (newGameDetails.isNotEmpty) readWatchDetails();
+      }
+      if (loadingDetails) {
+        loadingDetails = false;
+        setState(() {});
+      }
+    } else {
+      if (newDetailIndex != null) {
+        newDetailIndex = null;
+      }
+      if (newMoreDetailIndex != null) {
+        newMoreDetailIndex = null;
+      }
+      if (newDuration != null) {
+        duration = newDuration!;
+        newDuration = null;
       }
     }
 
-    loadingDetails = false;
+    watchTimerController.sink.add(duration);
 
-    if (finishedRound && watchTime >= end) {
+    // print("duration = $duration");
+
+    if (finishedRound && duration >= endDuration) {
       stopWatching();
     } else {
       setState(() {});
@@ -1389,66 +1365,47 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     final end =
         match?.records?["$recordId"]?["rounds"]?["$roundId"]?["time_end"];
 
-    if (start != null) {
-      timeStart = (start as String).toInt;
-    }
-    if (end != null) {
-      timeEnd = (end as String).toInt;
-    }
+    int index = 0;
+    int endIndex = gameDetails.length;
 
-    finishedRound = end != null;
-
+    var lastTime = gameDetails.lastOrNull?["time"];
     final playerIds = players.map((player) => player.id).toList();
 
-    if (!recordGameDetails.containsKey(recordId) ||
-        !recordGameDetails[recordId]!.containsKey(roundId)) {
-      if (!recordGameDetails.containsKey(recordId)) {
-        recordGameDetails[recordId] = {};
-      }
-      if (!recordGameDetails[recordId]!.containsKey(roundId)) {
-        recordGameDetails[recordId]![roundId] = [];
-      }
-    }
-
-    gameDetails = recordGameDetails[recordId]![roundId];
-
-    int index = 0;
-    int endIndex = gameDetails!.length;
-
-    var lastTime = gameDetails?.lastOrNull?["time"];
-
     if (gameId.isNotEmpty) {
-      loadingDetails = true;
-      setState(() {});
-
-      final newGameDetails = await getGameDetails(
-          gameId, matchId, recordId, roundId,
-          time: lastTime,
-          limit: isWatch && !finishedRound ? watchDetailsLimit * 2 : null,
-          players: playerIds);
-
-      loadingDetails = false;
-      gameDetails!.addAll(newGameDetails);
-      if (finishedRound) {
+      if (start != null) {
+        loadingDetails = true;
         setState(() {});
-        return;
-      }
-      if (newGameDetails.isEmpty) {
-        stopWatching();
-      } else {
-        if (index >= 0 && index < gameDetails!.length) {
-          while (index < endIndex) {
-            watchDetailIndex = index;
 
-            final gameDetail = gameDetails![index];
-            updateGameDetails(gameDetail, readMoreDetails: true);
-            index++;
+        final newGameDetails = await getGameDetails(
+            gameId, matchId, recordId, roundId,
+            time: lastTime,
+            limit: isWatch && finishedRound ? watchDetailsLimit * 2 : null,
+            players: playerIds);
+
+        loadingDetails = false;
+        gameDetails.addAll(newGameDetails);
+
+        if (newGameDetails.isEmpty) {
+          if (isWatch) stopWatching();
+        } else {
+          if (!isWatch) {
+            if (index >= 0 && index < gameDetails.length) {
+              while (index < endIndex) {
+                final gameDetail = gameDetails[index];
+                updateGameDetails(gameDetail, readMoreDetails: true);
+                index++;
+              }
+            }
           }
         }
       }
 
-      if (finishedRound) return;
-      lastTime = gameDetails?.lastOrNull?["time"];
+      if (finishedRound) {
+        setState(() {});
+        return;
+      }
+
+      lastTime = gameDetails.lastOrNull?["time"];
 
       detailsSub = getGameDetailsChange(gameId, matchId, recordId, roundId,
               time: lastTime, players: playerIds)
@@ -1456,17 +1413,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         for (int i = 0; i < detailsChanges.length; i++) {
           final detailsChange = detailsChanges[i];
           final gameDetail = detailsChange.value;
-          gameDetails ??= [];
-          watchDetailIndex = gameDetails!.length;
-          gameDetails!.add(gameDetail);
+          gameDetails.add(gameDetail);
           updateGameDetails(gameDetail, readMoreDetails: true);
-        }
-        if (finishedRound) {
-          detailsSub?.cancel();
-          detailsSub = null;
-          playersSub?.cancel();
-          playersSub = null;
-          //stopWatching();
         }
       });
     }
@@ -1475,40 +1423,27 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   Future updateGameDetails(Map<String, dynamic> gameDetail,
       {bool readMoreDetails = false}) async {
     final playerId = gameDetail["id"];
-    final duration = gameDetail["duration"] as int?;
+    final duration = gameDetail["duration"] as double?;
     final playerTime = gameDetail["playerTime"] as int?;
+    final playerIndex = getPlayerIndex(playerId);
+
+    //currentPlayer = playerIndex;
 
     final action = gameDetail["action"];
 
     if (duration != null) {
-      if (this.duration < duration) {
-        this.duration = duration;
-      }
+      this.duration = duration;
     }
 
     if (playerTime != null) {
-      if (isChessOrDraught) {
-        if (getPlayerIndex(playerId) == 1) {
-          if ((gameTime2 - playerTime).abs() > 3) {
-            gameTime2 = playerTime;
-          }
-        } else {
-          if ((gameTime - playerTime).abs() > 3) {
-            gameTime = playerTime;
-          }
-        }
-      } else {
-        if ((this.playerTime - playerTime).abs() > 3) {
-          this.playerTime = playerTime;
-        }
-      }
+      playersTimes[playerIndex] = playerTime;
     }
 
     if (action != null) {
       if (action == "concede") {
-        concede(playerId, true);
+        concede(playerId);
       } else if (action == "leave") {
-        leave(playerId, true);
+        leave(playerId, false, true);
       }
     } else {
       awaitingDetails = true;
@@ -1519,15 +1454,47 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       final moreDetails = gameDetail["moreDetails"] as List<dynamic>;
       for (int i = 0; i < moreDetails.length; i++) {
         final detail = moreDetails[i];
-        //detail["id"] = playerId;
         await updateGameDetails(detail);
       }
     }
   }
 
+  Future setActionDetails(String action) async {
+    await setGatheredDetails();
+    await setDetail({"action": action});
+  }
+
+  Future<List<Map<String, dynamic>>> setDetails(
+      List<Map<String, dynamic>> details) async {
+    List<Map<String, dynamic>> outputDetails = [];
+    for (int i = 0; i < details.length; i++) {
+      final detail = details[i];
+      final outputDetail =
+          await setDetail(detail, index: i, length: details.length);
+      outputDetails.add(outputDetail);
+    }
+    return outputDetails;
+  }
+
+  Future<Map<String, dynamic>> setDetail(Map<String, dynamic> detail,
+      {bool? add, int index = 0, int length = 1}) async {
+    detail["time"] = timeNow;
+    detail["duration"] = (duration - ((length - index - 1) * (1 / length)))
+        .toStringAsFixed(1)
+        .toDouble;
+    detail["id"] = gameId.isEmpty ? "$currentPlayer" : myId;
+
+    detail["playerTime"] = playersTimes[currentPlayer];
+
+    gatheredGameDetails.add(detail.removeNull());
+    if (add ?? index == length - 1) {
+      await setGatheredDetails();
+    }
+    return detail;
+  }
+
   Future setGatheredDetails() async {
     if (gatheredGameDetails.isEmpty || isWatch || finishedRound) return;
-    // print("gatheredGameDetails = $gatheredGameDetails");
     Map<String, dynamic> detail;
     if (isPuzzle) {
       detail = gatheredGameDetails.first;
@@ -1547,51 +1514,15 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     return addDetails(detail);
   }
 
-  Future setActionDetails(String action) async {
-    await setGatheredDetails();
-    return addDetails({"action": action});
-  }
-
-  Future<List<Map<String, dynamic>>> setDetails(
-      List<Map<String, dynamic>> details) async {
-    List<Map<String, dynamic>> outputDetails = [];
-    for (int i = 0; i < details.length; i++) {
-      final detail = details[i];
-      final outputDetail = await setDetail(detail, i == details.length - 1);
-      outputDetails.add(outputDetail);
-    }
-    return outputDetails;
-  }
-
-  Future<Map<String, dynamic>> setDetail(Map<String, dynamic> detail,
-      [bool add = true]) async {
-    detail["time"] = timeNow;
-    detail["duration"] = duration;
-    detail["id"] = gameId.isEmpty ? "$currentPlayer" : myId;
-
-    detail["playerTime"] = isChessOrDraught
-        ? currentPlayer == 1
-            ? gameTime2
-            : gameTime
-        : playerTime;
-
-    gatheredGameDetails.add(detail.removeNull());
-    if (add) {
-      setGatheredDetails();
-    }
-    return detail;
-  }
-
   Future addDetails(Map<String, dynamic> detail) async {
     if (awaiting || !mounted) return {};
-    gameDetails ??= [];
 
     detail["game"] = gameName;
     detail["recordId"] = recordId;
     detail["roundId"] = roundId;
-    detail["index"] = gameDetails!.length;
+    detail["index"] = gameDetails.length;
 
-    gameDetails!.add(detail);
+    gameDetails.add(detail);
 
     if (gameId.isNotEmpty) {
       awaiting = true;
@@ -1599,59 +1530,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       awaiting = false;
     }
   }
-
-// Future setActionDetails(String action) async {
-  //   if (isPuzzle && gatheredGameDetails != null) {
-  //     await setDetail(gatheredGameDetails!);
-  //     gatheredGameDetails = null;
-  //   }
-  //   return setDetail({"action": action});
-  // }
-
-  // Future<Map<String, dynamic>> setDetail(Map<String, dynamic> map) async {
-  //   if (map.isEmpty) return {};
-
-  //   map["time"] = timeNow;
-  //   map["duration"] = duration;
-
-  //   map["playerTime"] = isChessOrDraught
-  //       ? currentPlayer == 1
-  //           ? gameTime2
-  //           : gameTime
-  //       : playerTime;
-
-  //   if (isPuzzle && playerTime < maxPlayerTime!) {
-  //     if (gatheredGameDetails == null) {
-  //       gatheredGameDetails = map;
-  //     } else {
-  //       if (gatheredGameDetails!["moreDetails"] == null) {
-  //         gatheredGameDetails!["moreDetails"] = [map];
-  //       } else {
-  //         gatheredGameDetails!["moreDetails"].add(map);
-  //       }
-  //     }
-  //     return {};
-  //   }
-  //   //print("playerTime = $playerTime, map = $map");
-
-  //   if (awaiting || !mounted) return {};
-  //   map["game"] = gameName;
-  //   map["id"] = gameId.isEmpty ? "$currentPlayer" : myId;
-  //   map["recordId"] = recordId;
-  //   map["roundId"] = roundId;
-
-  //   gameDetails ??= [];
-  //   watchDetailIndex = gameDetails!.length;
-  //   gameDetails!.add(map);
-
-  //   if (gameId.isNotEmpty) {
-  //     awaiting = true;
-  //     await setGameDetails(gameId, matchId, map);
-  //     awaiting = false;
-  //   }
-
-  //   return map;
-  // }
 
   Future<bool> get allowNextMove async {
     if (!seeking) {
@@ -1664,10 +1542,14 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     return true;
   }
 
+  bool itsMyTurnForMessage(int player) =>
+      (currentPlayer == player && showMessage) ||
+      getConcedeOrLeft(player) != null;
+
   bool itsMyTurnToPlay(bool isClick, [int? player]) {
     if (isClick) toggleLayoutPressed();
 
-    if (seeking) return true;
+    // if (seeking) return true;
 
     if (awaiting || !mounted || (finishedRound && isClick)) {
       return false;
@@ -1738,16 +1620,21 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   void incrementCount(int player, [int count = 1]) {
     playersCounts[player] += count;
+    if (!mounted) return;
+
     setState(() {});
   }
 
   void decrementCount(int player, [int count = 1]) {
     playersCounts[player] -= count;
+    if (!mounted) return;
+
     setState(() {});
   }
 
   void updateCount(int player, int count) {
     playersCounts[player] = count;
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -1757,6 +1644,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   void initPlayersCounts() {
     playersCounts = List.generate(playersSize, (index) => -1);
+  }
+
+  void initPlayersTimes() {
+    playersTimes = List.generate(playersSize, (index) => maxPlayerTime ?? 30);
   }
 
   void initScores() {
@@ -1774,6 +1665,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   void showPlayerToast(int playerIndex, String message) {
     if (!isPlayerActive(playerIndex)) return;
     playersToasts[playerIndex] = message;
+    if (!mounted) return;
 
     setState(() {});
   }
@@ -1784,6 +1676,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       if (!isPlayerActive(index)) continue;
       playersToasts[index] = message;
     }
+    if (!mounted) return;
+
     setState(() {});
   }
 
@@ -1792,6 +1686,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       if (!isPlayerActive(i)) continue;
       playersToasts[i] = message;
     }
+    if (!mounted) return;
+
     setState(() {});
   }
 
@@ -1801,18 +1697,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   String getMessage(int index) {
     String message = playersMessages[index];
-    String fullMessage = "";
 
-    fullMessage = message.isNotEmpty
-        ? message
-        : currentPlayer == index
-            ? "Play"
-            : "";
-    if (currentPlayer == index) {
-      return "$fullMessage - ${playerTime.toDurationString(false)}";
-    } else {
-      return fullMessage;
-    }
+    return "${itsMyTurnForMessage(index) ? "${message.isEmpty ? this.message.isNotEmpty ? this.message : "Play" : message} - " : message.isEmpty ? "" : "$message - "}${playersTimes[index].toDurationString(false)}";
   }
 
   String getPlayerName(int player) {
@@ -1841,13 +1727,15 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   void updateTie(List<int> players, {String? reason}) {
+    if (this.reason.isEmpty) {
+      this.reason = reason ?? "";
+    }
     if (players.length == 1) {
       return updateWin(players.first, reason: reason);
     }
     if (players.length == playersSize) {
       return updateDraw(reason: reason);
     }
-    reason ??= this.reason;
 
     updateMatchRound(players, true);
 
@@ -1856,8 +1744,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   void updateWin(int player, {String? reason}) {
-    reason ??= this.reason;
-
+    if (this.reason.isEmpty) {
+      this.reason = reason ?? "";
+    }
     updateMatchRound([player], true);
 
     toastWinner(player, reason: reason);
@@ -1865,7 +1754,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   void updateDraw({String? reason}) {
-    reason ??= this.reason;
+    if (this.reason.isEmpty) {
+      this.reason = reason ?? "";
+    }
     updateMatchRound([]);
 
     toastDraw(reason: reason);
@@ -1942,38 +1833,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   Future startOrRestart(bool start) async {
     if (gameId != "" && matchId != "") {
-      await updateAction(
-          context,
-          players,
-          users!,
-          gameId,
-          matchId,
-          myId,
-          start ? "start" : "restart",
-          gameName,
-          maxGameTime != null ? gameTime < maxGameTime! : gameTime > 0,
-          recordId,
-          gameTime);
-      // if (!start) {
-      //   setActionGameDetails(
-      //       gameId, matchId, "restart", gameName, duration, recordId);
-      // }
+      await updateAction(context, players, users!, gameId, matchId,
+          start ? "start" : "restart", gameName);
     }
   }
-
-  // void executeWatchAction() {
-  //   watchDetailIndex = -1;
-  //   watchInterval = 0;
-  //   final value = match!.records!["$recordId"];
-  //   if (value != null) {
-  //     final record = MatchRecord.fromMap(match!.records!["$recordId"]);
-  //     if (record.game != gameName) {
-  //       change(record.game, true);
-  //     } else {
-  //       restart(true);
-  //     }
-  //   }
-  // }
 
   void previous() {
     updateGameAction("previous");
@@ -1983,145 +1846,186 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     updateGameAction("next");
   }
 
-  void previousDetail() {
-    controlsVisiblityTimer = 0;
-    if (gameDetails == null) return;
+  List<int> getPreviousDetail([int? detailIndex, int? moreDetailIndex]) {
+    detailIndex ??= this.detailIndex;
+    moreDetailIndex ??= this.moreDetailIndex;
 
-    if (watchDetailIndex < 0) {
-      return;
+    List<int> values = [detailIndex, moreDetailIndex];
+
+    if (detailIndex < 0 || detailIndex > gameDetails.length - 1) {
+      return [];
     }
 
-    int prevWatchDetailIndex = watchDetailIndex;
-    int prevMoreWatchDetailIndex = moreWatchDetailIndex;
-
-    final moreDetails = gameDetails![watchDetailIndex]["moreDetails"]
-        as List<Map<String, dynamic>>?;
-
-    print(
-        "prev start watchDetailIndex = $watchDetailIndex, moreWatchDetailIndex $moreWatchDetailIndex, ${gameDetails![watchDetailIndex]}");
-
+    final moreDetails =
+        gameDetails[detailIndex]["moreDetails"] as List<dynamic>?;
     if (moreDetails != null && moreDetails.isNotEmpty) {
-      if (moreWatchDetailIndex == -1) {
-        moreWatchDetailIndex = moreDetails.length - 1;
-      } else {
-        if (moreWatchDetailIndex == 0) {
-          if (watchDetailIndex <= 0) {
-            return;
-          }
-          watchDetailIndex--;
-          moreWatchDetailIndex = -1;
-        } else {
-          moreWatchDetailIndex--;
+      if (moreDetailIndex == -1) {
+        if (detailIndex <= 0) {
+          return [];
         }
+        values[0] = detailIndex - 1;
+
+        final prevMoreDetails =
+            gameDetails[detailIndex - 1]["moreDetails"] as List<dynamic>?;
+        if (prevMoreDetails != null && prevMoreDetails.isNotEmpty) {
+          values[1] = prevMoreDetails.length - 1;
+        } else {
+          values[1] = -1;
+        }
+      } else if (moreDetailIndex == 0) {
+        values[1] = -1;
+        values[0] = detailIndex;
+      } else {
+        values[1] = moreDetailIndex - 1;
+        values[0] = detailIndex;
       }
     } else {
-      if (watchDetailIndex <= 0) {
-        return;
+      if (detailIndex <= 0) {
+        return [];
       }
-      watchDetailIndex--;
-      moreWatchDetailIndex = -1;
-    }
-    print(
-        "prev watchDetailIndex = $watchDetailIndex, moreWatchDetailIndex $moreWatchDetailIndex");
-    readWatchDetails(
-        detailIndex: watchDetailIndex,
-        moreDetailIndex: moreWatchDetailIndex,
-        prevDetailIndex: prevWatchDetailIndex,
-        prevMoreDetailIndex: prevMoreWatchDetailIndex);
 
-    print(
-        "after watchDetailIndex = $watchDetailIndex, moreWatchDetailIndex $moreWatchDetailIndex");
+      final prevMoreDetails =
+          gameDetails[detailIndex - 1]["moreDetails"] as List<dynamic>?;
+      if (prevMoreDetails != null && prevMoreDetails.isNotEmpty) {
+        values[1] = prevMoreDetails.length - 1;
+      } else {
+        values[1] = -1;
+      }
+      values[0] = detailIndex - 1;
+    }
+    return values;
   }
+
+  List<int> getNextDetail([int? detailIndex, int? moreDetailIndex]) {
+    detailIndex ??= this.detailIndex;
+    moreDetailIndex ??= this.moreDetailIndex;
+    List<int> values = [detailIndex, moreDetailIndex];
+
+    if (detailIndex < 0 || detailIndex > gameDetails.length - 1) {
+      return [];
+    }
+    final moreDetails =
+        gameDetails[detailIndex]["moreDetails"] as List<dynamic>?;
+
+    if (moreDetails != null && moreDetails.isNotEmpty) {
+      if (moreDetailIndex == -1) {
+        values[0] = detailIndex;
+        values[1] = 0;
+      } else if (moreDetailIndex == moreDetails.length - 1) {
+        if (detailIndex >= gameDetails.length - 1) {
+          return [];
+        }
+        values[0] = detailIndex + 1;
+        values[1] = -1;
+      } else {
+        values[0] = detailIndex;
+        values[1] = moreDetailIndex + 1;
+      }
+    } else {
+      if (detailIndex >= gameDetails.length - 1) {
+        return [];
+      }
+      values[0] = detailIndex + 1;
+      values[1] = -1;
+    }
+
+    return values;
+  }
+
+  // void getPreviousDetailFromNext() {
+  //   final values = getPreviousDetail(nextDetailIndex, nextMoreDetailIndex);
+  //   if (values.isEmpty) {
+  //     return;
+  //   }
+  //   detailIndex = values[0];
+  //   moreDetailIndex = values[1];
+  // }
+
+  void getPreviousCurrent() {
+    final values = getPreviousDetail();
+    if (values.isEmpty) {
+      return;
+    }
+    detailIndex = values[0];
+    moreDetailIndex = values[1];
+  }
+
+  void getNextCurrent() {
+    final values = getNextDetail();
+    if (values.isEmpty) {
+      return;
+    }
+    detailIndex = values[0];
+    moreDetailIndex = values[1];
+  }
+
+  // void getNextDetailFromCurrent() {
+  //   final values = getNextDetail();
+  //   if (values.isEmpty) {
+  //     return;
+  //   }
+  //   nextDetailIndex = values[0];
+  //   nextMoreDetailIndex = values[1];
+  // }
 
   void nextDetail() {
     controlsVisiblityTimer = 0;
-
-    if (gameDetails == null) return;
-
-    if (watchDetailIndex > gameDetails!.length - 1) {
+    final values = getNextDetail();
+    if (values.isEmpty) {
       stopWatching();
       return;
     }
 
-    int prevWatchDetailIndex = watchDetailIndex;
-    int prevMoreWatchDetailIndex = moreWatchDetailIndex;
+    newDetailIndex = values[0];
+    newMoreDetailIndex = values[1];
+    readWatchDetails();
+  }
 
-    final moreDetails = gameDetails![watchDetailIndex]["moreDetails"]
-        as List<Map<String, dynamic>>?;
-
-    if (moreDetails != null && moreDetails.isNotEmpty) {
-      if (moreWatchDetailIndex == -1) {
-        moreWatchDetailIndex = 0;
-      } else {
-        if (moreWatchDetailIndex == moreDetails.length - 1) {
-          if (watchDetailIndex >= gameDetails!.length - 1) {
-            stopWatching();
-            return;
-          }
-          watchDetailIndex++;
-          moreWatchDetailIndex = -1;
-        } else {
-          moreWatchDetailIndex++;
-        }
-      }
-    } else {
-      if (watchDetailIndex >= gameDetails!.length - 1) {
-        stopWatching();
-        return;
-      }
-      watchDetailIndex++;
-      moreWatchDetailIndex = -1;
+  void previousDetail() {
+    controlsVisiblityTimer = 0;
+    final values = getPreviousDetail();
+    if (values.isEmpty) {
+      return;
     }
-    print(
-        "next watchDetailIndex = $watchDetailIndex, moreWatchDetailIndex $moreWatchDetailIndex");
 
-    readWatchDetails(
-        detailIndex: watchDetailIndex,
-        moreDetailIndex: moreWatchDetailIndex,
-        prevDetailIndex: prevWatchDetailIndex,
-        prevMoreDetailIndex: prevMoreWatchDetailIndex);
-    print(
-        "after watchDetailIndex = $watchDetailIndex, moreWatchDetailIndex $moreWatchDetailIndex");
+    newDetailIndex = values[0];
+    newMoreDetailIndex = values[1];
+
+    readWatchDetails();
   }
 
   void rewind() {
     controlsVisiblityTimer = 0;
 
-    int prevWatchTime = watchTime;
-
-    if ((watchTime - durationSkipLimit) < timeStart) {
-      watchTime = timeStart;
+    if ((duration - durationSkipLimit) < 0) {
+      newDuration = 0;
       return;
     }
 
-    readWatchDetails(time: watchTime, prevTime: prevWatchTime);
-    watchTime -= durationSkipLimit;
+    newDuration = duration - durationSkipLimit;
+    // readWatchDetails();
   }
 
   void forward() {
     controlsVisiblityTimer = 0;
     if (loadingDetails) return;
 
-    int prevWatchTime = watchTime;
-
-    if (watchTime + durationSkipLimit > end) {
-      watchTime = end;
+    if (duration + durationSkipLimit > endDuration) {
+      newDuration = endDuration;
       stopWatching();
       return;
     }
-
-    readWatchDetails(time: watchTime, prevTime: prevWatchTime);
-    watchTime += durationSkipLimit;
+    newDuration = duration + durationSkipLimit;
+    // readWatchDetails();
   }
 
-  void seek(int watchTime) {
+  void seek(double duration) {
     controlsVisiblityTimer = 0;
-    if (watchTime < timeStart || (timeEnd != null && watchTime > timeEnd!)) {
+    if (duration < 0 || duration > endDuration) {
       return;
     }
-    this.watchTime = watchTime;
-
-    readWatchDetails(time: watchTime, prevTime: this.watchTime);
+    newDuration = duration;
+    // readWatchDetails();
   }
 
   void togglePlayPause() {
@@ -2142,32 +2046,39 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   void resetWatchDetails() {
-    watchTime = timeStart;
-    watchDetailIndex = 0;
-    moreWatchDetailIndex = -1;
-    moreWatchDetailParentIndex = -1;
+    detailIndex = 0;
+    moreDetailIndex = -1;
+
+    // nextDetailIndex = 0;
+    // nextMoreDetailIndex = -1;
+
+    newDuration = null;
+    newDetailIndex = null;
+    newMoreDetailIndex = null;
+
     controlsVisiblityTimer = 0;
+    seeking = true;
   }
 
   void stopWatching() {
-    if (!isWatchMode) return;
+    if (!isWatchMode || gameDetailsLength != gameDetails.length) return;
     resetWatchDetails();
     isWatchMode = false;
     watching = false;
     showWatchControls = false;
-    watchTime = 0;
     pause();
   }
 
   void watch() {
     if (!isWatchMode) {
+      gameTime = maxGameTime ?? 0;
       start(true, true);
       resetWatchDetails();
 
       isWatchMode = true;
-      watching = true;
-      showWatchControls = true;
     }
+    watching = true;
+    showWatchControls = true;
     startTimer();
     setState(() {});
   }
@@ -2178,12 +2089,15 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   void updateGameAction(String action, {String? game}) {
-    widget.onGameActionPressed(GameAction(
-        action: action,
-        game: game ?? gameName,
-        players: players,
-        hasDetails: gameDetails?.isNotEmpty ?? false,
-        args: widget.arguments ?? {}));
+    widget.onGameActionPressed(
+      GameAction(
+          action: action,
+          game: game ?? gameName,
+          players: players,
+          playersLeft: playersLeft,
+          hasDetails: gameDetails.isNotEmpty,
+          args: widget.arguments ?? {}),
+    );
   }
 
   void pause([bool act = false]) async {
@@ -2193,11 +2107,15 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       setState(() {});
     } else {
       if (gameId != "" && matchId != "") {
-        await pauseGame(gameId, matchId, players, recordId, duration);
+        // await pauseGame(gameId, matchId, players, recordId, duration);
+        await updatePlayerAction(gameId, matchId, "pause");
         updateMyAction("pause");
       }
     }
   }
+
+  bool get isStartingRound =>
+      maxGameTime != null ? gameTime == maxGameTime : gameTime == 0;
 
   void start([bool act = false, bool refresh = false]) async {
     if (act || gameId == "" || isWatch) {
@@ -2205,28 +2123,24 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         updateGameAction("continue");
         return;
       }
-      if (!finishedRound) {
-        timeStart = timeNow.toInt;
-      }
-      if (finishedRound || gameTime == 0) {
+
+      if (finishedRound || isStartingRound) {
+        getCurrentPlayer();
+
         reason = "";
         message = "Play";
         duration = 0;
         gameTime = maxGameTime ?? 0;
-        playerTime = maxPlayerTime!;
+        playersTimes[currentPlayer] = maxPlayerTime ?? 30;
         gatheredGameDetails.clear();
+        concedeOrLeftPlayers.clear();
+
         isCheckoutMode = false;
         timerController.sink.add(gameTime);
-        if (isChessOrDraught) {
-          gameTime2 = maxGameTime ?? 0;
-          timerController2!.sink.add(gameTime);
-        }
+
         updateMatchRecord();
         checkFirstime();
-        getCurrentPlayer();
-        resetConcedeOrLeft();
         onStart();
-        // finishedRound = false;
       } else {
         onResume();
       }
@@ -2252,29 +2166,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       if (!finishedRound) {
         updateMatchRound(null);
       }
-      // if (finishedRound) {
       updateGameAction("restart");
       return;
-      // }
-      // if (isWatch) {
-      //   watchInterval = 0;
-      //   watchDetailIndex = -1;
-      //   finishedRound = true;
-      //   // initScores();
-      //   // start(act);
-      // } else {
-      //   finishedRound = true;
-      //   //  if (match != null) {
-      //   //   updateMatchRecord();
-      //   // }
-
-      //   //change(gameName, true);
-      // }
-      // //recordId++;
-      // watchDetailIndex = -1;
-
-      // initScores();
-      // start(act);
     } else {
       if (gameId != "" && matchId != "") {
         startOrRestart(false);
@@ -2285,29 +2178,17 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   void change(String game, [bool act = false]) async {
     if (act || gameId == "" || isWatch) {
-      resetConcedeOrLeft();
-      // if (gameId == "") {
-      //   recordId++;
-      // }
       if (!finishedRound) {
         updateMatchRound(null);
       }
 
       updateGameAction("change", game: game);
       return;
-
-      // gotoGamePage(context, game, gameId, matchId,
-      //     match: match,
-      //     users: users,
-      //     players: players,
-      //     playersSize: users?.length ?? playersSize,
-      //     recordGameDetails: recordGameDetails,
-      //     // watchDetailIndex: watchDetailIndex,
-      //     recordId: recordId,
-      //     currentPlayerId: currentPlayerId);
     } else {
-      await changeGame(game, gameId, matchId, players, recordId,
-          maxGameTime != null ? maxGameTime! - gameTime : gameTime);
+      // await changeGame(game, gameId, matchId, players, recordId,
+      //     maxGameTime != null ? maxGameTime! - gameTime : gameTime);
+      await updatePlayerAction(gameId, matchId, "pause", game);
+
       updateMyChangedGame(game);
     }
   }
@@ -2317,6 +2198,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     onConcede(index);
 
     if (act || gameId == "" || isWatch) {
+      if (gameId.isEmpty && !isWatch) setActionDetails("concede");
+
       concedeOrLeftPlayers.add(ConcedeOrLeft(
           index: index, playerId: playerId, action: "concede", time: gameTime));
       if (index == currentPlayer) {
@@ -2325,14 +2208,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       pauseIndex = currentPlayer;
       final activePlayersCount = getActivePlayersIndices().length;
 
-      // if (activePlayersCount < 2) {
-      //   updateWin(getNextPlayerIndex(index));
-      // }
-      if (activePlayersCount <= 1) {
-        context.pop();
-        return;
-      } else if (activePlayersCount == 2) {
-        updateWin(getNextPlayerIndex(index));
+      if (activePlayersCount == 1) {
+        updateWin(getNextPlayerIndex(index),
+            reason:
+                "${getPlayerUsername(playerIndex: index, playerId: playerId)} conceded");
       }
       if (gameId.isEmpty) {
         showAllPlayersToast(
@@ -2344,24 +2223,29 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     } else {
       if (gameId != "" && matchId != "") {
         //await concedeGame(gameId, matchId, players, recordId, duration);
-
+        // await updatePlayerAction(gameId, matchId, "concede");
         await setActionDetails("concede");
 
-        updateMyAction("concede");
+        //updateMyAction("concede");
       }
     }
   }
 
-  void leave([String? playerId, bool endGame = false, bool act = false]) async {
-    if (endGame) {
+  void leave(
+      [String? playerId, bool act = false, bool isWatchEnd = false]) async {
+    if (act) {
       context.pop();
       return;
     }
+
     final index = playerId != null ? getPlayerIndex(playerId) : pauseIndex;
     onLeave(index);
     if (act || gameId == "" || isWatch) {
+      if (gameId.isEmpty && !isWatch) setActionDetails("leave");
+
       concedeOrLeftPlayers.add(ConcedeOrLeft(
           index: index, playerId: playerId, action: "leave", time: gameTime));
+      if (!playersLeft.contains(pauseIndex)) playersLeft.add(pauseIndex);
       if (index == currentPlayer) {
         changePlayer();
       }
@@ -2369,11 +2253,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       pauseIndex = currentPlayer;
       final activePlayersCount = getActivePlayersIndices().length;
 
-      if (activePlayersCount <= 1) {
-        context.pop();
-        return;
-      } else if (activePlayersCount == 2) {
-        updateWin(getNextPlayerIndex(index));
+      if (activePlayersCount == 1) {
+        updateWin(getNextPlayerIndex(index),
+            reason:
+                "${getPlayerUsername(playerIndex: index, playerId: playerId)} left");
       }
 
       if (gameId.isEmpty) {
@@ -2384,20 +2267,13 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       setState(() {});
 
       final availablePlayersCount = getAvailablePlayersIndices().length;
-      if (availablePlayersCount <= 1) {
-        if (!mounted) return;
+      if (availablePlayersCount < 2) {
+        if (!mounted || isWatchEnd) return;
         context.pop();
       }
     } else {
       if (gameId != "" && matchId != "") {
-        leaveMatch(
-            gameId,
-            matchId,
-            match,
-            players,
-            maxGameTime != null ? gameTime < maxGameTime! : gameTime > 0,
-            recordId,
-            maxGameTime != null ? maxGameTime! - gameTime : gameTime);
+        leaveMatch(gameId, matchId, match, players);
 
         setActionDetails("leave");
 
@@ -2405,6 +2281,11 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         context.pop();
       }
     }
+  }
+
+  void toggleMenu(int index) {
+    pauseIndex = index;
+    setState(() {});
   }
 
   void toggleCall(String? callMode, [bool act = false]) async {
@@ -2441,65 +2322,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     }
   }
 
-  // void updateRecord(List<int> winners) {
-  //   if (gameId.isNotEmpty && match != null) {
-  //     if (isPuzzle && gatheredGameDetails != null) {
-  //       setDetail(gatheredGameDetails!);
-  //       gatheredGameDetails = null;
-  //     }
-  //     Match match = this.match!;
-  //     Match prevMatch = match.copyWith();
-
-  //     match.time_start ??= timeStart;
-  //     final timeEnd = timeNow;
-
-  //     if (match.recordsCount == null || recordId > match.recordsCount!) {
-  //       match.recordsCount = recordId;
-  //     }
-  //     match.records ??= {};
-  //     match.records!["$recordId"] ??= {};
-
-  //     if (match.records!["$recordId"]["$roundId"] == null) {
-  //       match.records!["$recordId"]["$roundId"] = MatchRound(
-  //               id: roundId,
-  //               game: gameName,
-  //               time_start: timeStart,
-  //               time_end: timeEnd,
-  //               players: players.map((e) => e.id).toList(),
-  //               scores: playersScores.toMap())
-  //           .toMap()
-  //           .removeNull();
-  //     }
-
-  //     final matchOutcome =
-  //         getMatchOutcome(getMatchOverallScores(match), match.players!);
-
-  //     match.outcome = matchOutcome.outcome;
-  //     match.winners = matchOutcome.winners;
-  //     match.others = matchOutcome.others;
-
-  //     if (gameId.isNotEmpty && !isWatch && currentPlayerId == myId) {
-  //       match.time_modified = timeEnd;
-  //       updateMatch(gameId, matchId, match,
-  //           prevMatch.toMap().getChangedProperties(match.toMap()));
-  //     }
-  //     // for (int i = 0; i < winners.length; i++) {
-  //     //   final playerIndex = winners[i];
-  //     //   int score = playersScores[playerIndex];
-  //     //   if (match!.records?["$recordId"] != null && !isWatch) {
-  //     //     record = MatchRecord.fromMap(match!.records!["$recordId"]!);
-
-  //     //     record.scores["$playerIndex"] = score;
-  //     //   }
-  //     // }
-
-  //     // if (winners.isNotEmpty && winners.first == myPlayer) {
-  //     //   updateScore(gameId, matchId, match!, recordId);
-  //     // }
-  //     roundId++;
-  //   }
-  // }
-
   bool get isWatch {
     if (gameId.isEmpty) {
       return finishedRound;
@@ -2516,14 +2338,22 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   void updateMatchRecord() {
-    if (this.match == null || isWatch) return;
+    if (finishedRound) return;
+    final time = timeNow;
 
+    if (this.match == null) {
+      setState(() {});
+
+      return;
+    }
     Match match = this.match!;
 
     Match prevMatch = match.copyWith();
 
-    final time = timeNow;
     match.time_start ??= time;
+    if (!match.games!.contains(gameName)) {
+      match.games!.add(gameName);
+    }
 
     // if (match.recordsCount == null || recordId > match.recordsCount!) {
     //   match.recordsCount = recordId + 1;
@@ -2543,7 +2373,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
               game: gameName,
               time_start: time,
               scores: playersScores.toMap(),
-              players: players.map((e) => e.id).toList())
+              players: players.map((e) => e.id).toList(),
+              detailsLength: 0,
+              duration: 0)
           .toMap()
           .removeNull();
     }
@@ -2557,23 +2389,29 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
     if (gameId.isNotEmpty &&
         !isWatch &&
-        ((winners?.isNotEmpty ?? false)
-            ? myPlayer == 0
-            : myPlayer == winners!.first)) {
+        (winners != null && winners!.isNotEmpty
+            ? myPlayer == winners!.first
+            : myPlayer == 0)) {
       match.time_modified = time;
-      updateMatch(gameId, matchId, match,
-          prevMatch.toMap().getChangedProperties(match.toMap()));
+      // updateMatch(match, prevMatch.toMap().getChangedProperties(match.toMap()));
+      updateMatch(match, match.toMap());
     }
   }
 
-  void updateMatchRound(List<int>? winners, [bool win = false]) {
-    if (finishedRound) return;
-    finishedRound = true;
-
+  void stopListening() {
     detailsSub?.cancel();
     detailsSub = null;
     playersSub?.cancel();
     playersSub = null;
+  }
+
+  void updateMatchRound(List<int>? winners, [bool win = false]) {
+    if (finishedRound) return;
+    gameDetailsLength = gameDetails.length;
+    finishedRound = true;
+    endDuration = duration;
+
+    stopListening();
 
     this.winners = winners;
     if (win && winners != null) {
@@ -2582,17 +2420,15 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         playersScores[player]++;
       }
     }
+    widget.arguments?["playersScores"] = playersScores;
 
     if (isPuzzle) {
       setGatheredDetails();
     }
-
     final time = timeNow;
-    timeEnd = time.toInt;
 
     if (this.match == null) {
       setState(() {});
-
       return;
     }
     Match match = this.match!;
@@ -2610,20 +2446,13 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       if (match.records!["$recordId"]["rounds"] == null) {
         match.records!["$recordId"]["rounds"] = {};
       }
-      if (match.records!["$recordId"]["rounds"]["$roundId"] == null) {
-        match.records!["$recordId"]["rounds"]["$roundId"] = MatchRound(
-                id: recordId,
-                game: gameName,
-                time_start: timeStart.toString(),
-                time_end: time,
-                players: players.map((e) => e.id).toList(),
-                winners: winners,
-                scores: playersScores.toMap())
-            .toMap()
-            .removeNull();
-      } else {
+      if (match.records!["$recordId"]["rounds"]["$roundId"] != null) {
         match.records!["$recordId"]["rounds"]["$roundId"]["winners"] = winners;
         match.records!["$recordId"]["rounds"]["$roundId"]["time_end"] = time;
+        match.records!["$recordId"]["rounds"]["$roundId"]["detailsLength"] =
+            gameDetailsLength;
+        match.records!["$recordId"]["rounds"]["$roundId"]["duration"] =
+            endDuration;
       }
       if (winners == null) {
         match.records!["$recordId"]["time_end"] = time;
@@ -2638,12 +2467,12 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
       if (gameId.isNotEmpty &&
           !isWatch &&
-          ((winners?.isNotEmpty ?? false)
-              ? myPlayer == 0
-              : myPlayer == winners!.first)) {
+          (winners != null && winners.isNotEmpty
+              ? myPlayer == winners.first
+              : myPlayer == 0)) {
         match.time_modified = time;
-        updateMatch(gameId, matchId, match,
-            prevMatch.toMap().getChangedProperties(match.toMap()));
+        updateMatch(
+            match, prevMatch.toMap().getChangedProperties(match.toMap()));
       }
     }
   }
@@ -3007,95 +2836,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     await pc.addCandidate(rtcCandidate);
   }
 
-  Widget getPlayerBottomWidget(int index) {
-    final concedeOrLeft = getConcedeOrLeft(index);
-    final user = users != null && index < users!.length ? users![index] : null;
-    final profilePhoto = user?.profile_photo;
-    return IgnorePointer(
-      ignoring: concedeOrLeft != null &&
-          concedeOrLeft.action == "leave" &&
-          !finishedRound,
-      child: RotatedBox(
-        quarterTurns: getStraightTurn(index),
-        child: GestureDetector(
-          onTap: () {
-            if (finishedRound) {
-              changePlayer(player: index);
-            }
-          },
-          child: Row(
-            //mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const SizedBox(
-                width: 20,
-              ),
-              Expanded(
-                child: Row(
-                  // mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 10,
-                      backgroundImage: profilePhoto != null
-                          ? CachedNetworkImageProvider(profilePhoto)
-                          : null,
-                      backgroundColor: lightestWhite,
-                      child: profilePhoto != null
-                          ? null
-                          : Text(
-                              user?.username.firstChar ?? "P",
-                              style: const TextStyle(
-                                  fontSize: 10, color: Colors.blue),
-                            ),
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        user?.username ?? "Player ${index + 1}",
-                        style: TextStyle(
-                            fontSize: 14,
-                            color: currentPlayer == index ? Colors.blue : tint),
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (playersCounts.isNotEmpty &&
-                        index < playersCounts.length &&
-                        playersCounts[index] != -1)
-                      CountWidget(count: playersCounts[index])
-                  ],
-                ),
-              ),
-              if (gameId.isEmpty || index == myPlayer)
-                IconButton(
-                  style: IconButton.styleFrom(
-                    padding: const EdgeInsets.all(2),
-                  ),
-                  onPressed: () {
-                    pauseIndex = index;
-                    if (isCheckoutMode) {
-                      isCheckoutMode = false;
-                    } else if (!paused) {
-                      pause();
-                    }
-                    setState(() {});
-                  },
-                  icon: Icon(
-                    EvaIcons.menu_outline,
-                    color: tint,
-                  ),
-                )
-              else
-                const SizedBox(
-                  width: 20,
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   int getPausedGameTurn() {
     if (gameId != "" || playersSize == 1) return 0;
 
@@ -3228,6 +2968,22 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     return index < players.length ? players[index] : null;
   }
 
+  void toggleLayoutPressed() {
+    if (isCheckoutMode) {
+      setState(() {
+        isCheckoutMode = false;
+      });
+    }
+    if (isWatchMode && !showWatchControls) {
+      showWatchControls = true;
+      setState(() {});
+    }
+  }
+
+  void updateGamePageInfos() {
+    pageInfos = ref.watch(gamePageInfosProvider);
+  }
+
   Widget? buildVideoView(int index) {
     if (gameId.isEmpty || players.isEmpty) return null;
     final playerId = getPlayerId(index);
@@ -3246,40 +3002,86 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     );
   }
 
-  void toggleLayoutPressed() {
-    if (isCheckoutMode) {
-      setState(() {
-        isCheckoutMode = false;
-      });
+  Widget getPlayerBottomWidget(int index) {
+    final concedeOrLeft = getConcedeOrLeft(index);
+    final user = users != null && index < users!.length ? users![index] : null;
+    return IgnorePointer(
+      ignoring: concedeOrLeft != null &&
+          concedeOrLeft.action == "leave" &&
+          !finishedRound,
+      child: RotatedBox(
+        quarterTurns: getStraightTurn(index),
+        child: GestureDetector(
+          onTap: () {
+            if (finishedRound && isCheckoutMode) {
+              changePlayer(player: index);
+            }
+          },
+          child: Container(
+            //height: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 10),
+            child: Row(
+              // mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ProfilePhoto(
+                  profilePhoto: user?.profile_photo,
+                  name: user?.username ?? "Player ${index + 1}",
+                  size: 20,
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    user?.username ?? "Player ${index + 1}",
+                    style: TextStyle(
+                        fontSize: 14,
+                        color: currentPlayer == index ? Colors.blue : tint),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (playersCounts.isNotEmpty &&
+                    index < playersCounts.length &&
+                    playersCounts[index] != -1)
+                  CountWidget(count: playersCounts[index])
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget getMenuWidget(int index) {
+    if (paused && pauseIndex == index) return Container();
+
+    if (gameId.isEmpty || index == myPlayer) {
+      return IconButton(
+        style: IconButton.styleFrom(
+          padding: const EdgeInsets.all(2),
+        ),
+        onPressed: () {
+          toggleMenu(index);
+          if (!paused) {
+            pause();
+          }
+        },
+        icon: Icon(EvaIcons.menu_outline, color: tint),
+      );
     }
-    if (isWatchMode && !showWatchControls) {
-      showWatchControls = true;
-      setState(() {});
-    }
+    return Container();
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    //print("details = $gameDetails");
-    //print("${widget.arguments?["recordId"]}-${widget.arguments?["roundId"]}");
-    //print("recordId = $recordId, roundId = $roundId");
+    updateGamePageInfos();
     // print(
-    //     "currentPlayer = $currentPlayer, detailPlayer = ${gameDetails == null || watchDetailIndex < 0 || watchDetailIndex > gameDetails!.length - 1 ? "" : gameDetails![watchDetailIndex]}");
-    //print("timeStart = $timeStart, timeEnd = $timeEnd, watchTime = $watchTime");
-    // print(
-    //     "showWatchControls = $showWatchControls, isWatchMode = $isWatchMode, isCheckoutMode = $isCheckoutMode");
+    //     "gameName = $gameName, isChessOrDraught = $isChessOrDraught, playersTimes = $playersTimes, currentPlayer = $currentPlayer, $players");
+    // print("length = ${gameDetails.length}");
 
-    // watchTime = timeStart;
+    // print("gameDetails = ${gameDetails}");
 
-    // timeEnd = timeNow.toInt;
-    // finishedRound = true;
-
-    // print(
-    //     "currentPlayer = $currentPlayer, currentPlayerId = $currentPlayerId, myId = $myId");
-    //print("details = $gameDetails");
-    // print(
-    //     "lastRecordId = $lastRecordId, lastRecordIdRoundId = $lastRecordIdRoundId");
     double padding = (context.screenHeight - context.screenWidth).abs() / 2;
     bool landScape = context.isLandscape;
     double minSize = context.minSize;
@@ -3295,64 +3097,319 @@ abstract class BaseGamePageState<T extends BaseGamePage>
           pause();
         }
       },
-      child: KeyboardListener(
-        focusNode: _focusNode,
-        autofocus: true,
-        onKeyEvent: _onKey,
-        child: Scaffold(
-          body: Stack(
-            alignment: Alignment.center,
-            children: [
-              RotatedBox(
-                quarterTurns: getLayoutTurn(),
-                child: Stack(
-                  children: [
-                    if (isCard) ...[
-                      ...List.generate(playersSize, (index) {
-                        final videoView = buildVideoView(index);
-                        final concedeOrLeft = getConcedeOrLeft(index);
-                        return Positioned(
-                          top: index == 0 ||
-                                  ((index == 1 || index == 3) &&
-                                      playersSize > 2)
-                              ? 0
-                              : null,
-                          bottom: index != 0 ? 0 : null,
-                          left: playersSize > 2 && index == 1 ? null : 0,
-                          right: index < 3 ? 0 : null,
-                          child: RotatedBox(
-                            quarterTurns: getTurn(index),
-                            child: Opacity(
-                              opacity: getOverlayOpacity(index),
-                              child: Container(
-                                alignment: Alignment.center,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    RotatedBox(
-                                      quarterTurns: getStraightTurn(index),
-                                      child: StreamBuilder<int>(
-                                          stream: currentPlayer == index
-                                              ? timerController.stream
-                                              : null,
-                                          builder: (context, snapshot) {
-                                            return Text(
-                                              concedeOrLeft != null
-                                                  ? getConcedeOrLeftMessage(
-                                                      concedeOrLeft)
-                                                  : getMessage(index),
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                                color: darkMode
-                                                    ? Colors.white
-                                                    : Colors.black,
+      child: VisibilityDetector(
+        key: Key(
+            "${widget.arguments?["recordId"]}-${widget.arguments?["roundId"]}"),
+        onVisibilityChanged: (visibility) {
+          isVisible = visibility.visibleFraction > 0.5;
+          if (isVisible) {
+            _focusNode.requestFocus();
+          } else {
+            if (isWatchMode) {
+              if (watching) {
+                stopWatching();
+              }
+            } else {
+              if (!paused) {
+                pause();
+              }
+            }
+          }
+        },
+        child: KeyboardListener(
+          focusNode: _focusNode,
+          autofocus: true,
+          onKeyEvent: _onKey,
+          child: Scaffold(
+            body: Stack(
+              //alignment: Alignment.center,
+              children: [
+                RotatedBox(
+                  quarterTurns: getLayoutTurn(),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (isCard) ...[
+                        ...List.generate(playersSize, (index) {
+                          final videoView = buildVideoView(index);
+                          final concedeOrLeft = getConcedeOrLeft(index);
+                          return Positioned(
+                            top: index == 0 ||
+                                    ((index == 1 || index == 3) &&
+                                        playersSize > 2)
+                                ? 0
+                                : null,
+                            bottom: index != 0 ? 0 : null,
+                            left: playersSize > 2 && index == 1 ? null : 0,
+                            right: index < 3 ? 0 : null,
+                            child: RotatedBox(
+                              quarterTurns: getTurn(index),
+                              child: Opacity(
+                                opacity: getOverlayOpacity(index),
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      RotatedBox(
+                                        quarterTurns: getStraightTurn(index),
+                                        child: StreamBuilder<int>(
+                                            stream: currentPlayer == index
+                                                ? timerController.stream
+                                                : null,
+                                            builder: (context, snapshot) {
+                                              return Text(
+                                                concedeOrLeft != null
+                                                    ? getConcedeOrLeftMessage(
+                                                        concedeOrLeft)
+                                                    : getMessage(index),
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                  color:
+                                                      itsMyTurnForMessage(index)
+                                                          ? primaryColor
+                                                          : tint,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                              );
+                                            }),
+                                      ),
+                                      GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () {
+                                          toggleVideoOverlayVisibility(
+                                              getPlayerId(index));
+                                        },
+                                        child: Stack(
+                                          alignment: Alignment.center,
+                                          children: [
+                                            if (videoView != null) videoView,
+                                            Container(
+                                              // height: cardHeight,
+                                              width: minSize,
+                                              alignment: Alignment.center,
+                                              margin: EdgeInsets.only(
+                                                  left: 24,
+                                                  right: 24,
+                                                  bottom: (landScape &&
+                                                              (index == 1 ||
+                                                                  index == 3) &&
+                                                              playersSize >
+                                                                  2) ||
+                                                          (!landScape &&
+                                                              (index == 0 ||
+                                                                  (index == 2 &&
+                                                                      playersSize >
+                                                                          2) ||
+                                                                  (index == 1 &&
+                                                                      playersSize ==
+                                                                          2)))
+                                                      ? 30
+                                                      : 8),
+                                              child: IgnorePointer(
+                                                  ignoring:
+                                                      concedeOrLeft != null &&
+                                                          !finishedRound,
+                                                  child: buildBottomOrLeftChild(
+                                                      index)),
+                                            ),
+                                            if (concedeOrLeft == null &&
+                                                index < playersToasts.length &&
+                                                playersToasts[index] != "") ...[
+                                              Align(
+                                                alignment:
+                                                    Alignment.bottomCenter,
+                                                child: RotatedBox(
+                                                  quarterTurns:
+                                                      getStraightTurn(index),
+                                                  child: AppToast(
+                                                    message:
+                                                        playersToasts[index],
+                                                    onComplete: () {
+                                                      playersToasts[index] = "";
+                                                      setState(() {});
+                                                    },
+                                                  ),
+                                                ),
                                               ),
-                                              textAlign: TextAlign.center,
-                                            );
-                                          }),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                        ...List.generate(playersSize, (index) {
+                          final mindex = (playersSize / 2).ceil();
+                          bool isEdgeTilt = gameId != "" &&
+                              playersSize > 2 &&
+                              (myPlayer == 1 || myPlayer == 3);
+                          final value = isEdgeTilt ? !landScape : landScape;
+                          final concedeOrLeft = getConcedeOrLeft(index);
+                          return Positioned(
+                              top: index < mindex ? 0 : null,
+                              bottom: index >= mindex ? 0 : null,
+                              left: index == 0 || index == 3 ? 0 : null,
+                              right: index == 1 || index == 2 ? 0 : null,
+                              child: Container(
+                                width: value
+                                    ? padding
+                                    : playersSize > 2
+                                        ? minSize / 2
+                                        : minSize,
+                                height: value ? minSize / 2 : padding,
+                                alignment: value
+                                    ? index == 0
+                                        ? Alignment.topRight
+                                        : index == 1
+                                            ? playersSize > 2
+                                                ? Alignment.topLeft
+                                                : Alignment.bottomLeft
+                                            : index == 2
+                                                ? Alignment.bottomLeft
+                                                : Alignment.bottomRight
+                                    : index == 0
+                                        ? Alignment.bottomLeft
+                                        : index == 1
+                                            ? playersSize > 2
+                                                ? Alignment.bottomRight
+                                                : Alignment.topRight
+                                            : index == 2
+                                                ? Alignment.topRight
+                                                : Alignment.topLeft,
+                                child: RotatedBox(
+                                  quarterTurns: index == 0
+                                      ? 2
+                                      : index == 1 && playersSize > 2
+                                          ? 3
+                                          : index == 3
+                                              ? 1
+                                              : 0,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(
+                                        left: 8.0, right: 8.0, bottom: 24),
+                                    child: Opacity(
+                                      opacity: getOverlayOpacity(index),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          RotatedBox(
+                                            quarterTurns:
+                                                getStraightTurn(index),
+                                            child: SizedBox(
+                                              height: 70,
+                                              child: Text(
+                                                '${playersScores[index]}',
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 60,
+                                                    color: darkMode
+                                                        ? Colors.white
+                                                            .withOpacity(0.5)
+                                                        : Colors.black
+                                                            .withOpacity(0.5)),
+                                              ),
+                                            ),
+                                          ),
+                                          RotatedBox(
+                                            quarterTurns:
+                                                getStraightTurn(index),
+                                            child: GameTimer(
+                                              timerStream:
+                                                  timerController.stream,
+                                              // timerStream: index == 1 &&
+                                              //         isChessOrDraught &&
+                                              //         timerController2 != null
+                                              //     ? timerController2!.stream
+                                              //     : timerController.stream,
+                                              time: concedeOrLeft?.time,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    GestureDetector(
+                                  ),
+                                ),
+                              ));
+                        }),
+                        ...List.generate(playersSize, (index) {
+                          return Positioned(
+                            top: index == 0 ||
+                                    (!landScape &&
+                                        index == 1 &&
+                                        playersSize > 2)
+                                ? 0
+                                : null,
+                            bottom: (index == 1 && playersSize == 2) ||
+                                    index == 2 ||
+                                    (!landScape && index == 3)
+                                ? 0
+                                : null,
+                            left: index == 3 || (landScape && index == 0)
+                                ? 0
+                                : null,
+                            right: (index == 1 && playersSize > 2) ||
+                                    (landScape &&
+                                        ((index == 1 && playersSize == 2) ||
+                                            index == 2))
+                                ? 0
+                                : null,
+                            child: RotatedBox(
+                              quarterTurns: index == 0
+                                  ? 2
+                                  : index == 1 && playersSize > 2
+                                      ? 3
+                                      : index == 3
+                                          ? 1
+                                          : 0,
+                              child: Container(
+                                width: (landScape &&
+                                            ((index == 1 && playersSize > 2) ||
+                                                index == 3)) ||
+                                        (!landScape &&
+                                            (index == 0 ||
+                                                index == 2 ||
+                                                (index == 1 &&
+                                                    playersSize == 2)))
+                                    ? minSize
+                                    : padding,
+                                alignment: Alignment.center,
+                                child: Opacity(
+                                    opacity: getOverlayOpacity(index),
+                                    child: getPlayerBottomWidget(index)),
+                              ),
+                            ),
+                          );
+                        }),
+                      ] else ...[
+                        ...List.generate(
+                          playersSize,
+                          (index) {
+                            final mindex = (playersSize / 2).ceil();
+                            final videoView = buildVideoView(index);
+                            final concedeOrLeft = getConcedeOrLeft(index);
+                            return Positioned(
+                                top: index < mindex ? 0 : null,
+                                bottom: index >= mindex ? 0 : null,
+                                left: index == 0 || index == 3 ? 0 : null,
+                                right: index == 1 || index == 2 ? 0 : null,
+                                child: Container(
+                                  width: landScape
+                                      ? padding
+                                      : playersSize > 2
+                                          ? minSize / 2
+                                          : minSize,
+                                  height: landScape ? minSize / 2 : padding,
+                                  alignment: Alignment.center,
+                                  padding: const EdgeInsets.all(4),
+                                  child: RotatedBox(
+                                    quarterTurns: index < mindex ? 2 : 0,
+                                    child: GestureDetector(
                                       behavior: HitTestBehavior.opaque,
                                       onTap: () {
                                         toggleVideoOverlayVisibility(
@@ -3362,37 +3419,122 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                                         alignment: Alignment.center,
                                         children: [
                                           if (videoView != null) videoView,
-                                          Container(
-                                            // height: cardHeight,
-                                            width: minSize,
-                                            alignment: Alignment.center,
-                                            margin: EdgeInsets.only(
-                                                left: 24,
-                                                right: 24,
-                                                bottom: (landScape &&
-                                                            (index == 1 ||
-                                                                index == 3) &&
-                                                            playersSize > 2) ||
-                                                        (!landScape &&
-                                                            (index == 0 ||
-                                                                (index == 2 &&
-                                                                    playersSize >
-                                                                        2) ||
-                                                                (index == 1 &&
-                                                                    playersSize ==
-                                                                        2)))
-                                                    ? 30
-                                                    : 8),
-                                            child: IgnorePointer(
-                                                ignoring:
-                                                    concedeOrLeft != null &&
-                                                        !finishedRound,
-                                                child: buildBottomOrLeftChild(
-                                                    index)),
+                                          Opacity(
+                                            opacity: getOverlayOpacity(index),
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    RotatedBox(
+                                                      quarterTurns:
+                                                          getStraightTurn(
+                                                              index),
+                                                      child: SizedBox(
+                                                        height: 70,
+                                                        child: Text(
+                                                          '${playersScores[index]}',
+                                                          style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              fontSize: 60,
+                                                              color:
+                                                                  lighterTint),
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    RotatedBox(
+                                                      quarterTurns:
+                                                          getStraightTurn(
+                                                              index),
+                                                      child: GameTimer(
+                                                        timerStream:
+                                                            timerController
+                                                                .stream,
+                                                        // timerStream: index ==
+                                                        //             1 &&
+                                                        //         isChessOrDraught &&
+                                                        //         timerController2 !=
+                                                        //             null
+                                                        //     ? timerController2!
+                                                        //         .stream
+                                                        //     : timerController
+                                                        //         .stream,
+                                                        time:
+                                                            concedeOrLeft?.time,
+                                                      ),
+                                                    ),
+                                                    // if ((currentPlayer ==
+                                                    //             index &&
+                                                    //         showMessage) ||
+                                                    //     concedeOrLeft !=
+                                                    //         null) ...[
+                                                    const SizedBox(height: 4),
+                                                    RotatedBox(
+                                                      quarterTurns:
+                                                          getStraightTurn(
+                                                              index),
+                                                      child: StreamBuilder<int>(
+                                                          stream:
+                                                              timerController
+                                                                  .stream,
+                                                          builder: (context,
+                                                              snapshot) {
+                                                            return Text(
+                                                              concedeOrLeft !=
+                                                                      null
+                                                                  ? getConcedeOrLeftMessage(
+                                                                      concedeOrLeft)
+                                                                  : getMessage(
+                                                                      index),
+                                                              // : "${itsMyTurnForMessage(index) ? "${message.isNotEmpty ? message : "Play"} - " : ""}${playersTimes[index].toDurationString(false)}",
+                                                              style: TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontSize: 14,
+                                                                  color: itsMyTurnForMessage(
+                                                                          index)
+                                                                      ? primaryColor
+                                                                      : tint),
+                                                              textAlign:
+                                                                  TextAlign
+                                                                      .center,
+                                                            );
+                                                          }),
+                                                    ),
+                                                    //],
+                                                  ],
+                                                ),
+                                                Expanded(
+                                                  child: IgnorePointer(
+                                                    ignoring:
+                                                        concedeOrLeft != null &&
+                                                            !finishedRound,
+                                                    child: Container(
+                                                      alignment: Alignment
+                                                          .bottomCenter,
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 20),
+                                                      child:
+                                                          buildBottomOrLeftChild(
+                                                              index),
+                                                    ),
+                                                  ),
+                                                ),
+                                                getPlayerBottomWidget(index),
+                                              ],
+                                            ),
                                           ),
-                                          if (concedeOrLeft == null &&
-                                              index < playersToasts.length &&
-                                              playersToasts[index] != "") ...[
+                                          if (playersToasts[index] != "") ...[
                                             Align(
                                               alignment: Alignment.bottomCenter,
                                               child: RotatedBox(
@@ -3411,439 +3553,188 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                                         ],
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                      ...List.generate(playersSize, (index) {
-                        final mindex = (playersSize / 2).ceil();
-                        bool isEdgeTilt = gameId != "" &&
-                            playersSize > 2 &&
-                            (myPlayer == 1 || myPlayer == 3);
-                        final value = isEdgeTilt ? !landScape : landScape;
-                        final concedeOrLeft = getConcedeOrLeft(index);
-                        return Positioned(
-                            top: index < mindex ? 0 : null,
-                            bottom: index >= mindex ? 0 : null,
-                            left: index == 0 || index == 3 ? 0 : null,
-                            right: index == 1 || index == 2 ? 0 : null,
-                            child: Container(
-                              width: value
-                                  ? padding
-                                  : playersSize > 2
-                                      ? minSize / 2
-                                      : minSize,
-                              height: value ? minSize / 2 : padding,
-                              alignment: value
-                                  ? index == 0
-                                      ? Alignment.topRight
-                                      : index == 1
-                                          ? playersSize > 2
-                                              ? Alignment.topLeft
-                                              : Alignment.bottomLeft
-                                          : index == 2
-                                              ? Alignment.bottomLeft
-                                              : Alignment.bottomRight
-                                  : index == 0
-                                      ? Alignment.bottomLeft
-                                      : index == 1
-                                          ? playersSize > 2
-                                              ? Alignment.bottomRight
-                                              : Alignment.topRight
-                                          : index == 2
-                                              ? Alignment.topRight
-                                              : Alignment.topLeft,
-                              child: RotatedBox(
-                                quarterTurns: index == 0
-                                    ? 2
-                                    : index == 1 && playersSize > 2
-                                        ? 3
-                                        : index == 3
-                                            ? 1
-                                            : 0,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(
-                                      left: 8.0, right: 8.0, bottom: 24),
-                                  child: Opacity(
-                                    opacity: getOverlayOpacity(index),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        RotatedBox(
-                                          quarterTurns: getStraightTurn(index),
-                                          child: SizedBox(
-                                            height: 70,
-                                            child: Text(
-                                              '${playersScores[index]}',
-                                              style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 60,
-                                                  color: darkMode
-                                                      ? Colors.white
-                                                          .withOpacity(0.5)
-                                                      : Colors.black
-                                                          .withOpacity(0.5)),
-                                            ),
-                                          ),
-                                        ),
-                                        RotatedBox(
-                                          quarterTurns: getStraightTurn(index),
-                                          child: GameTimer(
-                                            timerStream: index == 1 &&
-                                                    isChessOrDraught &&
-                                                    timerController2 != null
-                                                ? timerController2!.stream
-                                                : timerController.stream,
-                                            time: concedeOrLeft?.time,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
                                   ),
-                                ),
-                              ),
-                            ));
-                      }),
-                      ...List.generate(playersSize, (index) {
-                        return Positioned(
-                          top: index == 0 ||
-                                  (!landScape && index == 1 && playersSize > 2)
-                              ? 0
-                              : null,
-                          bottom: (index == 1 && playersSize == 2) ||
-                                  index == 2 ||
-                                  (!landScape && index == 3)
-                              ? 0
-                              : null,
-                          left: index == 3 || (landScape && index == 0)
-                              ? 0
-                              : null,
-                          right: (index == 1 && playersSize > 2) ||
-                                  (landScape &&
-                                      ((index == 1 && playersSize == 2) ||
-                                          index == 2))
-                              ? 0
-                              : null,
-                          child: RotatedBox(
-                            quarterTurns: index == 0
-                                ? 2
-                                : index == 1 && playersSize > 2
-                                    ? 3
-                                    : index == 3
-                                        ? 1
-                                        : 0,
-                            child: Container(
-                              width: (landScape &&
-                                          ((index == 1 && playersSize > 2) ||
-                                              index == 3)) ||
-                                      (!landScape &&
-                                          (index == 0 ||
-                                              index == 2 ||
-                                              (index == 1 && playersSize == 2)))
-                                  ? minSize
-                                  : padding,
-                              alignment: Alignment.center,
-                              child: Opacity(
-                                  opacity: getOverlayOpacity(index),
-                                  child: getPlayerBottomWidget(index)),
-                            ),
-                          ),
-                        );
-                      }),
-                    ] else ...[
-                      ...List.generate(
-                        playersSize,
-                        (index) {
-                          final mindex = (playersSize / 2).ceil();
-                          final videoView = buildVideoView(index);
-                          final concedeOrLeft = getConcedeOrLeft(index);
-                          return Positioned(
-                              top: index < mindex ? 0 : null,
-                              bottom: index >= mindex ? 0 : null,
-                              left: index == 0 || index == 3 ? 0 : null,
-                              right: index == 1 || index == 2 ? 0 : null,
-                              child: Container(
-                                width: landScape
-                                    ? padding
-                                    : playersSize > 2
-                                        ? minSize / 2
-                                        : minSize,
-                                height: landScape ? minSize / 2 : padding,
-                                alignment: Alignment.center,
-                                padding: const EdgeInsets.all(4),
-                                child: RotatedBox(
-                                  quarterTurns: index < mindex ? 2 : 0,
-                                  child: GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap: () {
-                                      toggleVideoOverlayVisibility(
-                                          getPlayerId(index));
-                                    },
-                                    child: Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        if (videoView != null) videoView,
-                                        Opacity(
-                                          opacity: getOverlayOpacity(index),
-                                          child: Column(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  RotatedBox(
-                                                    quarterTurns:
-                                                        getStraightTurn(index),
-                                                    child: SizedBox(
-                                                      height: 70,
-                                                      child: Text(
-                                                        '${playersScores[index]}',
-                                                        style: TextStyle(
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            fontSize: 60,
-                                                            color: lighterTint),
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  RotatedBox(
-                                                    quarterTurns:
-                                                        getStraightTurn(index),
-                                                    child: GameTimer(
-                                                      timerStream: index == 1 &&
-                                                              isChessOrDraught &&
-                                                              timerController2 !=
-                                                                  null
-                                                          ? timerController2!
-                                                              .stream
-                                                          : timerController
-                                                              .stream,
-                                                      time: concedeOrLeft?.time,
-                                                    ),
-                                                  ),
-                                                  if ((currentPlayer == index &&
-                                                          showMessage) ||
-                                                      concedeOrLeft !=
-                                                          null) ...[
-                                                    const SizedBox(height: 4),
-                                                    RotatedBox(
-                                                      quarterTurns:
-                                                          getStraightTurn(
-                                                              index),
-                                                      child: StreamBuilder<int>(
-                                                          stream:
-                                                              timerController
-                                                                  .stream,
-                                                          builder: (context,
-                                                              snapshot) {
-                                                            return Text(
-                                                              concedeOrLeft !=
-                                                                      null
-                                                                  ? getConcedeOrLeftMessage(
-                                                                      concedeOrLeft)
-                                                                  : isChessOrDraught
-                                                                      ? "Play"
-                                                                      : "Play - ${playerTime.toDurationString(false)}",
-                                                              style: TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
-                                                                  fontSize: 14,
-                                                                  color: tint),
-                                                              textAlign:
-                                                                  TextAlign
-                                                                      .center,
-                                                            );
-                                                          }),
-                                                    ),
-                                                  ],
-                                                ],
-                                              ),
-                                              Expanded(
-                                                child: IgnorePointer(
-                                                  ignoring:
-                                                      concedeOrLeft != null &&
-                                                          !finishedRound,
-                                                  child: Container(
-                                                    alignment:
-                                                        Alignment.bottomCenter,
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 20),
-                                                    child:
-                                                        buildBottomOrLeftChild(
-                                                            index),
-                                                  ),
-                                                ),
-                                              ),
-                                              getPlayerBottomWidget(index),
-                                            ],
-                                          ),
-                                        ),
-                                        if (playersToasts[index] != "") ...[
-                                          Align(
-                                            alignment: Alignment.bottomCenter,
-                                            child: RotatedBox(
-                                              quarterTurns:
-                                                  getStraightTurn(index),
-                                              child: AppToast(
-                                                message: playersToasts[index],
-                                                onComplete: () {
-                                                  playersToasts[index] = "";
-                                                  setState(() {});
-                                                },
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ));
-                        },
-                      ),
+                                ));
+                          },
+                        ),
+                      ],
+                      GestureDetector(
+                          behavior: isWatch ? HitTestBehavior.opaque : null,
+                          onTap: isWatch ? toggleLayoutPressed : null,
+                          child: buildBody(context)),
                     ],
-                    GestureDetector(
-                        behavior: isWatch ? HitTestBehavior.opaque : null,
-                        onTap: isWatch ? toggleLayoutPressed : null,
-                        child: buildBody(context)),
-                  ],
+                  ),
                 ),
-              ),
-              if (!paused &&
-                  isWatchMode &&
-                  !isCheckoutMode &&
-                  showWatchControls)
-                WatchGameControlsView(
-                  watchTimerController: watchTimerController,
-                  showWatchControls: showWatchControls,
-                  playersSize: playersSize,
-                  watchTime: watchTime,
-                  timeStart: timeStart,
-                  timeEnd: end,
-                  duration: duration,
-                  onPrevious: previousDetail,
-                  onNext: nextDetail,
-                  onRewind: rewind,
-                  onForward: forward,
-                  onPlayPause: togglePlayPause,
-                  onSeek: seek,
-                  watching: watching,
-                  loadingDetails: loadingDetails,
-                  onPressed: toggleShowControls,
-                ),
-              if (loadingDetails)
-                SizedBox(
-                  width: 60,
-                  height: 60,
-                  child: CircularProgressIndicator(
-                      color: Colors.white.withOpacity(0.5), strokeWidth: 2),
-                ),
-              if (paused && !isCheckoutMode && pauseIndex != -1)
-                RotatedBox(
-                  quarterTurns: getPausedGameTurn(),
-                  child: PausedGameView(
-                    context: context,
-                    reason: reason,
-                    readAboutGame: readAboutGame,
-                    game: gameName,
-                    match: match,
-                    recordId: recordId,
-                    roundId: roundId,
-                    playersScores: playersScores,
-                    users: users,
-                    players: players,
+                if (loadingDetails)
+                  Center(
+                    child: SizedBox(
+                      width: 60,
+                      height: 60,
+                      child: CircularProgressIndicator(
+                          color: Colors.white.withOpacity(0.5), strokeWidth: 2),
+                    ),
+                  ),
+                if (!paused &&
+                    isWatchMode &&
+                    !isCheckoutMode &&
+                    showWatchControls)
+                  WatchGameControlsView(
+                    watchTimerController: watchTimerController,
+                    showWatchControls: showWatchControls,
                     playersSize: playersSize,
                     finishedRound: finishedRound,
-                    startingRound: maxGameTime != null
-                        ? gameTime == maxGameTime
-                        : gameTime == 0,
-                    hasPlayedForAMinute: maxGameTime != null
-                        ? gameTime <= maxGameTime! - 60
-                        : gameTime >= 60,
-                    gameId: gameId,
-                    isWatching: isWatchMode,
-                    isWatch: isWatch,
-                    isFirstPage: recordId == 0 && roundId == 0,
-                    isLastPage: recordId == lastRecordId &&
-                        roundId == lastRecordIdRoundId,
-                    onWatch: watch,
-                    onRewatch: rewatch,
-                    onStart: start,
-                    onRestart: restart,
-                    onChange: change,
-                    onLeave: (end) => leave(null, end),
-                    onConcede: concede,
-                    onPrevious: previous,
-                    onNext: next,
-                    onCheckOut: () {
-                      setState(() {
-                        isCheckoutMode = true;
-                      });
-                    },
-                    onReadAboutGame: () {
-                      if (readAboutGame) {
-                        setState(() {
-                          readAboutGame = false;
-                        });
-                      }
-                    },
-                    callMode: callMode,
-                    onToggleCall: toggleCall,
-                    isFrontCamera: isFrontCameraSelected,
-                    onToggleCamera: toggleCamera,
-                    isAudioOn: isAudioOn,
-                    onToggleMute: toggleMute,
-                    isSpeakerOn: isOnSpeaker,
-                    onToggleSpeaker: toggleSpeaker,
-                    quarterTurns: getPausedGameTurn(),
-                    pauseIndex: pauseIndex,
-                    concedeOrLeftPlayers: concedeOrLeftPlayers,
-                    winners: winners,
                     duration: duration,
-                    watchTime: watchTime,
-                    timeStart: timeStart,
-                    timeEnd: (timeEnd ?? timeStart + (duration * 1000)),
+                    endDuration: endDuration,
+                    onPrevious: previousDetail,
+                    onNext: nextDetail,
+                    onRewind: rewind,
+                    onForward: forward,
+                    onPlayPause: togglePlayPause,
+                    onSeek: seek,
+                    watching: watching,
+                    loadingDetails: loadingDetails,
+                    onPressed: toggleShowControls,
                   ),
-                ),
-              if (firstTime && !paused && !seenFirstHint) ...[
-                Container(
-                  height: double.infinity,
-                  width: double.infinity,
-                  color: lighterBlack,
-                  padding: const EdgeInsets.all(20),
-                  alignment: Alignment.center,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    child: Center(
-                      child: Text(
-                        getFirstHint(),
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 18),
-                        textAlign: TextAlign.center,
-                      ),
+
+                if (paused && !isCheckoutMode && pauseIndex != -1)
+                  RotatedBox(
+                    quarterTurns: getPausedGameTurn(),
+                    child: PausedGameView(
+                      context: context,
+                      reason: reason,
+                      readAboutGame: readAboutGame,
+                      game: gameName,
+                      match: match,
+                      recordId: recordId,
+                      roundId: roundId,
+                      playersScores: playersScores,
+                      users: users,
+                      players: players,
+                      playersSize: playersSize,
+                      finishedRound: finishedRound,
+                      startingRound: maxGameTime != null
+                          ? gameTime == maxGameTime
+                          : gameTime == 0,
+                      hasPlayedForAMinute: maxGameTime != null
+                          ? gameTime <= maxGameTime! - 60
+                          : gameTime >= 60,
+                      gameId: gameId,
+                      isWatching: isWatchMode,
+                      isWatch: isWatch,
+                      isFirstPage: recordId == pageInfos?.firstRecordId &&
+                          roundId == pageInfos?.firstRecordIdRoundId,
+                      isLastPage: recordId == pageInfos?.lastRecordId &&
+                          roundId == pageInfos?.lastRecordIdRoundId,
+                      onWatch: watch,
+                      onRewatch: rewatch,
+                      onStart: start,
+                      onRestart: restart,
+                      onChange: change,
+                      onLeave: (end) => leave(null, end),
+                      onConcede: concede,
+                      onPrevious: previous,
+                      onNext: next,
+                      onCheckOut: () {
+                        setState(() {
+                          isCheckoutMode = true;
+                        });
+                      },
+                      onReadAboutGame: () {
+                        if (readAboutGame) {
+                          setState(() {
+                            readAboutGame = false;
+                          });
+                        }
+                      },
+                      callMode: callMode,
+                      onToggleCall: toggleCall,
+                      isFrontCamera: isFrontCameraSelected,
+                      onToggleCamera: toggleCamera,
+                      isAudioOn: isAudioOn,
+                      onToggleMute: toggleMute,
+                      isSpeakerOn: isOnSpeaker,
+                      onToggleSpeaker: toggleSpeaker,
+                      quarterTurns: getPausedGameTurn(),
+                      pauseIndex: pauseIndex,
+                      concedeOrLeftPlayers: concedeOrLeftPlayers,
+                      winners: winners,
+                      duration: duration,
+                      endDuration: endDuration,
                     ),
-                    onTap: () {
-                      setState(() {
-                        seenFirstHint = true;
-                      });
-                    },
                   ),
-                )
+                if (firstTime && !paused && !seenFirstHint) ...[
+                  Container(
+                    height: double.infinity,
+                    width: double.infinity,
+                    color: lighterBlack,
+                    padding: const EdgeInsets.all(20),
+                    alignment: Alignment.center,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      child: Center(
+                        child: Text(
+                          getFirstHint(),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 18),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      onTap: () {
+                        setState(() {
+                          seenFirstHint = true;
+                        });
+                      },
+                    ),
+                  )
+                ],
+                // if (isCheckoutMode)
+                //   Text(
+                //     "Press back to Exit Checkout Mode",
+                //     style: context.bodySmall,
+                //   )
+
+                ...List.generate(playersSize, (index) {
+                  if (isCard) {
+                    return Positioned(
+                      top: index == 0 || (index == 1 && playersSize > 2)
+                          ? 0
+                          : null,
+                      bottom: (index == 1 && playersSize == 2) ||
+                              index == 2 ||
+                              (index == 3)
+                          ? 0
+                          : null,
+                      left: index == 3 || (index == 0) ? 0 : null,
+                      right: (index == 1 && playersSize > 2) ||
+                              (((index == 1 && playersSize == 2) || index == 2))
+                          ? 0
+                          : null,
+                      child: RotatedBox(
+                          quarterTurns: index == 0
+                              ? 2
+                              : index == 1 && playersSize > 2
+                                  ? 3
+                                  : index == 3
+                                      ? 1
+                                      : 0,
+                          child: getMenuWidget(index)),
+                    );
+                  } else {
+                    final mindex = (playersSize / 2).ceil();
+                    return Positioned(
+                        top: playersSize > 1 && index < mindex ? 0 : null,
+                        bottom: playersSize == 1 || index >= mindex ? 0 : null,
+                        left: playersSize > 1 && (index == 0 || index == 3)
+                            ? 0
+                            : null,
+                        right: playersSize == 1 || index == 1 || index == 2
+                            ? 0
+                            : null,
+                        child: getMenuWidget(index));
+                  }
+                }),
               ],
-              // if (isCheckoutMode)
-              //   Text(
-              //     "Press back to Exit Checkout Mode",
-              //     style: context.bodySmall,
-              //   )
-            ],
+            ),
           ),
         ),
       ),

@@ -25,6 +25,8 @@ class UserGameItem extends StatelessWidget {
               Text(
                 userGame.ability,
                 style: context.bodySmall?.copyWith(color: lightTint),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               )
             ],
           ),
@@ -41,7 +43,7 @@ class UserGameItem extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
+                          horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
                         color: userGame.ability == ability

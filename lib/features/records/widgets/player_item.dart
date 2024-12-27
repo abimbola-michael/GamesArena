@@ -15,6 +15,8 @@ class PlayerItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = player.user;
+    final games =
+        user?.user_games != null ? getUserGamesString(user!.user_games) : "";
     return InkWell(
       onTap: onPressed,
       child: Padding(
@@ -55,12 +57,13 @@ class PlayerItem extends StatelessWidget {
                         )
                     ],
                   ),
-                  Text(
-                    user?.user_games != null
-                        ? getUserGamesString(user!.user_games)
-                        : "Any game",
-                    style: context.bodySmall?.copyWith(color: lighterTint),
-                  ),
+                  if (games.isNotEmpty)
+                    Text(
+                      games,
+                      style: context.bodySmall?.copyWith(color: lighterTint),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                 ],
               ),
             )

@@ -117,12 +117,13 @@ class _GameProfilePageState extends State<GameProfilePage>
     }
   }
 
-  void gotoEditGroupProfile() {
+  void gotoEditGroupProfile(bool canEditGroup) {
     context.pushTo(ProfilePage(
       id: gameId,
       name: game?.groupName,
       profilePhoto: game?.profilePhoto,
       isGroup: game?.groupName != null,
+      canEditGroup: canEditGroup,
       userGames: game?.user_games,
     ));
   }
@@ -145,7 +146,8 @@ class _GameProfilePageState extends State<GameProfilePage>
         exitGroup();
         break;
       case "Edit Group":
-        gotoEditGroupProfile();
+      case "View Group":
+        gotoEditGroupProfile(option == "Edit Group");
         break;
       case "Add Players":
         gotoAddPlayers();
@@ -167,6 +169,8 @@ class _GameProfilePageState extends State<GameProfilePage>
                   List<String> options = [];
                   if (myRole != "participant") {
                     options.addAll(["Edit Group", "Add Players"]);
+                  } else {
+                    options.addAll(["View Group"]);
                   }
                   options.add("Leave Group");
                   return List.generate(options.length, (index) {
@@ -226,52 +230,58 @@ class _GameProfilePageState extends State<GameProfilePage>
               ],
               const SizedBox(height: 5),
               if (gameStat != null)
-                Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    GameStatItem(
-                      title: "Players",
-                      count: gameStat!.players,
-                      onPressed: () {
-                        tabController.animateTo(0);
-                      },
+                Center(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      //crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        GameStatItem(
+                          title: "Players",
+                          count: gameStat!.players,
+                          onPressed: () {
+                            tabController.animateTo(0);
+                          },
+                        ),
+                        GameStatItem(
+                          title: "All Matches",
+                          count: gameStat!.allMatches,
+                          onPressed: () {
+                            context.pop();
+                          },
+                        ),
+                        GameStatItem(
+                          title: "Played Matches",
+                          count: gameStat!.playedMatches,
+                          onPressed: () {
+                            tabController.animateTo(1);
+                          },
+                        ),
+                        GameStatItem(
+                          title: "Wins",
+                          count: gameStat!.wins,
+                          onPressed: () {
+                            tabController.animateTo(2);
+                          },
+                        ),
+                        GameStatItem(
+                          title: "Draws",
+                          count: gameStat!.draws,
+                          onPressed: () {
+                            tabController.animateTo(3);
+                          },
+                        ),
+                        GameStatItem(
+                          title: "Losses",
+                          count: gameStat!.losses,
+                          onPressed: () {
+                            tabController.animateTo(4);
+                          },
+                        ),
+                      ],
                     ),
-                    GameStatItem(
-                      title: "Matches",
-                      count: gameStat!.allMatches,
-                      onPressed: () {
-                        context.pop();
-                      },
-                    ),
-                    GameStatItem(
-                      title: "Plays",
-                      count: gameStat!.allMatches,
-                      onPressed: () {
-                        tabController.animateTo(1);
-                      },
-                    ),
-                    GameStatItem(
-                      title: "Wins",
-                      count: gameStat!.wins,
-                      onPressed: () {
-                        tabController.animateTo(2);
-                      },
-                    ),
-                    GameStatItem(
-                      title: "Draws",
-                      count: gameStat!.draws,
-                      onPressed: () {
-                        tabController.animateTo(3);
-                      },
-                    ),
-                    GameStatItem(
-                      title: "Losses",
-                      count: gameStat!.losses,
-                      onPressed: () {
-                        tabController.animateTo(4);
-                      },
-                    ),
-                  ],
+                  ),
                 )
             ],
           ),

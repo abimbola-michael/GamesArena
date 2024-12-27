@@ -3,6 +3,7 @@ import 'package:gamesarena/shared/extensions/extensions.dart';
 
 import '../../theme/colors.dart';
 import '../widgets/action_button.dart';
+import '../widgets/app_button.dart';
 import '../widgets/app_text_field.dart';
 
 class TextInputDialog extends StatefulWidget {
@@ -75,10 +76,11 @@ class _TextInputDialogState extends State<TextInputDialog> {
               Row(
                 children: [
                   Expanded(
-                    child: ActionButton(
-                      widget.actions != null && widget.actions!.isNotEmpty
-                          ? widget.actions![0]
-                          : "No",
+                    child: AppButton(
+                      title:
+                          widget.actions != null && widget.actions!.isNotEmpty
+                              ? widget.actions![0]
+                              : "No",
                       onPressed: () {
                         if (widget.onPressed != null) {
                           widget.onPressed!(false);
@@ -87,16 +89,17 @@ class _TextInputDialogState extends State<TextInputDialog> {
                         }
                       },
                       height: 50,
-                      color: Colors.red,
-                      textColor: Colors.white,
+                      bgColor: Colors.red,
+                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: ActionButton(
-                      widget.actions != null && widget.actions!.length > 1
-                          ? widget.actions![1]
-                          : "Yes",
+                    child: AppButton(
+                      title:
+                          widget.actions != null && widget.actions!.length > 1
+                              ? widget.actions![1]
+                              : "Yes",
                       //comfirmationType.capitalize,
                       onPressed: () {
                         if (widget.onPressed != null) {
@@ -106,8 +109,8 @@ class _TextInputDialogState extends State<TextInputDialog> {
                         }
                       },
                       height: 50,
-                      color: Colors.blue,
-                      textColor: Colors.white,
+                      bgColor: Colors.blue,
+                      color: Colors.white,
                     ),
                   ),
                 ],

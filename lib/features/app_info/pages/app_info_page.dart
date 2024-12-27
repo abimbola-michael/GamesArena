@@ -70,7 +70,8 @@ class _AppInfoPageState extends State<AppInfoPage> {
         ],
       ),
       // bottomNavigationBar: widget.isAccept
-      //     ? ActionButton("Accept", onPressed: () {
+      //     ? AppButton(
+//title:"Accept", onPressed: () {
       //         Navigator.of(context).pop(true);
       //       }, height: 50)
       //     : null,

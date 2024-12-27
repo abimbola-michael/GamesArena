@@ -3,6 +3,7 @@ import 'package:gamesarena/shared/extensions/extensions.dart';
 
 import '../../theme/colors.dart';
 import '../widgets/action_button.dart';
+import '../widgets/app_button.dart';
 
 class ComfirmationDialog extends StatelessWidget {
   final String title;
@@ -52,8 +53,8 @@ class ComfirmationDialog extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: ActionButton(
-                      actions != null && actions!.isNotEmpty
+                    child: AppButton(
+                      title: actions != null && actions!.isNotEmpty
                           ? actions![0]
                           : "No",
                       onPressed: () {
@@ -63,15 +64,13 @@ class ComfirmationDialog extends StatelessWidget {
                           context.pop();
                         }
                       },
-                      height: 50,
-                      color: Colors.red,
-                      textColor: Colors.white,
+                      bgColor: Colors.red,
+                      color: Colors.white,
                     ),
                   ),
-                  const SizedBox(width: 10),
                   Expanded(
-                    child: ActionButton(
-                      actions != null && actions!.length > 1
+                    child: AppButton(
+                      title: actions != null && actions!.length > 1
                           ? actions![1]
                           : "Yes",
                       //comfirmationType.capitalize,
@@ -82,9 +81,8 @@ class ComfirmationDialog extends StatelessWidget {
                           context.pop(true);
                         }
                       },
-                      height: 50,
-                      color: Colors.blue,
-                      textColor: Colors.white,
+                      bgColor: Colors.blue,
+                      color: Colors.white,
                     ),
                   ),
                 ],

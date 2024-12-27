@@ -46,15 +46,13 @@ class ProfileOptionItem extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          IconButton(
-            onPressed: onEdit,
-            icon: const Icon(
-              OctIcons.pencil,
-              color: primaryColor,
-            ),
-            iconSize: 16,
-          )
+          if (editable) ...[
+            const SizedBox(width: 10),
+            IconButton(
+                onPressed: onEdit,
+                icon: const Icon(OctIcons.pencil, color: primaryColor),
+                iconSize: 16)
+          ]
         ],
       ),
     );

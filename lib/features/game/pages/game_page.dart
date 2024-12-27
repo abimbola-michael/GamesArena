@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gamesarena/features/game/models/game_page_infos.dart';
 import 'package:gamesarena/features/game/models/match_outcome.dart';
 import 'package:gamesarena/features/game/providers/game_action_provider.dart';
 import 'package:gamesarena/features/games/pages.dart';
@@ -16,7 +17,7 @@ import '../../../shared/utils/constants.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/models/models.dart';
 
-import '../providers/game_page_provider.dart';
+import '../providers/game_page_infos_provider.dart';
 import '../providers/match_outcome_provider.dart';
 
 class GamePage extends ConsumerStatefulWidget {
@@ -46,6 +47,8 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
   int roundId = 0;
   int lastRecordId = 0;
   int lastRecordIdRoundId = 0;
+  int firstRecordId = 0;
+  int firstRecordIdRoundId = 0;
   int adsTime = 0;
 
   //Player
@@ -123,65 +126,34 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
     }
   }
 
-  // int getPlayerIndex(String playerId) {
-  //   if (gameId != "") {
-  //     final playerIds = players.map((e) => e.id).toList();
-  //     final currentPlayerIndex =
-  //         playerIds.indexWhere((element) => element == playerId);
-  //     return currentPlayerIndex;
-  //   } else {
-  //     return -1;
-  //   }
-  // }
+  void init() {
+    lastRecordId = recordId;
+    lastRecordIdRoundId = roundId;
+    firstRecordId = recordId;
+    firstRecordIdRoundId = roundId;
 
-  // void init() {
-  //   if (isTournament) {
-  //     resetTournamentPlayers();
-  //     getTournamentPlayers();
-  //   }
-  // }
+    if (gameId.isNotEmpty && match != null) {
+      gameName = match!.records?["$recordId"]?["$roundId"]?["game"] ?? gameName;
+    }
 
-  // void resetTournamentPlayers() {
-  //   currentPlayers = [...players];
-  // }
+    currentPlayers.addAll(players);
 
-  // void updateMatchOutcome(MatchOutcome? matchOutcome) {
-  //   if (matchOutcome == null) return;
-  //   if (!isTournament) {
-  //     return;
-  //   }
-  //   final players = tournamentPlayers[matchOutcome.pageIndex];
-  //   for (int i = 0; i < matchOutcome.others.length; i++) {
-  //     final id = matchOutcome.others[i];
-  //     players.removeWhere((player) => player.id == id);
-  //   }
-  //   if (players.isEmpty) {
-  //     tournamentPlayers.removeAt(matchOutcome.pageIndex);
-  //   }
-  //   bool isAllOnes = true;
-  //   List<Player> remainingPlayers = [];
-  //   for (int i = 0; i < tournamentPlayers.length; i++) {
-  //     final players = tournamentPlayers[i];
-  //     if (players.isEmpty) continue;
-  //     if (players.length > 1) {
-  //       isAllOnes = false;
-  //       break;
-  //     }
-  //     remainingPlayers.add(players.first);
-  //   }
-  //   if (isAllOnes) {
-  //     currentPlayers = remainingPlayers;
-  //     if (tournamentPlayers.length == 1 &&
-  //         tournamentPlayers.first.length == 1) {
-  //     } else {
-  //       getTournamentPlayers();
-  //     }
-  //   }
+    final gamePageData = getFullGamePageData(context.args, gameName);
+    gamePagesDatas.add(gamePageData);
 
-  //   setState(() {});
-  // }
+    Future.delayed(const Duration(milliseconds: 100)).then((value) {
+      ref.read(gamePageInfosProvider.notifier).updateGamePageInfos(
+          GamePageInfos(
+              totalPages: gamePagesDatas.length,
+              currentPage: currentPage,
+              lastRecordId: lastRecordId,
+              lastRecordIdRoundId: lastRecordIdRoundId,
+              firstRecordId: firstRecordId,
+              firstRecordIdRoundId: firstRecordIdRoundId));
+    });
+  }
 
-  List<List<Player>> getTournamentPlayers() {
+  List<List<Player>> getTournamentPlayers(List<Player> currentPlayers) {
     List<List<Player>> tournamentPlayers = [];
     for (int i = 0; i < currentPlayers.length; i += 2) {
       List<Player> players = [];
@@ -225,19 +197,19 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
     return Container();
   }
 
-  GamePageData getFullGamePageData(Map<String, dynamic> args, String game,
+  GamePageData getFullGamePageData(Map<String, dynamic> args, String gameName,
       {bool hasDetails = false}) {
+    var players = args["players"] as List<Player>?;
+    //final playersSize = args["playersSize"] as int;
+
     Widget gamePage;
-    if (currentPlayers.length > 3 && isTournament) {
-      List<List<Player>> tournamentPlayers = getTournamentPlayers();
+    if (players != null && players.length > 3 && isTournament) {
+      List<List<Player>> tournamentPlayers = getTournamentPlayers(players);
       //playerPage
       final pageController = PageController(initialPage: playerPage);
       if (hasDetails) {
         pageControllers.add(pageController);
       }
-      // pageControllers[gamePagesDatas.length - (finishedRound ? 0 : 1)] =
-      //     pageController;
-
       gamePage = PageView.builder(
         scrollDirection: Axis.vertical,
         controller: pageController,
@@ -246,39 +218,34 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
           final players = tournamentPlayers[index];
           Map<String, dynamic> newArgs = {...args};
 
-          newArgs["pageIndex"] = index;
           newArgs["players"] = players;
           newArgs["playersSize"] = players.length;
-          newArgs["users"] = users?.where((user) =>
-              players.indexWhere((element) => element.id == user?.user_id) !=
-              -1);
+          newArgs["users"] = users == null
+              ? null
+              : players
+                  .map((player) => users?.firstWhereNullable(
+                      (user) => player.id == user?.user_id))
+                  .toList();
           //roundId
           return getGamePage(newArgs, gameName);
         },
       );
       return GamePageData(child: gamePage, args: args);
     } else {
-      args["players"] = players;
-      args["users"] = users?.where((user) =>
-          players.indexWhere((element) => element.id == user?.user_id) != -1);
+      if (players != null) {
+        args["players"] = players;
+        args["users"] = users == null
+            ? null
+            : players
+                .map((player) => users
+                    ?.firstWhereNullable((user) => player.id == user?.user_id))
+                .toList();
+      }
 
-      gamePage = getGamePage(args, game);
+      gamePage = getGamePage(args, gameName);
+      print("args = $args, gameName = $gameName");
       return GamePageData(child: gamePage, args: args);
     }
-  }
-
-  void init() {
-    lastRecordId = recordId;
-    lastRecordIdRoundId = roundId;
-
-    if (gameId.isNotEmpty && match != null) {
-      gameName = match!.records?["$recordId"]?["$roundId"]?["game"] ?? gameName;
-    }
-
-    currentPlayers.addAll(players);
-
-    final gamePageData = getFullGamePageData(context.args, gameName);
-    gamePagesDatas.add(gamePageData);
   }
 
   void updateGameAction(GameAction gameAction) async {
@@ -286,6 +253,27 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
     int recordId = args["recordId"] ?? 0;
     int roundId = args["roundId"] ?? 0;
     final match = args["match"] as Match?;
+    final playersLeft = gameAction.playersLeft;
+    final playersSize = args["playersSize"] as int;
+
+    if (playersLeft.isNotEmpty &&
+        (gameAction.action == "change" ||
+            gameAction.action == "restart" ||
+            gameAction.action == "continue")) {
+      var players = args["players"] as List<Player>?;
+      if (players != null) {
+        final playersToRemove =
+            playersLeft.map((index) => players![index].id).toList();
+        players = players
+            .where((player) => !playersToRemove.contains(player.id))
+            .toList();
+        args["players"] = players;
+
+        args["playersSize"] = players.length;
+      } else {
+        args["playersSize"] = playersSize - playersLeft.length;
+      }
+    }
 
     if (gameAction.action == "change" || gameAction.action == "restart") {
       if (gameAction.hasDetails) {
@@ -294,6 +282,7 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
         args["roundId"] = 0;
       }
       args.remove("playersScores");
+
       if (gameAction.action == "change") {
         args["gameName"] = gameAction.game;
       }
@@ -306,53 +295,67 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
             duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
         return;
       }
-      if (roundId > 0) {
-        roundId--;
-      } else {
-        if (recordId > 0) {
-          recordId--;
-          if (match?.records != null) {
+      if (match?.records != null) {
+        if (roundId > 0) {
+          roundId--;
+        } else {
+          if (recordId > 0) {
+            recordId--;
             roundId =
                 (match!.records!["$recordId"]["rounds"] as Map<String, dynamic>)
                         .length -
                     1;
           }
         }
+        args["recordId"] = recordId;
+        args["roundId"] = roundId;
+
+        final playerIds = match!.records!["$recordId"]["rounds"]["$roundId"]
+            ["players"] as List<String>?;
+        if (playerIds != null) {
+          args["players"] = List.generate(
+              playerIds.length,
+              (index) =>
+                  Player(id: playerIds[index], time: timeNow, order: index));
+          args["playersSize"] = playerIds.length;
+        }
+        //args["players"] = ;
       }
-      args["recordId"] = recordId;
-      args["roundId"] = roundId;
     } else if (gameAction.action == "next") {
       if (currentPage < gamePagesDatas.length - 1) {
         pageController.nextPage(
             duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
         return;
       }
-      final lastRecord = match!.records!.length - 1;
-      final lastRound =
-          (match.records!["$recordId"]["rounds"] as Map<String, dynamic>)
-                  .length -
-              1;
-      if (roundId < lastRound) {
-        roundId++;
-      } else {
-        if (recordId < lastRecord) {
-          recordId++;
-          roundId = 0;
+      if (match?.records != null) {
+        final lastRecord = match!.records!.length - 1;
+        final lastRound =
+            (match.records!["$recordId"]["rounds"] as Map<String, dynamic>)
+                    .length -
+                1;
+        if (roundId < lastRound) {
+          roundId++;
+        } else {
+          if (recordId < lastRecord) {
+            recordId++;
+            roundId = 0;
+          }
+        }
+        args["recordId"] = recordId;
+        args["roundId"] = roundId;
+
+        final playerIds = match.records!["$recordId"]["rounds"]["$roundId"]
+            ["players"] as List<String>?;
+        if (playerIds != null) {
+          args["players"] = List.generate(
+              playerIds.length,
+              (index) =>
+                  Player(id: playerIds[index], time: timeNow, order: index));
+          args["playersSize"] = playerIds.length;
         }
       }
-      args["recordId"] = recordId;
-      args["roundId"] = roundId;
     }
     //else if (gameAction.action == "jump") {}
-
-    if (recordId >= lastRecordId) {
-      lastRecordId = recordId;
-      if (roundId > lastRecordIdRoundId) {
-        lastRecordIdRoundId = roundId;
-      }
-      args["lastRecordId"] = lastRecordId;
-      args["lastRecordIdRoundId"] = lastRecordIdRoundId;
-    }
 
     final gamePageData = getFullGamePageData(args, gameAction.game,
         hasDetails: gameAction.hasDetails);
@@ -375,6 +378,29 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
       gamePagesDatas[gamePagesDatas.length - 1] = gamePageData;
       setState(() {});
     }
+
+    if (recordId <= firstRecordId) {
+      firstRecordId = recordId;
+      if (roundId < firstRecordIdRoundId) {
+        firstRecordIdRoundId = roundId;
+      }
+
+      ref.read(gamePageInfosProvider.notifier).updateFirst(
+          firstRecordId, firstRecordIdRoundId,
+          totalPages: gamePagesDatas.length);
+    } else if (recordId >= lastRecordId) {
+      lastRecordId = recordId;
+      if (roundId > lastRecordIdRoundId) {
+        lastRecordIdRoundId = roundId;
+      }
+      ref.read(gamePageInfosProvider.notifier).updateLast(
+          lastRecordId, lastRecordIdRoundId,
+          totalPages: gamePagesDatas.length);
+    } else {
+      ref
+          .read(gamePageInfosProvider.notifier)
+          .updateTotalPages(gamePagesDatas.length);
+    }
   }
 
   @override
@@ -387,9 +413,8 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
       itemCount: gamePagesDatas.length,
       onPageChanged: (page) {
         currentPage = page;
-        final gamePageData = gamePagesDatas[page];
-        ref.read(gamePageProvider.notifier).updateGamePage(
-            "${gamePageData.args["recordId"]}-${gamePageData.args["roundId"]}");
+        ref.read(gamePageInfosProvider.notifier).updateCurrentPage(currentPage);
+        //final gamePageData = gamePagesDatas[page];
       },
       itemBuilder: (context, index) {
         final gamePageData = gamePagesDatas[index];

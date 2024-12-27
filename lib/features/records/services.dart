@@ -33,17 +33,15 @@ Future<List<Match>> getPlayedMatches(String gameId,
     (map) => Match.fromMap(map),
     ["games", gameId, "matches"],
     where: [
-      "players",
-      "contains",
-      myId,
       if (type != null) ...[
         "outcome",
         "==",
         type == "loss" ? "win" : type,
-        [type == "win" ? "winners" : "others", "contains", myId],
-
-        // if (type == "win") ...["winners", "contains", myId],
-        // if (type == "loss") ...["others", "contains", myId],
+        ...[type == "win" ? "winners" : "others", "contains", myId]
+      ] else ...[
+        "players",
+        "contains",
+        myId,
       ],
       if (lastTime != null) ...["time_created", "<", lastTime]
     ],
@@ -69,9 +67,6 @@ Future<GameStat> getGameStats(String gameId, int? playersCount) async {
     "outcome",
     "!=",
     "",
-    "outcome",
-    "!=",
-    null,
   ]);
 
   int wins = await fm.getSnapshotCount([
@@ -85,38 +80,18 @@ Future<GameStat> getGameStats(String gameId, int? playersCount) async {
     "outcome",
     "==",
     "win",
-    "winners",
-    "contains",
-    myId
+    ...["winners", "contains", myId]
   ]);
-
-  // int losses = await fm.getSnapshotCount([
-  //   "games",
-  //   gameId,
-  //   "matches"
-  // ], where: [
-  //   "players",
-  //   "contains",
-  //   myId,
-  //   "outcome",
-  //   "==",
-  //   "win",
-  //   "winner",
-  //   "!=",
-  //   myId
-  // ]);
 
   int draws = await fm.getSnapshotCount([
     "games",
     gameId,
     "matches"
   ], where: [
-    "players",
-    "contains",
-    myId,
     "outcome",
     "==",
     "draw",
+    ...["others", "contains", myId]
   ]);
   //int playedMatches = wins + ties + losses + draws;
   int losses = playedMatches - (wins + draws);
@@ -128,3 +103,79 @@ Future<GameStat> getGameStats(String gameId, int? playersCount) async {
       draws: draws,
       losses: losses);
 }
+
+// Future<GameStat> getGameStats(String gameId, int? playersCount) async {
+//   int allMatches = await fm.getSnapshotCount(["games", gameId, "matches"]);
+//   int players =
+//       playersCount ?? await fm.getSnapshotCount(["games", gameId, "players"]);
+
+//   int playedMatches = await fm.getSnapshotCount([
+//     "games",
+//     gameId,
+//     "matches"
+//   ], where: [
+//     "players",
+//     "contains",
+//     myId,
+//     "outcome",
+//     "!=",
+//     "",
+//     "outcome",
+//     "!=",
+//     null,
+//   ]);
+
+//   int wins = await fm.getSnapshotCount([
+//     "games",
+//     gameId,
+//     "matches"
+//   ], where: [
+//     "players",
+//     "contains",
+//     myId,
+//     "outcome",
+//     "==",
+//     "win",
+//     "winners",
+//     "contains",
+//     myId
+//   ]);
+
+//   // int losses = await fm.getSnapshotCount([
+//   //   "games",
+//   //   gameId,
+//   //   "matches"
+//   // ], where: [
+//   //   "players",
+//   //   "contains",
+//   //   myId,
+//   //   "outcome",
+//   //   "==",
+//   //   "win",
+//   //   "winner",
+//   //   "!=",
+//   //   myId
+//   // ]);
+
+//   int draws = await fm.getSnapshotCount([
+//     "games",
+//     gameId,
+//     "matches"
+//   ], where: [
+//     "players",
+//     "contains",
+//     myId,
+//     "outcome",
+//     "==",
+//     "draw",
+//   ]);
+//   //int playedMatches = wins + ties + losses + draws;
+//   int losses = playedMatches - (wins + draws);
+//   return GameStat(
+//       allMatches: allMatches,
+//       playedMatches: playedMatches,
+//       players: players,
+//       wins: wins,
+//       draws: draws,
+//       losses: losses);
+// }

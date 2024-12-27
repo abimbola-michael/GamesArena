@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../../../theme/colors.dart';
 import '../../../../../shared/utils/utils.dart';
 import '../../../../../shared/widgets/blinking_border_container.dart';
+import '../pages/whot_game_page.dart';
 
 Color cardColor = const Color(0xff722f37);
 
@@ -16,6 +17,7 @@ class WhotCard extends StatefulWidget {
   final VoidCallback? onLongPressed;
   final bool isBackCard;
   final bool blink;
+  final double? margin;
   const WhotCard({
     super.key,
     required this.height,
@@ -25,6 +27,7 @@ class WhotCard extends StatefulWidget {
     this.onLongPressed,
     this.isBackCard = false,
     required this.blink,
+    this.margin,
   });
 
   @override
@@ -52,7 +55,7 @@ class _WhotCardState extends State<WhotCard> {
           width: widget.width,
           height: widget.height,
           padding: EdgeInsets.all(paddingSize),
-          margin: EdgeInsets.all(paddingSize),
+          margin: EdgeInsets.all(widget.margin ?? paddingSize),
           decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(radiusSize),
               color: widget.isBackCard ? cardColor : Colors.white,

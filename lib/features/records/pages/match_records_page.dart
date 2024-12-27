@@ -13,6 +13,7 @@ import 'package:gamesarena/shared/utils/constants.dart';
 import 'package:gamesarena/shared/views/loading_overlay.dart';
 import '../../../shared/widgets/action_button.dart';
 import '../../../shared/widgets/app_appbar.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../user/widgets/user_item.dart';
 import '../../../shared/services.dart';
 import 'package:gamesarena/features/game/models/match.dart';
@@ -20,6 +21,7 @@ import '../models/match_record.dart';
 import '../../user/models/user.dart';
 import '../../../theme/colors.dart';
 import '../../../shared/utils/utils.dart';
+import '../widgets/match_overall_record_item.dart';
 
 class MatchRecordsPage extends StatefulWidget {
   final Match match;
@@ -44,49 +46,51 @@ class _MatchRecordsPageState extends State<MatchRecordsPage> {
     match = widget.match;
     getDetails();
 
-    final timeStart =
-        (DateTime.now().millisecondsSinceEpoch - 10 * 1000).toString();
-    final timeEnd = (DateTime.now().millisecondsSinceEpoch).toString();
-    List<String> players = List.generate(4, (index) => "$index");
-    users = List.generate(
-        4,
-        (index) => User(
-            user_id: "$index",
-            username: "Player ${index + 1}",
-            email: "",
-            phone: "",
-            token: "",
-            time: "",
-            last_seen: ""));
-    Map<String, dynamic> scores = {"0": 1, "1": 0, "2": 4, "3": 3};
-    match = Match(
-        match_id: "1",
-        game_id: "1",
-        time_start: timeStart,
-        time_end: timeEnd,
-        game: chessGame,
-        players: players,
-        records: {
-          "0": MatchRecord(
-              id: 0,
-              game: chessGame,
-              time_start: timeStart,
-              time_end: timeEnd,
-              players: players,
-              scores: scores,
-              rounds: {
-                "0": MatchRound(
-                        id: 0,
-                        game: chessGame,
-                        time_start: timeStart,
-                        time_end: timeEnd,
-                        players: players,
-                        scores: scores)
-                    .toMap()
-              }).toMap(),
-        });
-    match.users = users;
-    matchRecords = getMatchRecords(match);
+    // final timeStart =
+    //     (DateTime.now().millisecondsSinceEpoch - 10 * 1000).toString();
+    // final timeEnd = (DateTime.now().millisecondsSinceEpoch).toString();
+    // List<String> players = List.generate(4, (index) => "$index");
+    // users = List.generate(
+    //     4,
+    //     (index) => User(
+    //         user_id: "$index",
+    //         username: "Player ${index + 1}",
+    //         email: "",
+    //         phone: "",
+    //         token: "",
+    //         time: "",
+    //         last_seen: ""));
+    // Map<String, dynamic> scores = {"0": 1, "1": 0, "2": 4, "3": 3};
+    // match = Match(
+    //     match_id: "1",
+    //     game_id: "1",
+    //     time_start: timeStart,
+    //     time_end: timeEnd,
+    //     game: chessGame,
+    //     players: players,
+    //     records: {
+    //       "0": MatchRecord(
+    //           id: 0,
+    //           game: chessGame,
+    //           time_start: timeStart,
+    //           time_end: timeEnd,
+    //           players: players,
+    //           scores: scores,
+    //           rounds: {
+    //             "0": MatchRound(
+    //                     id: 0,
+    //                     game: chessGame,
+    //                     time_start: timeStart,
+    //                     time_end: timeEnd,
+    //                     players: players,
+    //                     scores: scores,
+    //                     detailsLength: 0,
+    //                     duration: 60)
+    //                 .toMap()
+    //           }).toMap(),
+    //     });
+    // match.users = users;
+    // matchRecords = getMatchRecords(match);
   }
 
   Future getDetails() async {
@@ -101,14 +105,12 @@ class _MatchRecordsPageState extends State<MatchRecordsPage> {
     matchRecords = getMatchRecords(match);
 
     if (!mounted) return;
+    print("match = $match");
 
     setState(() {});
   }
 
-  void gotoGame(int recordId, int roundId) {
-    final game = match.game;
-    if (game == null) return;
-
+  void gotoGame(String game, int recordId, int roundId) {
     gotoGamePage(context, game, match.game_id!, match.match_id!,
         match: match, users: users, recordId: recordId, roundId: roundId);
   }
@@ -129,15 +131,22 @@ class _MatchRecordsPageState extends State<MatchRecordsPage> {
             MatchListItem(matches: [match], position: 0, isMatchRecords: true),
             Expanded(
               child: ListView.builder(
-                itemCount: matchRecords.length,
+                itemCount:
+                    matchRecords.length + (matchRecords.isNotEmpty ? 1 : 0),
                 itemBuilder: (context, index) {
+                  if (matchRecords.isNotEmpty && index == matchRecords.length) {
+                    return MatchOverallRecordItem(
+                        match: match,
+                        onWatchPressed: () => gotoGame(
+                            widget.match.games?.firstOrNull ?? "", index, 0));
+                  }
                   final record = matchRecords[index];
                   return MatchRecordItem(
                       match: match,
                       record: record,
                       index: index,
                       onPressed: () => gotoGameRounds(record),
-                      onWatchPressed: () => gotoGame(index, 0));
+                      onWatchPressed: () => gotoGame(record.game, index, 0));
                 },
               ),
             )
@@ -146,12 +155,10 @@ class _MatchRecordsPageState extends State<MatchRecordsPage> {
       ),
       bottomNavigationBar: matchRecords.isEmpty
           ? null
-          : ActionButton(
-              "Watch",
-              onPressed: () => gotoGame(0, 0),
-              height: 50,
-              color: Colors.blue,
-              wrap: true,
+          : AppButton(
+              title: "Watch",
+              onPressed: () =>
+                  gotoGame(widget.match.games?.firstOrNull ?? "", 0, 0),
             ),
     );
   }

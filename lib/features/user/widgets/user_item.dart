@@ -60,7 +60,9 @@ class UserItem extends StatelessWidget {
           ),
           Text(
             user?.username ?? "",
-            style: const TextStyle(fontSize: 16),
+            style: context.bodyMedium,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

@@ -142,8 +142,7 @@ extension IntExtensions on int {
     final minutes = this % 3600 ~/ 60;
     final seconds = this % 60;
     if (this < 60) {
-      duration =
-          isTimer ? "00:${seconds.toDigitsOf(2)}" : seconds.toDigitsOf(2);
+      duration = isTimer ? "00:${seconds.toDigitsOf(2)}" : seconds.toString();
     } else if (this <= 600) {
       duration =
           "${minutes.toDigitsOf(isTimer ? 2 : 1)}:${seconds.toDigitsOf(2)}";

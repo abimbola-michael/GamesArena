@@ -16,8 +16,8 @@ class MatchArrowSignal extends StatelessWidget {
         // color: primaryColor,
         shape: BoxShape.circle,
         // border: Border.all(color: white),
-        color: match.creator_id != myId &&
-                (match.time_start == "" || match.time_start == null)
+        //match.creator_id != myId &&
+        color: (match.time_start == "" || match.time_start == null)
             ? Colors.red
             : Colors.blue,
       ),

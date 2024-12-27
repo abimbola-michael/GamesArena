@@ -37,13 +37,15 @@ class ProfilePage extends StatefulWidget {
   final String? name;
   final List<UserGame>? userGames;
   final bool isGroup;
+  final bool canEditGroup;
   const ProfilePage(
       {super.key,
       required this.id,
       this.name,
       this.profilePhoto,
       this.userGames,
-      this.isGroup = false});
+      this.isGroup = false,
+      this.canEditGroup = false});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -128,8 +130,8 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void gotoEditProfilePage(String type, String value) async {
-    final newValue =
-        await context.pushTo(EditProfilePage(type: type, value: value));
+    final newValue = await context.pushTo(EditProfilePage(
+        type: type, value: value, groupId: widget.isGroup ? widget.id : null));
     if (newValue != null) {
       if (type == "username" || type == "groupname") {
         name = newValue;
@@ -189,9 +191,12 @@ class _ProfilePageState extends State<ProfilePage> {
     context.pushTo(const SettingsAndMorePage());
   }
 
-  void gotoUserGamesSeletionPage() {
-    context.pushTo(UserGamesSelectionPage(
+  void gotoUserGamesSeletionPage() async {
+    final newUserGames = await context.pushTo(UserGamesSelectionPage(
         gameId: widget.isGroup ? widget.id : null, userGames: userGames));
+    if (newUserGames != null) {
+      userGames = newUserGames;
+    }
   }
 
   @override
@@ -200,7 +205,7 @@ class _ProfilePageState extends State<ProfilePage> {
       key: scaffoldStateKey,
       // extendBodyBehindAppBar: true,
       appBar: AppAppBar(
-          title: "Profile",
+          title: widget.isGroup ? "Group Profile" : "Profile",
           trailing: widget.id == myId
               ? IconButton(
                   onPressed: gotoSettingPage,
@@ -269,7 +274,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ProfileOptionItem(
               title: widget.isGroup ? "Groupname" : "Username",
               value: name,
-              editable: widget.id == myId,
+              editable: widget.id == myId || widget.canEditGroup,
               onEdit: () => gotoEditProfilePage(
                   widget.isGroup ? "groupname" : "username", name),
             ),
@@ -277,83 +282,24 @@ class _ProfilePageState extends State<ProfilePage> {
             ProfileOptionItem(
               title: "My games",
               value: getUserGamesString(userGames),
-              editable: widget.id == myId,
+              editable: widget.id == myId || widget.canEditGroup,
               onEdit: gotoUserGamesSeletionPage,
             ),
-            // ...List.generate(options.length, (index) {
-            //   String value = index == 0
-            //       ? name
-            //       : index == 1
-            //           ? email
-            //           : index == 2
-            //               ? phone
-            //               : "";
-            //   return ListTile(
-            //     title: Text(
-            //       options[index],
-            //       style: context.bodySmall?.copyWith(color: lighterTint),
-            //     ),
-            //     subtitle:
-            //         Text(value, style: context.bodyMedium?.copyWith(color: tint)),
-            //     onTap: () {
-            //       if (id == myId || widget.isGroup) {
-            //         gotoEditProfilePage(options[index], value);
-            //       }
-            //     },
-            //   );
-            // })
           ],
         ),
       ),
       bottomNavigationBar: id != myId
           ? null
-          : SizedBox(
-              height: 70,
-              child: Stack(
-                children: [
-                  ActionButton(
-                    //margin: 20,
-                    wrap: true,
-                    "Logout",
-                    onPressed: () async {
-                      final result = await context.showComfirmationDialog(
-                          title: "Are you sure you want to logout");
-                      if (result == null) return;
-                      logOut();
-                    },
-                    height: 50,
-                    color: Colors.red,
-                    textColor: Colors.white,
-                  ),
-                  // Align(
-                  //   alignment: Alignment.centerRight,
-                  //   child: TextButton(
-                  //     onPressed: () {
-                  //       showDialog(
-                  //           context: context,
-                  //           builder: (context) {
-                  //             return ComfirmationDialog(
-                  //               title:
-                  //                   "Are you sure you want to delete account",
-                  //               message:
-                  //                   "Note that this action is irreversible. Once deleted you would no longer have access to this account but all your information would still be in database",
-                  //               onPressed: (positive) {
-                  //                 if (positive) {
-                  //                   deleteAccount();
-                  //                 }
-                  //               },
-                  //             );
-                  //           });
-                  //     },
-                  //     child: Text(
-                  //       "Delete Account",
-                  //       style: context.bodySmall
-                  //           ?.copyWith(color: red, fontWeight: FontWeight.bold),
-                  //     ),
-                  //   ),
-                  // )
-                ],
-              ),
+          : AppButton(
+              title: "Logout",
+              onPressed: () async {
+                final result = await context.showComfirmationDialog(
+                    title: "Are you sure you want to logout");
+                if (result == null) return;
+                logOut();
+              },
+              bgColor: Colors.red,
+              color: Colors.white,
             ),
     );
   }

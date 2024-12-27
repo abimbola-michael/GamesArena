@@ -18,13 +18,17 @@ class AppBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppIconButton(
-      color: color,
-      icon: EvaIcons.arrow_back_outline,
+    return IconButton(
+      icon: Icon(EvaIcons.arrow_back_outline, color: color ?? tint),
       onPressed: onPressed ?? () => context.pop(),
-      bgColor: Colors.transparent,
-      hideBackground: true,
-      borderColor: color ?? lightestBlack,
     );
+    // return AppIconButton(
+    //   color: color,
+    //   icon: EvaIcons.arrow_back_outline,
+    //   onPressed: onPressed ?? () => context.pop(),
+    //   bgColor: Colors.transparent,
+    //   hideBackground: true,
+    //   borderColor: color ?? lightestBlack,
+    // );
   }
 }

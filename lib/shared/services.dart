@@ -22,7 +22,11 @@ Future setGameDetails(
 
 Future<List<Map<String, dynamic>>> getGameDetails(
     String gameId, String matchId, int recordId, int roundId,
-    {String? time, int? limit, String? timeEnd, List<String>? players}) async {
+    {String? time,
+    int? limit,
+    double? duration,
+    int? index,
+    List<String>? players}) async {
   return fm.getValues(
       (map) => map, ["games", gameId, "matches", matchId, "details"],
       where: [
@@ -32,8 +36,9 @@ Future<List<Map<String, dynamic>>> getGameDetails(
         "roundId",
         "==",
         roundId,
-        if (players != null) ...["playerId", "in", players],
-        if (timeEnd != null) ...["time", "<=", time]
+        if (players != null) ...["id", "in", players],
+        if (duration != null) ...["duration", "<=", duration],
+        if (index != null) ...["index", "<=", index]
       ],
       order: ["time"],
       start: time != null ? [time, true] : null,
@@ -53,11 +58,11 @@ Stream<List<ValueChange<Map<String, dynamic>>>> getGameDetailsChange(
         "==",
         roundId,
         if (players != null) ...[
-          "playerId",
+          "id",
           "in",
           players.where((id) => id != myId).toList()
         ] else ...[
-          "playerId",
+          "id",
           "!=",
           myId,
         ],

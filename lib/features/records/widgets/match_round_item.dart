@@ -31,6 +31,7 @@ class MatchRoundItem extends StatelessWidget {
         children: [
           MatchOrRoundHeaderItem(
             isRecord: false,
+            game: round.game,
             timeStart: round.time_start,
             timeEnd: round.time_end,
             players: round.players,

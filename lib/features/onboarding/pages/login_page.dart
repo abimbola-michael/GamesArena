@@ -18,6 +18,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../shared/services.dart';
 import '../../../shared/widgets/action_button.dart';
 import '../../../shared/utils/utils.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../user/services.dart';
 
 class LoginPage extends StatefulWidget {
@@ -85,12 +86,13 @@ class _LoginPageState extends State<LoginPage> {
       username = user.displayName ?? "";
       username = username.replaceAll(" ", "_").toLowerCase();
       bool usernameExist = await fm.checkIfUsernameExists(username);
-      int trialCount = 1;
+      //int trialCount = 1;
 
       while (usernameExist) {
-        username = "${username.replaceAll(" ", "_").toLowerCase()}$trialCount";
+        final randomIndex = Random().nextInt(1000);
+        username = "${username.replaceAll(" ", "_").toLowerCase()}$randomIndex";
         usernameExist = await fm.checkIfUsernameExists(username);
-        trialCount++;
+        //trialCount++;
       }
       if (userData == null) {
         final newUser = myUser.User(
@@ -609,8 +611,8 @@ class _LoginPageState extends State<LoginPage> {
                                     ],
                                   )
                                 ],
-                                ActionButton(
-                                    login
+                                AppButton(
+                                    title: login
                                         ? "Login"
                                         : forgotPassword
                                             ? "Send Password Reset Email"
@@ -620,17 +622,18 @@ class _LoginPageState extends State<LoginPage> {
                                         enterUsername ||
                                         forgotPassword ||
                                         acceptTerms),
-                                    disabledColor: darkMode
-                                        ? lightestWhite
-                                        : lightestBlack,
+                                    // disabledColor: darkMode
+                                    //     ? lightestWhite
+                                    //     : lightestBlack,
                                     height: 50),
                                 // if (login) ...[
-                                ActionButton("Login with Gmail",
-                                    outline: true,
+                                AppButton(
+                                    title: "Login with Gmail",
+                                    outlined: true,
                                     color: const Color(0xffDB4437),
                                     onPressed: () {
-                                  googleSignIn();
-                                }),
+                                      googleSignIn();
+                                    }),
                                 //],
                                 if (login) ...[
                                   GestureDetector(

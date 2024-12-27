@@ -9,7 +9,8 @@ class ActionButton extends StatelessWidget {
   final Color? textColor, color, disabledColor;
   final bool wrap, half, disabled, outline;
   final double? margin, padding, radius;
-  const ActionButton(this.text,
+  const ActionButton(
+this.text,
       {super.key,
       this.wrap = false,
       this.half = false,

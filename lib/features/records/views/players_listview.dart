@@ -51,7 +51,7 @@ class _PlayersListViewState extends State<PlayersListView>
           lastTime: widget.players.lastOrNull?.time,
           role: "admin",
           limit: limit - playersCount);
-      await playersToUsers(adminPlayers.map((e) => e.id).toList());
+      await addUsersToPlayers(adminPlayers);
 
       widget.players.addAll(adminPlayers);
 
@@ -66,7 +66,9 @@ class _PlayersListViewState extends State<PlayersListView>
           lastTime: widget.players.lastOrNull?.time,
           role: "participant",
           limit: limit - playersCount);
-      await playersToUsers(participantsPlayers.map((e) => e.id).toList());
+
+      await addUsersToPlayers(participantsPlayers);
+
       widget.players.addAll(participantsPlayers);
 
       if (!reachedEnd && participantsPlayers.length < limit - playersCount) {
@@ -77,6 +79,13 @@ class _PlayersListViewState extends State<PlayersListView>
     setState(() {
       loading = false;
     });
+  }
+
+  Future addUsersToPlayers(List<Player> players) async {
+    for (int i = 0; i < players.length; i++) {
+      final player = players[i];
+      player.user ??= await getUser(player.id);
+    }
   }
 
   void updateRole(Player player, String role) async {
@@ -112,9 +121,9 @@ class _PlayersListViewState extends State<PlayersListView>
   void showPlayerOptions(Player player) {
     final username = player.user?.username ?? "";
     List<String> options = [
-      "Play with $username in group",
+      if (widget.game.groupName != null) "Play with $username in group",
       "Play with $username directly",
-      "View Game Profile"
+      "View Profile"
     ];
     if (widget.game.groupName != null) {
       if (myRole == "admin") {
@@ -135,11 +144,28 @@ class _PlayersListViewState extends State<PlayersListView>
         builder: (context) {
           return OptionSelectionDialog(
             options: options,
-            onPressed: (index, option) {
-              switch (index) {
-                case 0:
-                  break;
-              }
+            onPressed: (index, option) async {
+              executePlayerOption(player, option);
+              // if (option.startsWith("Play with")) {
+              //   final isGroup = option.endsWith("group");
+              //   final players = [myId, player.id];
+              //   final gameId =
+              //       isGroup ? widget.game.game_id : getGameId(players);
+              //   context.pushTo(
+              //     GamesPage(
+              //       gameId: gameId,
+              //       players: players,
+              //       groupName: isGroup ? widget.game.groupName : null,
+              //     ),
+              //   );
+              // } else if (option.startsWith("View Profile")) {
+              //   context.pushTo(ProfilePage(id: player.id));
+              // } else if (option.startsWith("Remove")) {
+              //   await removePlayerFromGameGroup(widget.game.game_id, player.id);
+              //   widget.players.removeAt(index);
+              //   setState(() {});
+              // } else if (option.startsWith("Make")) {
+              // } else if (option.startsWith("Dismiss")) {}
             },
           );
         });

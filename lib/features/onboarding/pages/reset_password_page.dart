@@ -5,6 +5,7 @@ import 'package:gamesarena/theme/colors.dart';
 
 import '../../../shared/extensions/special_context_extensions.dart';
 import '../../../shared/widgets/action_button.dart';
+import '../../../shared/widgets/app_button.dart';
 
 class ResetPasswordPage extends StatefulWidget {
   const ResetPasswordPage({super.key});
@@ -56,8 +57,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               }),
             ),
           ),
-          ActionButton(
-            "Send Password Reset Email",
+          AppButton(
+            title: "Send Password Reset Email",
             onPressed: () {
               fm.sendPasswordResetEmail(email).then((value) {
                 showToast(

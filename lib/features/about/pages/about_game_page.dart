@@ -4,6 +4,7 @@ import 'package:gamesarena/shared/widgets/app_appbar.dart';
 
 import '../../../shared/utils/constants.dart';
 import '../../../shared/widgets/action_button.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../game/models/game_info.dart';
 import '../utils/about_game_words.dart';
 
@@ -105,9 +106,12 @@ class _AboutGamePageState extends State<AboutGamePage> {
                 ],
         ),
       ),
-      bottomNavigationBar: ActionButton("Got It", onPressed: () {
-        Navigator.of(context).pop();
-      }, height: 50, half: true),
+      bottomNavigationBar: AppButton(
+          title: "Got It",
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          height: 50),
     );
   }
 }

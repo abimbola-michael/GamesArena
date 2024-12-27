@@ -11,6 +11,7 @@ import '../../../shared/extensions/special_context_extensions.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/views/loading_overlay.dart';
 import '../../../shared/widgets/app_appbar.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_search_bar.dart';
 import '../../game/models/player.dart';
 import '../../game/services.dart';
@@ -263,6 +264,30 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
     return isPlaying;
   }
 
+  void executeAction() async {
+    if (selectedUsers.length < minPlayers) {
+      showErrorToast(
+          "There should be at least $minPlayers players in a ${type == "group" ? "group" : "$game game"}");
+      return;
+    } else if (selectedUsers.length > maxPlayers) {
+      showErrorToast(
+          "There can only be $maxPlayers number of players in a ${type == "group" ? "group" : "$game game"}");
+      return;
+    }
+    if (type == "group" && widget.gameId == null) {
+      final finish = await (Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => NewGroupPage(users: selectedUsers)))) as bool?;
+      if (finish != null) {
+        if (!context.mounted) return;
+        Navigator.pop(context);
+      }
+    } else {
+      final isPlaying = await checkIfAnyPlayerIsPlayingMatch();
+      if (isPlaying || !context.mounted) return;
+      Navigator.pop(context, selectedUsers.map((e) => e.user_id).toList());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final searchString = ref.watch(searchPlayersProvider);
@@ -300,7 +325,7 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
                     : "$game game",
                 subtitle: type == "group"
                     ? "Add Players"
-                    : "Select Player${maxPlayers == 2 ? "" : "s"}${widget.groupName != null ? "from ${widget.groupName}" : ""}",
+                    : "Select Player${maxPlayers == 2 ? "" : "s"}${widget.groupName != null ? " from ${widget.groupName}" : ""}",
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -467,37 +492,9 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
         ),
         bottomNavigationBar: loading
             ? null
-            : ActionButton(
-                type == "group" ? "Next" : "Play",
-                onPressed: () async {
-                  if (selectedUsers.length < minPlayers) {
-                    showErrorToast(
-                        "There should be at least $minPlayers players in a ${type == "group" ? "group" : "$game game"}");
-                    return;
-                  } else if (selectedUsers.length > maxPlayers) {
-                    showErrorToast(
-                        "There can only be $maxPlayers number of players in a ${type == "group" ? "group" : "$game game"}");
-                    return;
-                  }
-                  if (type == "group" && widget.gameId == null) {
-                    final finish = await (Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (context) =>
-                                NewGroupPage(users: selectedUsers)))) as bool?;
-                    if (finish != null) {
-                      if (!context.mounted) return;
-                      Navigator.pop(context);
-                    }
-                  } else {
-                    final isPlaying = await checkIfAnyPlayerIsPlayingMatch();
-                    if (isPlaying || !context.mounted) return;
-                    Navigator.pop(
-                        context, selectedUsers.map((e) => e.user_id).toList());
-                  }
-                },
-                height: 50,
-                wrap: true,
-              ),
+            : AppButton(
+                title: type == "group" ? "Next" : "Play",
+                onPressed: executeAction),
       ),
     );
   }

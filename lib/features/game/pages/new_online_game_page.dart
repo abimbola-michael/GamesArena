@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:gamesarena/core/firebase/extensions/firestore_extensions.dart';
+import 'package:gamesarena/features/game/widgets/profile_photo.dart';
 import 'package:gamesarena/features/user/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'package:gamesarena/shared/extensions/special_context_extensions.dart';
 import 'package:gamesarena/theme/colors.dart';
 import '../../../shared/dialogs/comfirmation_dialog.dart';
 import '../../../shared/widgets/app_appbar.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../group/services.dart';
 import '../../user/widgets/user_item.dart';
 import '../../../shared/services.dart';
@@ -20,6 +22,7 @@ import '../../../shared/utils/utils.dart';
 import '../models/player.dart';
 import '../services.dart';
 import '../utils.dart';
+import '../widgets/players_profile_photo.dart';
 
 class NewOnlineGamePage extends StatefulWidget {
   final String game;
@@ -54,6 +57,7 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
   String gameId = "";
   String game = "";
   String type = "";
+  String profilePhoto = "";
   String name = "" /*, creatorName = ""*/;
   String creatorId = "";
   bool creatorIsMe = false;
@@ -121,14 +125,8 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
     getPlayersPlaying();
   }
 
-  String get creatorName =>
-      users
-          .firstWhere(
-            (user) => user?.user_id == myId,
-            orElse: () => null,
-          )
-          ?.username ??
-      "";
+  User? get creator =>
+      users.firstWhereNullable((user) => user?.user_id == myId);
 
   @override
   void deactivate() {
@@ -152,7 +150,7 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
   }
 
   void leave() async {
-    await leaveMatch(gameId, matchId, match, players, false, 0, 0);
+    await leaveMatch(gameId, matchId, match, players);
   }
 
   void join() async {
@@ -193,6 +191,7 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
 
   void getPlayersPlaying() async {
     match ??= await getMatch(gameId, matchId);
+    readGame();
 
     playingSub = getPlayersChange(gameId, matchId: matchId, excludingMe: false)
         .listen((playersChanges) async {
@@ -284,12 +283,22 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
   }
 
   void readGame() async {
-    final game = await getGame(gameId);
-    if (game != null) {
-      if (game.groupName != null) {
-        name = game.groupName!;
-      }
+    if (match == null) return;
+    if (match!.users == null && match!.players != null) {
+      List<User> users = await playersToUsers(match!.players!);
+      match!.users = users;
+    } else if (match!.players == null || match!.players!.isEmpty) {
+      final game = await getGame(match!.game_id!);
+      match!.game = game;
     }
+    if (match!.users != null && match!.users!.isNotEmpty) {
+      name = getOtherPlayersUsernames(match!.users!);
+    } else if (match!.game != null) {
+      name = match!.game!.groupName!;
+      profilePhoto = match!.game!.profilePhoto ?? "";
+      //game = match!.game ?? "";
+    }
+
     if (!mounted) return;
     setState(() {});
   }
@@ -395,18 +404,16 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
                         Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            CircleAvatar(
-                              radius: 50,
-                              backgroundColor:
-                                  darkMode ? lightestWhite : lightestBlack,
-                              child: Text(
-                                creatorName.firstChar ?? "",
-                                style: const TextStyle(
-                                    fontSize: 30, color: Colors.blue),
-                              ),
-                            ),
+                            if (match?.users != null)
+                              PlayersProfilePhoto(
+                                users: match!.users!,
+                                withoutMyId: true,
+                              )
+                            else
+                              ProfilePhoto(
+                                  profilePhoto: profilePhoto, name: name),
                             Text(
-                              creatorName,
+                              name,
                               style: const TextStyle(fontSize: 18),
                               textAlign: TextAlign.center,
                             ),
@@ -415,16 +422,21 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
                             ),
                             Padding(
                               padding: const EdgeInsets.all(16.0),
-                              child: Text(
-                                "Online $game game",
-                                // players.isEmpty
-                                //     ? ""
-                                //     : creatorIsMe
-                                //         ? "You created a $game game with ${otherUsernames.toStringWithCommaandAnd((username) => username)}"
-                                //         : "$creatorName will like to play $game game with ${otherUsernames.toStringWithCommaandAnd((username) => username)}",
-                                style: const TextStyle(
-                                    fontSize: 20, fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    "Online $game game",
+                                    style: context.bodyLarge
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  Text(
+                                    "From ${creator?.username ?? ""}",
+                                    style: context.bodyMedium,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -457,42 +469,30 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
         // ? null
         // :
         bottomNavigationBar: Container(
-          height: 50,
+          //height: 50,
           width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 10),
+          //margin: const EdgeInsets.only(bottom: 10),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              ActionButton(
-                creatorIsMe ? "Cancel" : "Dismiss",
-                onPressed: goBack,
-                // onPressed: () {
-                //   if (creatorIsMe) {
-                //     cancel();
-                //   } else {
-                //     leave();
-                //   }
-                // },
-                height: 50,
-                width: 150,
-                margin: 0,
-                color: darkMode ? lightestWhite : lightestBlack,
-                textColor: darkMode ? white : black,
+              Expanded(
+                child: AppButton(
+                  title: creatorIsMe ? "Cancel" : "Dismiss",
+                  onPressed: goBack,
+                  bgColor: Colors.red,
+                ),
               ),
               if (!creatorIsMe) ...[
-                const SizedBox(
-                  width: 20,
-                ),
-                ActionButton(
-                  "Join",
-                  onPressed: () {
-                    join();
-                  },
-                  height: 50,
-                  width: 150,
-                  margin: 0,
-                  color: Colors.blue,
-                  textColor: Colors.white,
+                // const SizedBox(
+                //   width: 20,
+                // ),
+                Expanded(
+                  child: AppButton(
+                    title: "Join",
+                    onPressed: () {
+                      join();
+                    },
+                  ),
                 ),
               ],
             ],

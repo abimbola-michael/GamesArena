@@ -39,8 +39,8 @@ class _UserGamesSelectionPageState extends ConsumerState<UserGamesSelectionPage>
   void initState() {
     super.initState();
     getUserGamesMap();
-    tabController = TabController(
-        length: allGameCategories.length, vsync: this, initialIndex: 0);
+    tabController =
+        TabController(length: allGameCategories.length, vsync: this);
   }
 
   @override
@@ -135,7 +135,7 @@ class _UserGamesSelectionPageState extends ConsumerState<UserGamesSelectionPage>
                 onCloseSearch: stopSearch,
               )
             : AppAppBar(
-                title: "My Games",
+                title: "${widget.gameId != null ? "Group" : "My"} Games",
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

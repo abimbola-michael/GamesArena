@@ -490,7 +490,8 @@
 //     return index == 0 ? 1 : 0;
 //   }
 
-//   String getActionButton() {
+//   String getAppButton(
+//title:) {
 //     if (gameMode == GameMode.idle) {
 //       return "Play Game";
 //     } else if (gameMode == GameMode.paused) {

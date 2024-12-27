@@ -8,17 +8,16 @@ import 'package:icons_plus/icons_plus.dart';
 import '../../../shared/models/models.dart';
 
 class WatchGameControlsView extends StatefulWidget {
-  final StreamController<int> watchTimerController;
+  final StreamController<double> watchTimerController;
   final int playersSize;
   final List<User?>? users;
   final List<Player>? players;
   final bool watching;
   final bool showWatchControls;
   final bool loadingDetails;
-  final int timeStart;
-  final int watchTime;
-  final int? timeEnd;
-  final int duration;
+  final bool finishedRound;
+  final double duration;
+  final double endDuration;
 
   final VoidCallback onPressed;
 
@@ -27,16 +26,14 @@ class WatchGameControlsView extends StatefulWidget {
   final VoidCallback onRewind;
   final VoidCallback onForward;
   final VoidCallback onPlayPause;
-  final void Function(int watchTime) onSeek;
+  final void Function(double duration) onSeek;
 
   const WatchGameControlsView(
       {super.key,
       required this.watchTimerController,
       required this.playersSize,
-      required this.watchTime,
-      required this.timeStart,
-      required this.timeEnd,
       required this.duration,
+      required this.endDuration,
       required this.onPressed,
       required this.onPrevious,
       required this.onNext,
@@ -47,6 +44,7 @@ class WatchGameControlsView extends StatefulWidget {
       required this.watching,
       required this.showWatchControls,
       required this.loadingDetails,
+      required this.finishedRound,
       this.users,
       this.players});
 
@@ -54,25 +52,29 @@ class WatchGameControlsView extends StatefulWidget {
   State<WatchGameControlsView> createState() => _WatchGameControlsViewState();
 }
 
-class _WatchGameControlsViewState extends State<WatchGameControlsView> {
+class _WatchGameControlsViewState extends State<WatchGameControlsView>
+// with SingleTickerProviderStateMixin
+{
   bool isRemaining = false;
-
-  // int get gameDuration => widget.timeEnd != null
-  //     ? widget.timeEnd! - widget.timeStart
-  //     : widget.duration;
-  double get end =>
-      widget.timeEnd?.toDouble() ??
-      (widget.timeStart + widget.duration).toDouble();
+  //late AnimationController animationController;
 
   @override
   void initState() {
     super.initState();
+    // animationController =
+    //     AnimationController(vsync: this, duration: const Duration(seconds: 1));
   }
 
   @override
   void dispose() {
+    // animationController.dispose();
     super.dispose();
   }
+
+  // void startAnimation() {
+
+  //   animationController.forward(from: 0);
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -139,69 +141,67 @@ class _WatchGameControlsViewState extends State<WatchGameControlsView> {
                       ),
                     ],
                   ),
-                  StreamBuilder<int>(
+                  StreamBuilder<double>(
                       stream: widget.watchTimerController.stream,
                       builder: (context, snapshot) {
-                        final watchTime = snapshot.data ?? widget.watchTime;
-                        return SizedBox(
-                          height: 50,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: 40,
+                        final duration = snapshot.data ?? widget.duration;
+                        // startAnimation();
+                        // return AnimatedBuilder(
+                        //     animation: animationController,
+                        //     builder: (context, child) {
+                        //       final value = animationController.value;
+                        //       final duration = durationValue + value;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(
+                              left: 10, right: 10, bottom: 30),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 40,
+                                child: Text(
+                                  duration.toInt().toDurationString(true),
+                                  style: context.bodySmall
+                                      ?.copyWith(color: Colors.white),
+                                ),
+                              ),
+                              Expanded(
+                                child: Slider(
+                                    value: duration < 0
+                                        ? 0
+                                        : duration > widget.endDuration
+                                            ? widget.endDuration
+                                            : duration,
+                                    min: 0,
+                                    max: widget.endDuration,
+                                    onChanged: (pos) => widget.onSeek(pos)),
+                              ),
+                              SizedBox(
+                                width: 40,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    isRemaining = !isRemaining;
+                                    setState(() {});
+                                  },
                                   child: Text(
-                                    ((watchTime - widget.timeStart) ~/ 1000)
-                                        .toDurationString(),
-                                    style: context.bodySmall
-                                        ?.copyWith(color: Colors.white),
+                                    !widget.finishedRound
+                                        ? "Live"
+                                        : (isRemaining
+                                                ? widget.endDuration - duration
+                                                : widget.endDuration)
+                                            .toInt()
+                                            .toDurationString(true),
+                                    style: context.bodySmall?.copyWith(
+                                        color: !widget.finishedRound
+                                            ? Colors.red
+                                            : Colors.white),
                                   ),
                                 ),
-                                Expanded(
-                                  child: Slider(
-                                      value: watchTime < widget.timeStart
-                                          ? widget.timeStart.toDouble()
-                                          : watchTime > end
-                                              ? end
-                                              : watchTime.toDouble(),
-                                      min: widget.timeStart.toDouble(),
-                                      max: end,
-                                      onChanged: (pos) =>
-                                          widget.onSeek(pos.toInt())),
-                                ),
-                                SizedBox(
-                                  width: 40,
-                                  child: GestureDetector(
-                                    onTap: widget.timeEnd == null
-                                        ? null
-                                        : () {
-                                            isRemaining = !isRemaining;
-                                            setState(() {});
-                                          },
-                                    child: Text(
-                                      widget.timeEnd == null
-                                          ? "Live"
-                                          : isRemaining
-                                              ? ((widget.timeEnd! -
-                                                          watchTime) ~/
-                                                      1000)
-                                                  .toDurationString()
-                                              : ((widget.timeEnd! -
-                                                          widget.timeStart) ~/
-                                                      1000)
-                                                  .toDurationString(),
-                                      style: context.bodySmall?.copyWith(
-                                          color: widget.timeEnd == null
-                                              ? Colors.red
-                                              : Colors.white),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         );
+                        // });
                       })
                 ],
               ),

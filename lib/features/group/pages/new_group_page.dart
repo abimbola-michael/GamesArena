@@ -7,6 +7,7 @@ import 'package:gamesarena/shared/widgets/app_appbar.dart';
 import 'package:gamesarena/shared/widgets/app_text_field.dart';
 import '../../../shared/extensions/special_context_extensions.dart';
 import '../../../shared/views/loading_overlay.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../user/services.dart';
 import '../../user/widgets/user_item.dart';
 import '../../../shared/models/models.dart';
@@ -39,6 +40,30 @@ class _NewGroupPageState extends State<NewGroupPage> {
     super.dispose();
   }
 
+  void createGroup() async {
+    if (!(formFieldStateKey.currentState?.validate() ?? false)) return;
+    final groupname = controller.text;
+
+    if (creating) return;
+    if (groupname.isEmpty) {
+      showToast("Group name is required");
+      return;
+    }
+    setState(() {
+      creating = true;
+    });
+    try {
+      await createGameGroup(
+          groupname, widget.users.map((e) => e.user_id).toList());
+      if (!mounted) return;
+      context.pop(true);
+    } catch (e) {
+      setState(() {
+        creating = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -62,13 +87,14 @@ class _NewGroupPageState extends State<NewGroupPage> {
                   style: const TextStyle(
                       fontSize: 16, fontWeight: FontWeight.bold),
                 ),
+                const SizedBox(height: 10),
                 Expanded(
                   child: GridView.builder(
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 4),
                       shrinkWrap: true,
-                      padding: const EdgeInsets.all(16),
+                      //padding: const EdgeInsets.all(16),
                       itemCount: widget.users.length,
                       itemBuilder: (context, index) {
                         final user = widget.users[index];
@@ -84,38 +110,10 @@ class _NewGroupPageState extends State<NewGroupPage> {
           ),
         ),
       ),
-      bottomNavigationBar: ActionButton(
-        "Create",
-        onPressed: () {
-          createGroup();
-        },
-        height: 50,
-        wrap: true,
+      bottomNavigationBar: AppButton(
+        title: "Create",
+        onPressed: createGroup,
       ),
     );
-  }
-
-  void createGroup() async {
-    if (!(formFieldStateKey.currentState?.validate() ?? false)) return;
-    final groupname = controller.text;
-
-    if (creating) return;
-    if (groupname.isEmpty) {
-      showToast("Group name is required");
-      return;
-    }
-    setState(() {
-      creating = true;
-    });
-    try {
-      await createGameGroup(
-          groupname, widget.users.map((e) => e.user_id).toList());
-      if (!mounted) return;
-      context.pop(true);
-    } catch (e) {
-      setState(() {
-        creating = false;
-      });
-    }
   }
 }

@@ -9,6 +9,7 @@ import '../../../main.dart';
 import '../../../shared/utils/constants.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/widgets/action_button.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../about/pages/about_game_page.dart';
 import '../../app_info/pages/app_info_page.dart';
 import '../../profile/pages/profile_page.dart';
@@ -75,12 +76,12 @@ class _HomeDrawerState extends ConsumerState<HomeDrawer> {
                   DrawerHeader(
                       child: myId.isEmpty
                           ? Center(
-                              child: ActionButton(
-                                "Login",
+                              child: AppButton(
+                                title: "Login",
                                 onPressed: () {
                                   gotoLoginPage();
                                 },
-                                wrap: true,
+                                wrapped: true,
                               ),
                             )
                           : Column(

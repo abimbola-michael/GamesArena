@@ -7,21 +7,25 @@ import 'package:icons_plus/icons_plus.dart';
 import '../../../theme/colors.dart';
 
 class MatchOrRoundHeaderItem extends StatelessWidget {
+  final String? title;
   final bool isRecord;
   final String timeStart;
   final String? timeEnd;
   final List<String> players;
+  final String game;
   final String outcome;
   final int index;
   final VoidCallback onWatchPressed;
   const MatchOrRoundHeaderItem(
       {super.key,
-      required this.isRecord,
+      this.title,
+      this.isRecord = false,
       required this.timeStart,
       this.timeEnd,
+      required this.game,
       required this.players,
       required this.outcome,
-      required this.index,
+      this.index = 0,
       required this.onWatchPressed});
 
   String getGameTime() {
@@ -57,7 +61,8 @@ class MatchOrRoundHeaderItem extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        "${isRecord ? "Record" : "Round"} ${index + 1}",
+                        title ??
+                            "${isRecord ? "Record" : "Round"} ${index + 1}",
                         style: context.bodyLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                             fontSize: isRecord ? 16 : 14),
@@ -74,7 +79,7 @@ class MatchOrRoundHeaderItem extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        "${players.length} players, $outcome",
+                        "${players.length} players, $outcome, $game",
                         style: context.bodySmall?.copyWith(color: lightTint),
                       ),
                     ),

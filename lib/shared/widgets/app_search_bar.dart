@@ -37,67 +37,70 @@ class _AppSearchBarState extends State<AppSearchBar> {
       height: 60 + statusBarHeight,
       //left: 15, right: 15,
       padding: EdgeInsets.only(top: statusBarHeight),
-      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        color: lightestTint,
-      ),
-      child: widget.controller != null || widget.onChanged != null
-          ? Row(
-              children: [
-                if (widget.onCloseSearch != null)
-                  IconButton(
-                    onPressed: widget.onCloseSearch,
-                    icon: const Icon(EvaIcons.arrow_back_outline),
-                    color: tint,
-                  ),
-                Expanded(
-                  child: TextField(
-                    autofocus: true,
-                    onTap: widget.onPressed,
-                    controller: widget.controller,
-                    onChanged: (value) {
-                      setState(() {});
-                      widget.onChanged?.call(value);
-                    },
-                    style: context.bodyMedium?.copyWith(color: tint),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: widget.hint,
-                      hintStyle:
-                          context.bodyMedium?.copyWith(color: lighterTint),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ),
-                if (widget.controller != null &&
-                    widget.controller!.text.isNotEmpty) ...[
-                  IconButton(
-                    onPressed: () => widget.controller?.clear(),
-                    icon: const Icon(EvaIcons.close_outline),
-                    color: tint,
-                  ),
-                  if (widget.onPressedSearch != null)
+      //margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+
+      child: Container(
+        decoration: BoxDecoration(
+          //borderRadius: BorderRadius.circular(10),
+          color: lightestTint,
+        ),
+        child: widget.controller != null || widget.onChanged != null
+            ? Row(
+                children: [
+                  if (widget.onCloseSearch != null)
                     IconButton(
-                      onPressed: widget.onPressedSearch,
-                      icon: const Icon(EvaIcons.checkmark),
+                      onPressed: widget.onCloseSearch,
+                      icon: const Icon(EvaIcons.arrow_back_outline),
                       color: tint,
                     ),
+                  Expanded(
+                    child: TextField(
+                      autofocus: true,
+                      onTap: widget.onPressed,
+                      controller: widget.controller,
+                      onChanged: (value) {
+                        setState(() {});
+                        widget.onChanged?.call(value);
+                      },
+                      style: context.bodyMedium?.copyWith(color: tint),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: widget.hint,
+                        hintStyle:
+                            context.bodyMedium?.copyWith(color: lighterTint),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                  if (widget.controller != null &&
+                      widget.controller!.text.isNotEmpty) ...[
+                    IconButton(
+                      onPressed: () => widget.controller?.clear(),
+                      icon: const Icon(EvaIcons.close_outline),
+                      color: tint,
+                    ),
+                    if (widget.onPressedSearch != null)
+                      IconButton(
+                        onPressed: widget.onPressedSearch,
+                        icon: const Icon(EvaIcons.checkmark),
+                        color: tint,
+                      ),
+                  ],
                 ],
-              ],
-            )
-          : GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: widget.onPressed,
-              child: SizedBox(
-                width: double.infinity,
-                child: Text(
-                  widget.hint,
-                  style: context.bodyMedium?.copyWith(color: lighterTint),
+              )
+            : GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: widget.onPressed,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    widget.hint,
+                    style: context.bodyMedium?.copyWith(color: lighterTint),
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 

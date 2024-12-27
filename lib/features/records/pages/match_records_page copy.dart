@@ -51,7 +51,7 @@
 //     }
 //     users = match.users!;
 //     matchRecords = getMatchRecords(match);
-//     //allScores = getMatchScores(match);
+//     //allScores = getMatchOverallTotalScores(match);
 
 //     if (!mounted) return;
 //     setState(() {});
@@ -302,7 +302,8 @@
 //       ),
 //       bottomNavigationBar: matchRecords.isEmpty
 //           ? null
-//           : ActionButton(
+//           : AppButton(
+//title:
 //               "Watch",
 //               onPressed: () {
 //                 final game = matchRecords.first.game;
@@ -311,7 +312,7 @@
 //               },
 //               height: 50,
 //               color: Colors.blue,
-//               wrap: true,
+//               wrapped: true,
 //             ),
 //     );
 //   }

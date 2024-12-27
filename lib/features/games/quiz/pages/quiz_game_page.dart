@@ -21,6 +21,8 @@ import 'package:icons_plus/icons_plus.dart';
 import 'package:openai_dart/openai_dart.dart';
 
 import '../../../../../enums/emums.dart';
+import '../../../../shared/views/error_or_success_view.dart';
+import '../../../../shared/widgets/app_button.dart';
 import '../../../game/models/game_action.dart';
 import '../../../game/pages/game_page.dart';
 import '../../../../shared/views/loading_view.dart';
@@ -57,6 +59,7 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
   Dio dio = Dio();
   int quizGenerateTrialCount = 0;
   int quizGenerateTrialMaxCount = 10;
+  String error = "";
 
   Future<List<Quiz>> generateQuizzes() async {
     List<Quiz> quizzes = [];
@@ -75,6 +78,14 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
       final questionsList = jsonDecode(jsonString) as List;
       quizzes = questionsList.map((e) => Quiz.fromMap(e)).toList();
     } catch (e) {
+      if (e is GeminiException &&
+          e.message.toString().trim().startsWith("The connection errored")) {
+        error =
+            "Unable to generate quizzes. Make sure you are connected to the internet";
+      } else {
+        error = "Oops, Something went wrong";
+      }
+
       print('Error: $e');
 
       quizGenerateTrialCount++;
@@ -121,9 +132,11 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
     } else {
       loadingQuizzes = true;
       setState(() {});
-      quizzes =
-          testQuizzes.skip(10).take(10).map((e) => Quiz.fromMap(e)).toList();
-      //quizzes = await generateQuizzes();
+      // quizzes =
+      //     testQuizzes.skip(10).take(10).map((e) => Quiz.fromMap(e)).toList();
+
+      quizzes = await generateQuizzes();
+
       loadingQuizzes = false;
       updateGridDetails(jsonEncode(quizzes));
     }
@@ -133,7 +146,7 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
       updateCount(i, 0);
     }
     if (quizzes.isNotEmpty) {
-      playerTime = quizzes.first.durationInSecs;
+      resetPlayerTime(quizzes.first.durationInSecs);
       stopPlayerTime = false;
     }
 
@@ -252,7 +265,8 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
   void gotoPreviousQuestion() {
     if (currentQuestion <= 0) return;
     currentQuestion--;
-    playerTime = quizzes[currentQuestion].durationInSecs;
+    //playerTime = quizzes[currentQuestion].durationInSecs;
+    resetPlayerTime(quizzes[currentQuestion].durationInSecs);
 
     scrollToPage();
   }
@@ -260,7 +274,7 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
   void gotoNextQuestion() {
     if (currentQuestion >= quizzes.length - 1) return;
     currentQuestion++;
-    playerTime = quizzes[currentQuestion].durationInSecs;
+    resetPlayerTime(quizzes[currentQuestion].durationInSecs);
 
     scrollToPage();
   }
@@ -410,11 +424,7 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
 
   @override
   Widget buildBody(BuildContext context) {
-    if (loadingQuizzes) {
-      return const LoadingView();
-    }
-    if (playersQuizzes.isEmpty) return Container();
-    final quizzes = playersQuizzes[currentPlayer];
+    final quizzes = playersQuizzes.isEmpty ? [] : playersQuizzes[currentPlayer];
 
     return Center(
       child: AspectRatio(
@@ -425,118 +435,155 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
               decoration: BoxDecoration(border: Border.all(color: tint)),
               height: double.infinity,
               width: double.infinity,
-              child: Column(
-                children: [
-                  Text(
-                    gameName,
-                    style: context.headlineLarge
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: PageView.builder(
-                        physics: finishedAnsweringQuestions
-                            ? const AlwaysScrollableScrollPhysics()
-                            : const NeverScrollableScrollPhysics(),
-                        controller: quizPageController,
-                        itemCount: quizzes.length,
-                        onPageChanged: (page) {
-                          currentQuestion = page;
-                        },
-                        itemBuilder: (context, index) {
-                          final quiz = quizzes[index];
-                          return Column(
-                            children: [
-                              Expanded(
-                                child: Center(
-                                  child: SingleChildScrollView(
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 20, horizontal: 10),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            "Question ${currentQuestion + 1} / ${quizzes.length}",
-                                            style: context.bodyMedium?.copyWith(
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.bold),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            quizzes[currentQuestion].question,
-                                            style: context.bodyMedium
-                                                ?.copyWith(fontSize: 18),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                          if (index <= answeredQuestion) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              quizzes[currentQuestion]
-                                                  .answerExplanation,
-                                              style: context.bodySmall
-                                                  ?.copyWith(
-                                                      fontSize: 14,
-                                                      color: lightTint),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  ),
+              child: loadingQuizzes
+                  ? const LoadingView()
+                  : error.isNotEmpty
+                      ? ErrorOrSuccessView(
+                          message: error,
+                          onPressed: initQuizzes,
+                        )
+                      : playersQuizzes.isEmpty
+                          ? null
+                          : Column(
+                              children: [
+                                Text(
+                                  gameName,
+                                  style: context.headlineLarge
+                                      ?.copyWith(fontWeight: FontWeight.bold),
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              Container(
-                                height: 120,
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(10),
-                                child: LayoutBuilder(
-                                    builder: (context, constraints) {
-                                  return Wrap(
-                                    children: List.generate(quiz.options.length,
-                                        (qindex) {
-                                      final option = quiz.options[qindex];
+                                const SizedBox(height: 10),
+                                Expanded(
+                                  child: PageView.builder(
+                                      physics: finishedAnsweringQuestions
+                                          ? const AlwaysScrollableScrollPhysics()
+                                          : const NeverScrollableScrollPhysics(),
+                                      controller: quizPageController,
+                                      itemCount: quizzes.length,
+                                      onPageChanged: (page) {
+                                        currentQuestion = page;
+                                      },
+                                      itemBuilder: (context, index) {
+                                        final quiz = quizzes[index];
+                                        return Column(
+                                          children: [
+                                            Expanded(
+                                              child: Center(
+                                                child: SingleChildScrollView(
+                                                  child: Padding(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        vertical: 20,
+                                                        horizontal: 10),
+                                                    child: Column(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        Text(
+                                                          "Question ${currentQuestion + 1} / ${quizzes.length}",
+                                                          style: context
+                                                              .bodyMedium
+                                                              ?.copyWith(
+                                                                  fontSize: 20,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold),
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                        ),
+                                                        const SizedBox(
+                                                            height: 4),
+                                                        Text(
+                                                          quizzes[currentQuestion]
+                                                              .question,
+                                                          style: context
+                                                              .bodyMedium
+                                                              ?.copyWith(
+                                                                  fontSize: 18),
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                        ),
+                                                        if (index <=
+                                                            answeredQuestion) ...[
+                                                          const SizedBox(
+                                                              height: 4),
+                                                          Text(
+                                                            quizzes[currentQuestion]
+                                                                .answerExplanation,
+                                                            style: context
+                                                                .bodySmall
+                                                                ?.copyWith(
+                                                                    fontSize:
+                                                                        14,
+                                                                    color:
+                                                                        lightTint),
+                                                            textAlign: TextAlign
+                                                                .center,
+                                                          ),
+                                                        ],
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Container(
+                                              height: 120,
+                                              width: double.infinity,
+                                              padding: const EdgeInsets.all(10),
+                                              child: LayoutBuilder(builder:
+                                                  (context, constraints) {
+                                                return Wrap(
+                                                  children: List.generate(
+                                                      quiz.options.length,
+                                                      (qindex) {
+                                                    final option =
+                                                        quiz.options[qindex];
 
-                                      final rightAnswer =
-                                          index > answeredQuestion
-                                              ? null
-                                              : quiz.answerIndex;
+                                                    final rightAnswer =
+                                                        index > answeredQuestion
+                                                            ? null
+                                                            : quiz.answerIndex;
 
-                                      return SizedBox(
-                                        width: constraints.maxWidth / 2,
-                                        height: 50,
-                                        child: QuizOptionButton(
-                                            key: Key(option),
-                                            option: option,
-                                            index: qindex,
-                                            selectedAnswer:
-                                                playersQuizzes[currentPlayer]
-                                                            [index]
-                                                        .selectedAnswer ??
-                                                    selectedAnswer,
-                                            rightAnswer: rightAnswer,
-                                            blink: firstTime &&
-                                                !finishedAnsweringQuestions &&
-                                                qindex != selectedAnswer &&
-                                                qindex != rightAnswer,
-                                            gameId: gameId,
-                                            onPressed: () {
-                                              selectAnswer(qindex);
-                                            }),
-                                      );
-                                    }),
-                                  );
-                                }),
-                              )
-                            ],
-                          );
-                        }),
-                  ),
-                ],
-              ),
+                                                    return SizedBox(
+                                                      width:
+                                                          constraints.maxWidth /
+                                                              2,
+                                                      height: 50,
+                                                      child: QuizOptionButton(
+                                                          key: Key(option),
+                                                          option: option,
+                                                          index: qindex,
+                                                          selectedAnswer:
+                                                              playersQuizzes[currentPlayer]
+                                                                          [
+                                                                          index]
+                                                                      .selectedAnswer ??
+                                                                  selectedAnswer,
+                                                          rightAnswer:
+                                                              rightAnswer,
+                                                          blink: firstTime &&
+                                                              !finishedAnsweringQuestions &&
+                                                              qindex !=
+                                                                  selectedAnswer &&
+                                                              qindex !=
+                                                                  rightAnswer,
+                                                          gameId: gameId,
+                                                          onPressed: () {
+                                                            selectAnswer(
+                                                                qindex);
+                                                          }),
+                                                    );
+                                                  }),
+                                                );
+                                              }),
+                                            )
+                                          ],
+                                        );
+                                      }),
+                                ),
+                              ],
+                            ),
             ),
           )),
     );
@@ -613,10 +660,14 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
               selectedAnswer != null &&
               playersQuizzes[currentPlayer][currentQuestion].selectedAnswer ==
                   null)
-            ActionButton(height: 50, wrap: true, "Submit", color: Colors.purple,
+            AppButton(
+                title: "Submit",
+                height: 50,
+                wrapped: true,
+                color: Colors.purple,
                 onPressed: () {
-              submitAnswer(selectedAnswer, currentPlayer);
-            })
+                  submitAnswer(selectedAnswer, currentPlayer);
+                })
           else if (!finishedAnsweringQuestions)
             const SizedBox(height: 70),
         ],

@@ -115,92 +115,90 @@ class _SettingsAndMorePageState extends State<SettingsAndMorePage> {
         title: "Settings and More",
       ),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SettingsCategoryItem(title: "Account", children: [
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SettingsCategoryItem(title: "Account", children: [
+              SettingsItem(
+                title: "Change Email",
+                icon: OctIcons.mail,
+                onPressed: changeEmail,
+              ),
+              SettingsItem(
+                title: "Change Password",
+                icon: OctIcons.lock,
+                onPressed: changePassword,
+              ),
+              SettingsItem(
+                title: "Logout",
+                icon: Icons.exit_to_app_outlined,
+                onPressed: logout,
+              ),
+              SettingsItem(
+                title: "Delete Account",
+                icon: OctIcons.trash,
+                color: Colors.red,
+                onPressed: deleteAccount,
+              ),
+            ]),
+            SettingsCategoryItem(title: "More", children: [
+              SettingsItem(
+                title: "About",
+                icon: OctIcons.info,
+                onPressed: gotoAbout,
+              ),
+              SettingsItem(
+                title: "Terms and Conditions",
+                icon: OctIcons.info,
+                onPressed: gotoTermsAndConditions,
+              ),
+              SettingsItem(
+                title: "Privacy Polices",
+                icon: OctIcons.info,
+                onPressed: gotoPrivacyPoilicies,
+              ),
+              SettingsItem(
+                title: "Help",
+                icon: OctIcons.mail,
+                onPressed: gotoHelpCenter,
+              ),
+              SettingsItem(
+                title: "Contact Us",
+                icon: OctIcons.mail,
+                onPressed: gotoContactUs,
+              ),
+              if (isAndroidAndIos)
                 SettingsItem(
-                  title: "Change Email",
-                  icon: OctIcons.mail,
-                  onPressed: changeEmail,
+                  title: "Invite a Contact",
+                  icon: OctIcons.person_add,
+                  onPressed: gotoInviteContact,
                 ),
-                SettingsItem(
-                  title: "Change Password",
-                  icon: OctIcons.lock,
-                  onPressed: changePassword,
-                ),
-                SettingsItem(
-                  title: "Logout",
-                  icon: Icons.exit_to_app_outlined,
-                  onPressed: logout,
-                ),
-                SettingsItem(
-                  title: "Delete Account",
-                  icon: OctIcons.trash,
-                  color: Colors.red,
-                  onPressed: deleteAccount,
-                ),
-              ]),
-              SettingsCategoryItem(title: "More", children: [
-                SettingsItem(
-                  title: "About",
-                  icon: OctIcons.info,
-                  onPressed: gotoAbout,
-                ),
-                SettingsItem(
-                  title: "Terms and Conditions",
-                  icon: OctIcons.info,
-                  onPressed: gotoTermsAndConditions,
-                ),
-                SettingsItem(
-                  title: "Privacy Polices",
-                  icon: OctIcons.info,
-                  onPressed: gotoPrivacyPoilicies,
-                ),
-                SettingsItem(
-                  title: "Help",
-                  icon: OctIcons.mail,
-                  onPressed: gotoHelpCenter,
-                ),
-                SettingsItem(
-                  title: "Contact Us",
-                  icon: OctIcons.mail,
-                  onPressed: gotoContactUs,
-                ),
-                if (isAndroidAndIos)
-                  SettingsItem(
-                    title: "Invite a Contact",
-                    icon: OctIcons.person_add,
-                    onPressed: gotoInviteContact,
-                  ),
-              ]),
-              // SettingsCategoryItem(title: "Follow Us", children: [
-              //   Row(
-              //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              //     children: [
-              //       IconButton(
-              //         onPressed: () {},
-              //         icon: const Icon(IonIcons.logo_instagram),
-              //       ),
-              //       IconButton(
-              //         onPressed: () {},
-              //         icon: const Icon(IonIcons.logo_twitter),
-              //       ),
-              //       IconButton(
-              //         onPressed: () {},
-              //         icon: const Icon(IonIcons.logo_facebook),
-              //       ),
-              //       IconButton(
-              //         onPressed: () {},
-              //         icon: const Icon(IonIcons.logo_tiktok),
-              //       ),
-              //     ],
-              //   )
-              // ])
-            ],
-          ),
+            ]),
+            // SettingsCategoryItem(title: "Follow Us", children: [
+            //   Row(
+            //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            //     children: [
+            //       IconButton(
+            //         onPressed: () {},
+            //         icon: const Icon(IonIcons.logo_instagram),
+            //       ),
+            //       IconButton(
+            //         onPressed: () {},
+            //         icon: const Icon(IonIcons.logo_twitter),
+            //       ),
+            //       IconButton(
+            //         onPressed: () {},
+            //         icon: const Icon(IonIcons.logo_facebook),
+            //       ),
+            //       IconButton(
+            //         onPressed: () {},
+            //         icon: const Icon(IonIcons.logo_tiktok),
+            //       ),
+            //     ],
+            //   )
+            // ])
+          ],
         ),
       ),
     );

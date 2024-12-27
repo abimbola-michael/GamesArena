@@ -1262,10 +1262,10 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
       x > gridSize - 1 || x < 0 || y > gridSize - 1 || y < 0;
 
   @override
-  int? maxGameTime = 10.minToSec;
+  int? maxGameTime;
 
   @override
-  int? maxPlayerTime;
+  int? maxPlayerTime = 10.minToSec;
 
   @override
   void onConcede(int index) {}

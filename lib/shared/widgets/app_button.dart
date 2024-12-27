@@ -16,6 +16,8 @@ class AppButton extends StatelessWidget {
   final double? radius;
   final Color? color;
   final Color? bgColor;
+  final Color? disabledColor;
+
   final TextStyle? textStyle;
   final double fontSize;
   final bool wrapped;
@@ -28,6 +30,7 @@ class AppButton extends StatelessWidget {
 
   const AppButton(
       {super.key,
+      this.disabledColor,
       this.title,
       this.textStyle,
       this.onPressed,
@@ -54,9 +57,10 @@ class AppButton extends StatelessWidget {
       //borderRadius: BorderRadius.circular(radius ?? 30),
       child: Container(
         width: width,
-        height: height ?? 35,
+        height: height ?? 40,
         padding: padding ?? const EdgeInsets.symmetric(horizontal: 12),
-        margin: margin,
+        margin:
+            margin ?? const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         alignment: wrapped ? null : Alignment.center,
         decoration: BoxDecoration(
           color: outlined
@@ -65,8 +69,8 @@ class AppButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(radius ?? 30),
           border: outlined
               ? Border.all(
-                  color:
-                      (bgColor ?? primaryColor).withOpacity(disabled ? 0.5 : 1),
+                  color: (color ?? bgColor ?? primaryColor)
+                      .withOpacity(disabled ? 0.5 : 1),
                   width: 1,
                 )
               : null,
@@ -105,6 +109,7 @@ class AppButton extends StatelessWidget {
                               color: color ?? white,
                               fontWeight: FontWeight.w500,
                               decoration: TextDecoration.none),
+                      textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:gamesarena/shared/utils/utils.dart';
 
 import '../../../shared/widgets/app_appbar.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../user/widgets/user_item.dart';
 import '../../../shared/models/models.dart';
 import '../../../shared/widgets/action_button.dart';
@@ -42,7 +43,7 @@ class _NewOfflineGamePageState extends State<NewOfflineGamePage> {
   }
 
   void gotoGame() {
-    gotoGamePage(context, game, "", "", playersSize: playersSize);
+    gotoGamePage(context, game, "", "", playersSize: playersSize, result: true);
   }
 
   void getGame() {
@@ -157,36 +158,32 @@ class _NewOfflineGamePageState extends State<NewOfflineGamePage> {
         ),
       ),
       bottomNavigationBar: Container(
-        height: 50,
+        //height: 50,
         width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 10),
+        //margin: const EdgeInsets.only(bottom: 10),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ActionButton(
-              "Cancel",
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              height: 50,
-              width: 150,
-              margin: 0,
-              color: darkMode ? lightestWhite : lightestBlack,
-              textColor: darkMode ? white : black,
+            Expanded(
+              child: AppButton(
+                title: "Cancel",
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                bgColor: Colors.red,
+                color: tint,
+              ),
             ),
-            const SizedBox(
-              width: 20,
-            ),
-            ActionButton(
-              "Start",
-              onPressed: () {
-                gotoGame();
-              },
-              height: 50,
-              width: 150,
-              margin: 0,
-              color: Colors.blue,
-              textColor: Colors.white,
+            // const SizedBox(
+            //   width: 20,
+            // ),
+            Expanded(
+              child: AppButton(
+                title: "Start",
+                onPressed: () {
+                  gotoGame();
+                },
+              ),
             ),
           ],
         ),

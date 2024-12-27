@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:gamesarena/features/game/widgets/match_scores_item.dart';
 import 'package:gamesarena/shared/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
@@ -55,7 +56,7 @@ class MatchListItem extends StatelessWidget {
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (getDateVisibility()) ...[
+              if (getDateVisibility() && !isMatchRecords) ...[
                 Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: Text(
@@ -69,13 +70,7 @@ class MatchListItem extends StatelessWidget {
                 onTap: () {
                   if (isMatchRecords) return;
                   context.pushTo(
-                    MatchRecordsPage(
-                      match: match,
-                      // users: users,
-                      // players: players,
-                      // matchRecords: matchRecords,
-                      // duration: duration,
-                    ),
+                    MatchRecordsPage(match: match),
                   );
                 },
                 child: Padding(
@@ -83,18 +78,22 @@ class MatchListItem extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   child: Row(
                     children: [
-                      Stack(
-                        children: [
-                          if (match.users != null)
-                            PlayersProfilePhoto(users: match.users!),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: MatchArrowSignal(
-                              match: match,
-                            ),
-                          )
-                        ],
+                      SizedBox(
+                        width: 50,
+                        height: 50,
+                        child: Stack(
+                          children: [
+                            if (match.users != null)
+                              PlayersProfilePhoto(users: match.users!),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: MatchArrowSignal(
+                                match: match,
+                              ),
+                            )
+                          ],
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -107,8 +106,9 @@ class MatchListItem extends StatelessWidget {
                                 Expanded(
                                   child: Text(
                                     getPlayersVs(match.users ?? []),
-                                    style: context.bodyMedium
-                                        ?.copyWith(color: tint),
+                                    style: context.bodyMedium?.copyWith(
+                                        color: tint,
+                                        fontWeight: FontWeight.bold),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -120,36 +120,37 @@ class MatchListItem extends StatelessWidget {
                               ],
                             ),
                             //const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    getMatchRecordMessage(match),
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: match.creator_id != myId &&
-                                              (match.time_start == "" ||
-                                                  match.time_start == null)
-                                          ? Colors.red
-                                          : lighterTint,
-                                    ),
-                                    // overflow: TextOverflow.ellipsis,
-                                    // maxLines: 1,
-                                  ),
-                                ),
-                                // if (duration.isNotEmpty) ...[
-                                //   const SizedBox(width: 10),
-                                //   Text(
-                                //     duration,
-                                //     style: context.bodySmall?.copyWith(
-                                //         color: duration == "live"
-                                //             ? primaryColor
-                                //             : lighterTint,
-                                //         fontSize: 10),
-                                //   ),
-                                // ]
-                              ],
-                            ),
+                            MatchScoresItem(match: match),
+                            // Row(
+                            //   children: [
+                            //     Expanded(
+                            //       child: Text(
+                            //         getMatchRecordMessage(match),
+                            //         style: TextStyle(
+                            //           fontSize: 12,
+                            //           color: match.creator_id != myId &&
+                            //                   (match.time_start == "" ||
+                            //                       match.time_start == null)
+                            //               ? Colors.red
+                            //               : lighterTint,
+                            //         ),
+                            //         // overflow: TextOverflow.ellipsis,
+                            //         // maxLines: 1,
+                            //       ),
+                            //     ),
+                            //     // if (duration.isNotEmpty) ...[
+                            //     //   const SizedBox(width: 10),
+                            //     //   Text(
+                            //     //     duration,
+                            //     //     style: context.bodySmall?.copyWith(
+                            //     //         color: duration == "live"
+                            //     //             ? primaryColor
+                            //     //             : lighterTint,
+                            //     //         fontSize: 10),
+                            //     //   ),
+                            //     // ]
+                            //   ],
+                            // ),
                           ],
                         ),
                       ),

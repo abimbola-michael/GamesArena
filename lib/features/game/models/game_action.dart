@@ -10,12 +10,15 @@ class GameAction {
   String game;
   bool hasDetails;
   List<Player> players;
+  List<int> playersLeft;
   Map<String, dynamic> args;
+
   GameAction({
     required this.action,
     required this.game,
     required this.hasDetails,
     required this.players,
+    required this.playersLeft,
     required this.args,
   });
 
@@ -24,6 +27,7 @@ class GameAction {
     String? game,
     bool? hasDetails,
     List<Player>? players,
+    List<int>? playersLeft,
     Map<String, dynamic>? args,
   }) {
     return GameAction(
@@ -31,6 +35,7 @@ class GameAction {
       game: game ?? this.game,
       hasDetails: hasDetails ?? this.hasDetails,
       players: players ?? this.players,
+      playersLeft: playersLeft ?? this.playersLeft,
       args: args ?? this.args,
     );
   }
@@ -41,22 +46,25 @@ class GameAction {
       'game': game,
       'hasDetails': hasDetails,
       'players': players.map((x) => x.toMap()).toList(),
+      'playersLeft': playersLeft,
       'args': args,
     };
   }
 
   factory GameAction.fromMap(Map<String, dynamic> map) {
     return GameAction(
-      action: map['action'] as String,
-      game: map['game'] as String,
-      hasDetails: map['hasDetails'] as bool,
-      players: List<Player>.from(
-        (map['players'] as List<dynamic>).map<Player>(
-          (x) => Player.fromMap(x as Map<String, dynamic>),
+        action: map['action'] as String,
+        game: map['game'] as String,
+        hasDetails: map['hasDetails'] as bool,
+        players: List<Player>.from(
+          (map['players'] as List<dynamic>).map<Player>(
+            (x) => Player.fromMap(x as Map<String, dynamic>),
+          ),
         ),
-      ),
-      args: Map<String, dynamic>.from((map['args'] as Map<String, dynamic>)),
-    );
+        playersLeft: List<int>.from((map['playersLeft'] as List<dynamic>)),
+        args: Map<String, dynamic>.from(
+          (map['args'] as Map<String, dynamic>),
+        ));
   }
 
   String toJson() => json.encode(toMap());
@@ -66,7 +74,7 @@ class GameAction {
 
   @override
   String toString() {
-    return 'GameAction(action: $action, game: $game, hasDetails: $hasDetails, players: $players, args: $args)';
+    return 'GameAction(action: $action, game: $game, hasDetails: $hasDetails, players: $players, playersLeft: $playersLeft, args: $args)';
   }
 
   @override
@@ -77,6 +85,7 @@ class GameAction {
         other.game == game &&
         other.hasDetails == hasDetails &&
         listEquals(other.players, players) &&
+        listEquals(other.playersLeft, playersLeft) &&
         mapEquals(other.args, args);
   }
 
@@ -86,6 +95,7 @@ class GameAction {
         game.hashCode ^
         hasDetails.hashCode ^
         players.hashCode ^
+        playersLeft.hashCode ^
         args.hashCode;
   }
 }

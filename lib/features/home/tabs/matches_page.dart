@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/adapters.dart';
 
 import '../../../shared/utils/utils.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../game/services.dart';
 import '../../game/utils.dart';
 import '../../game/widgets/game_list_item.dart';
@@ -66,7 +67,7 @@ class _MatchesPageState extends ConsumerState<MatchesPage> {
     matches.sortList((match) => match.time_modified, true);
 
     var lastGamelistTime = gameLists.firstOrNull?.time;
-    var lastMatchTime = matches.firstOrNull?.time_created;
+    // var lastMatchTime = matches.firstOrNull?.time_created;
     //List<String> gameListIds = gameLists.map((e) => e.game_id).toList();
     List<GameList> addedGameLists = gameLists.sublist(0);
 
@@ -75,7 +76,9 @@ class _MatchesPageState extends ConsumerState<MatchesPage> {
       for (int i = 0; i < gameListsChange.length; i++) {
         final change = gameListsChange[i];
         final gameList = change.value;
-        if (gameList.time_end != null) continue;
+        if (gameList.time_end == null) {
+          continue;
+        }
 
         if (change.added) {
           addedGameLists.add(gameList);
@@ -101,14 +104,18 @@ class _MatchesPageState extends ConsumerState<MatchesPage> {
       }
 
       //adding matches
-      //if (lastGamelistTime == null) {
+
       for (int i = 0; i < addedGameLists.length; i++) {
         final gameList = addedGameLists[i];
 
         gameList.game ??= await getGame(gameList.game_id);
 
+        final gameMatches = matches
+            .where((match) => match.game_id == gameList.game_id)
+            .toList();
+
         final newMatches = await getMatches(gameList.game_id,
-            time: gameList.match?.time_created ?? gameList.lastSeen);
+            time: gameMatches.firstOrNull?.time_modified ?? gameList.lastSeen);
 
         for (int i = 0; i < newMatches.length; i++) {
           final match = newMatches[i];
@@ -117,70 +124,26 @@ class _MatchesPageState extends ConsumerState<MatchesPage> {
                 match.creator_id == myId ? 0 : (gameList.unseen ?? 0) + 1;
           }
           matchesBox.put(match.match_id, match.toJson());
+          gameMatches.add(match);
         }
-        if (newMatches.isNotEmpty) {
-          gameList.match = newMatches.last;
-        }
-        final previousMatches = matches
-            .where((element) => element.game_id == gameList.game_id)
-            .toList();
+        gameMatches.sortList((match) => match.time_created, true);
 
-        if (previousMatches.isEmpty && matches.length < matchesLimit) {
+        if (gameMatches.length < matchesLimit) {
           final previousMatches = await getPreviousMatches(gameList.game_id,
-              time: matches.lastOrNull?.time_created,
-              limit: matchesLimit - matches.length);
+              time: gameMatches.firstOrNull?.time_created,
+              limit: matchesLimit - gameMatches.length);
           for (int i = 0; i < previousMatches.length; i++) {
             final match = previousMatches[i];
             matchesBox.put(match.match_id, match.toJson());
           }
-          if (matches.isEmpty && previousMatches.isNotEmpty) {
-            gameList.match = previousMatches.last;
-          }
         }
+        if (gameMatches.isNotEmpty) {
+          gameList.match = gameMatches.firstOrNull;
+        }
+
         gameListsBox.put(gameList.game_id, gameList.toJson());
       }
       addedGameLists.clear();
-      // } else {
-      //   while (addedGameLists.isNotEmpty) {
-      //     List<GameList> currentGameLists = addedGameLists.sublist(
-      //         0, addedGameLists.length >= 10 ? 10 : addedGameLists.length);
-
-      //     List<String> currentGameListIds =
-      //         currentGameLists.map((e) => e.game_id).toList();
-      //     for (int i = 0; i < currentGameLists.length; i++) {
-      //       final gameList = currentGameLists[i];
-
-      //       gameList.game ??= await getGame(gameList.game_id);
-      //       gameListsBox.put(gameList.game_id, gameList.toJson());
-      //     }
-      //     print("addedGameLists = $addedGameLists");
-      //     final newMatches = await getMatchesFromGameIds(currentGameListIds,
-      //         time: lastMatchTime);
-      //     print("newMatches = $newMatches");
-
-      //     for (int i = 0; i < newMatches.length; i++) {
-      //       final match = newMatches[i];
-      //       final gameListJson = gameListsBox.get(match.game_id);
-      //       final gameList =
-      //           gameListJson != null ? GameList.fromJson(gameListJson) : null;
-      //       if (gameList != null) {
-      //         gameList.game ??= await getGame(gameList.game_id);
-      //         final prevMatch = matchesBox.get(match.match_id);
-      //         if (prevMatch == null) {
-      //           gameList.unseen = (gameList.unseen ?? 0) + 1;
-      //         }
-
-      //         gameList.match = match;
-      //         gameListsBox.put(gameList.game_id, gameList.toJson());
-      //       }
-
-      //       matches.add(match);
-      //       matchesBox.put(match.match_id, match.toJson());
-      //     }
-      //     addedGameLists.removeRange(
-      //         0, addedGameLists.length >= 10 ? 10 : addedGameLists.length);
-      //   }
-      // }
     });
 
     // print(
@@ -337,14 +300,14 @@ class _MatchesPageState extends ConsumerState<MatchesPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text("Login to Play Online Games"),
-            ActionButton(
-              "Login",
+            AppButton(
+              title: "Login",
               onPressed: () {
                 Navigator.of(context).push(MaterialPageRoute(
                   builder: (context) => const AuthPage(),
                 ));
               },
-              wrap: true,
+              wrapped: true,
             )
           ],
         ),
@@ -372,12 +335,12 @@ class _MatchesPageState extends ConsumerState<MatchesPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text("No matches"),
-                  ActionButton(
-                    "Play Games",
+                  AppButton(
+                    title: "Play Games",
                     onPressed: () {
                       widget.playGameCallback();
                     },
-                    wrap: true,
+                    wrapped: true,
                   )
                 ],
               ),
@@ -422,12 +385,13 @@ class _MatchesPageState extends ConsumerState<MatchesPage> {
     //             mainAxisAlignment: MainAxisAlignment.center,
     //             children: [
     //               const Text("No matches"),
-    //               ActionButton(
+    //               AppButton(
+//title:
     //                 "Play Games",
     //                 onPressed: () {
     //                   widget.playGameCallback();
     //                 },
-    //                 wrap: true,
+    //                 wrapped: true,
     //               )
     //             ],
     //           );

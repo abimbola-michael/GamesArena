@@ -33,8 +33,8 @@ class _UserListItemState extends State<UserListItem> {
               name: widget.user.username),
           if (widget.user.checked) ...[
             const Positioned(
-              bottom: 4,
-              right: 4,
+              bottom: 0,
+              right: 0,
               child: CircleAvatar(
                 radius: 8,
                 backgroundColor: Colors.blue,

@@ -13,6 +13,7 @@ import '../../../theme/colors.dart';
 import '../../../shared/utils/utils.dart';
 import '../../user/services.dart';
 import 'match_arrow_signal.dart';
+import 'match_scores_item.dart';
 
 class GameListItem extends StatelessWidget {
   final GameList gameList;
@@ -59,29 +60,33 @@ class GameListItem extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Row(
                 children: [
-                  // Stack(
-                  //   children: [
-                  if (gameList.game?.users != null)
-                    PlayersProfilePhoto(
-                      users: gameList.game!.users!,
-                      withoutMyId: true,
-                    )
-                  else if ((gameList.game?.groupName ?? "").isNotEmpty)
-                    ProfilePhoto(
-                      profilePhoto: gameList.game!.profilePhoto ?? "",
-                      name: gameList.game!.groupName!,
+                  SizedBox(
+                    width: 50,
+                    height: 50,
+                    child: Stack(
+                      children: [
+                        if (gameList.game?.users != null)
+                          PlayersProfilePhoto(
+                            users: gameList.game!.users!,
+                            withoutMyId: true,
+                          )
+                        else if ((gameList.game?.groupName ?? "").isNotEmpty)
+                          ProfilePhoto(
+                            profilePhoto: gameList.game!.profilePhoto ?? "",
+                            name: gameList.game!.groupName!,
+                          ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: gameList.match == null
+                              ? Container()
+                              : MatchArrowSignal(
+                                  match: gameList.match!,
+                                ),
+                        )
+                      ],
                     ),
-                  //     Positioned(
-                  //       bottom: 0,
-                  //       right: 0,
-                  //       child: gameList.match == null
-                  //           ? Container()
-                  //           : MatchArrowSignal(
-                  //               match: gameList.match!,
-                  //             ),
-                  //     )
-                  //   ],
-                  // ),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -116,64 +121,65 @@ class GameListItem extends StatelessWidget {
                           ],
                         ),
                         if (gameList.match != null) ...[
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  getPlayersVs(gameList.match!.users ?? []),
-                                  style:
-                                      context.bodyMedium?.copyWith(color: tint),
-                                ),
-                              ),
-                              if ((gameList.unseen ?? 0) != 0) ...[
-                                const SizedBox(width: 10),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: primaryColor,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    "${gameList.unseen}",
-                                    style: context.bodySmall
-                                        ?.copyWith(color: white),
-                                  ),
-                                ),
-                              ]
-                            ],
-                          ),
-                          //const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  getMatchRecordMessage(gameList.match!),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: gameList.match!.creator_id != myId &&
-                                            (gameList.match!.time_start == "" ||
-                                                gameList.match!.time_start ==
-                                                    null)
-                                        ? Colors.red
-                                        : lighterTint,
-                                  ),
-                                  // overflow: TextOverflow.ellipsis,
-                                  // maxLines: 1,
-                                ),
-                              ),
-                              // if (duration.isNotEmpty) ...[
-                              //   const SizedBox(width: 10),
-                              //   Text(
-                              //     duration,
-                              //     style: context.bodyMedium?.copyWith(
-                              //         color: duration == "live"
-                              //             ? primaryColor
-                              //             : lightTint),
-                              //   ),
-                              // ]
-                            ],
-                          ),
+                          MatchScoresItem(match: gameList.match!),
+                          // Row(
+                          //   children: [
+                          //     Expanded(
+                          //       child: Text(
+                          //         getPlayersVs(gameList.match!.users ?? []),
+                          //         style:
+                          //             context.bodyMedium?.copyWith(color: tint),
+                          //       ),
+                          //     ),
+                          //     if ((gameList.unseen ?? 0) != 0) ...[
+                          //       const SizedBox(width: 10),
+                          //       Container(
+                          //         padding: const EdgeInsets.symmetric(
+                          //             horizontal: 10, vertical: 5),
+                          //         decoration: BoxDecoration(
+                          //           color: primaryColor,
+                          //           borderRadius: BorderRadius.circular(20),
+                          //         ),
+                          //         child: Text(
+                          //           "${gameList.unseen}",
+                          //           style: context.bodySmall
+                          //               ?.copyWith(color: white),
+                          //         ),
+                          //       ),
+                          //     ]
+                          //   ],
+                          // ),
+                          // //const SizedBox(height: 2),
+                          // Row(
+                          //   children: [
+                          //     Expanded(
+                          //       child: Text(
+                          //         getMatchRecordMessage(gameList.match!),
+                          //         style: TextStyle(
+                          //           fontSize: 12,
+                          //           color: gameList.match!.creator_id != myId &&
+                          //                   (gameList.match!.time_start == "" ||
+                          //                       gameList.match!.time_start ==
+                          //                           null)
+                          //               ? Colors.red
+                          //               : lighterTint,
+                          //         ),
+                          //         // overflow: TextOverflow.ellipsis,
+                          //         // maxLines: 1,
+                          //       ),
+                          //     ),
+                          //     // if (duration.isNotEmpty) ...[
+                          //     //   const SizedBox(width: 10),
+                          //     //   Text(
+                          //     //     duration,
+                          //     //     style: context.bodyMedium?.copyWith(
+                          //     //         color: duration == "live"
+                          //     //             ? primaryColor
+                          //     //             : lightTint),
+                          //     //   ),
+                          //     // ]
+                          //   ],
+                          // ),
                         ],
                       ],
                     ),
