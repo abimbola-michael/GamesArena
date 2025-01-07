@@ -26,10 +26,11 @@ class MatchListItem extends StatelessWidget {
 
   bool getDateVisibility() {
     if (position == 0) return true;
-    return matches[position - 1]
+
+    return matches[position]
         .time_created!
         .datetime
-        .showDate(matches[0].time_created!.datetime);
+        .showDate(matches[position - 1].time_created!.datetime);
   }
 
   Future<void> getDetails() async {
@@ -39,10 +40,6 @@ class MatchListItem extends StatelessWidget {
       List<User> users = await playersToUsers(match.players!);
       matches[position].users = users;
     }
-    // if (update) {
-    //   final matchesBox = Hive.box<String>("matches");
-    //   matchesBox.put(game_id, toJson());
-    // }
   }
 
   @override
@@ -59,11 +56,9 @@ class MatchListItem extends StatelessWidget {
               if (getDateVisibility() && !isMatchRecords) ...[
                 Padding(
                   padding: const EdgeInsets.all(8.0),
-                  child: Text(
-                    match.time_created?.datetime.dateRange() ?? "",
-                    style: TextStyle(fontSize: 14, color: lighterTint),
-                    textAlign: TextAlign.center,
-                  ),
+                  child: Text(match.time_created?.datetime.dateRange() ?? "",
+                      style: TextStyle(fontSize: 14, color: lighterTint),
+                      textAlign: TextAlign.center),
                 ),
               ],
               InkWell(
@@ -88,9 +83,7 @@ class MatchListItem extends StatelessWidget {
                             Positioned(
                               bottom: 0,
                               right: 0,
-                              child: MatchArrowSignal(
-                                match: match,
-                              ),
+                              child: MatchArrowSignal(match: match),
                             )
                           ],
                         ),

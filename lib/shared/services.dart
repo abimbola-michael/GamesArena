@@ -7,6 +7,8 @@ import 'package:gamesarena/core/firebase/firebase_notification.dart';
 import 'package:gamesarena/core/firebase/firebase_methods.dart';
 import 'package:gamesarena/core/firebase/firestore_methods.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
+import '../features/user/services.dart';
+import '../main.dart';
 import 'models/private_key.dart';
 
 import 'utils/utils.dart';
@@ -80,10 +82,22 @@ Future<PrivateKey?> getPrivateKey() async {
 }
 
 void updateToken(String token) async {
-  if (kIsWeb || (!Platform.isIOS && !Platform.isAndroid)) return;
-  if (myId != "") {
-    await fm.updateValue(["users", myId], value: {"token": token});
+  if (!kIsWeb && Platform.isWindows) return;
+  if (myId.isEmpty) return;
+  final prevToken = sharedPref.getString("token");
+  final myUser = await getUser(myId);
+
+  final tokens = myUser?.tokens ?? [];
+
+  if (prevToken != null && tokens.contains(prevToken)) {
+    tokens.remove(prevToken);
   }
+  tokens.add(token);
+  final value = {"tokens": tokens, "time_modified": timeNow};
+
+  await fm.updateValue(["users", myId], value: value);
+  sharedPref.setString("token", token);
+  saveUserProperty(myId, value);
 }
 
 Future<String?> getToken(String userId) async {

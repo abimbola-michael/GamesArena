@@ -58,7 +58,7 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
   late PageController quizPageController;
   Dio dio = Dio();
   int quizGenerateTrialCount = 0;
-  int quizGenerateTrialMaxCount = 10;
+  int quizGenerateTrialMaxCount = 3;
   String error = "";
 
   Future<List<Quiz>> generateQuizzes() async {
@@ -77,26 +77,33 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
       //print("jsonString = $jsonString");
       final questionsList = jsonDecode(jsonString) as List;
       quizzes = questionsList.map((e) => Quiz.fromMap(e)).toList();
-    } catch (e) {
+      return quizzes;
+    } on Exception catch (e) {
       if (e is GeminiException &&
           e.message.toString().trim().startsWith("The connection errored")) {
         error =
             "Unable to generate quizzes. Make sure you are connected to the internet";
+        error = "";
+        quizGenerateTrialCount = 0;
+        return [];
       } else {
-        error = "Oops, Something went wrong";
+        if (error.isEmpty &&
+            quizGenerateTrialCount == quizGenerateTrialMaxCount) {
+          error = "Oops, Something went wrong";
+        }
       }
 
       print('Error: $e');
 
-      quizGenerateTrialCount++;
       if (quizGenerateTrialCount == quizGenerateTrialMaxCount) {
+        error = "";
+        quizGenerateTrialCount = 0;
         return [];
       } else {
+        quizGenerateTrialCount++;
         return generateQuizzes();
       }
     }
-
-    return quizzes;
   }
 
 // NB: Keep the questions brief and go straight to the point.
@@ -117,6 +124,7 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
   }
 
   void initQuizzes({String? quizzesJson}) async {
+    setInitialCount(0);
     quizGenerateTrialCount = 0;
     currentQuestion = 0;
     answeredQuestion = -1;
@@ -125,24 +133,23 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
 
     stopPlayerTime = true;
 
+    loadingQuizzes = true;
+    setState(() {});
     if (quizzesJson != null) {
       quizzes = (jsonDecode(quizzesJson) as List)
           .map((e) => Quiz.fromJson(e))
           .toList();
     } else {
-      loadingQuizzes = true;
-      setState(() {});
       // quizzes =
       //     testQuizzes.skip(10).take(10).map((e) => Quiz.fromMap(e)).toList();
 
       quizzes = await generateQuizzes();
-
-      loadingQuizzes = false;
       updateGridDetails(jsonEncode(quizzes));
     }
+    loadingQuizzes = false;
 
     for (int i = 0; i < playersSize; i++) {
-      playersQuizzes.add([...quizzes]);
+      playersQuizzes.add(quizzes.map((quiz) => quiz.copyWith()).toList());
       updateCount(i, 0);
     }
     if (quizzes.isNotEmpty) {
@@ -171,13 +178,10 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
     setState(() {});
   }
 
-  void submitAnswer(int? answer, int player,
-      [bool isClick = true, String? time]) async {
-    if (!itsMyTurnToPlay(isClick, player)) return;
+  void submitAnswer(int answer, int player, [bool isClick = true]) async {
+    if (!itsMyTurnToPlay(isClick)) return;
 
     if (playersQuizzes[player][currentQuestion].selectedAnswer != null) return;
-
-    answer ??= -1;
 
     playersQuizzes[player][currentQuestion].selectedAnswer = answer;
 
@@ -192,7 +196,7 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
       setState(() {});
       return;
     }
-    await getResults();
+    getResults();
   }
 
   Future getResults() async {
@@ -203,17 +207,16 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
 
     if (!seeking) await Future.delayed(const Duration(seconds: 3));
 
-    for (int i = 0; i < playersSize; i++) {
-      if (!isPlayerActive(i)) continue;
-      final quiz = playersQuizzes[i][currentQuestion];
+    final players = getActivePlayersIndices();
+
+    for (int i = 0; i < players.length; i++) {
+      final player = players[i];
+      final quiz = playersQuizzes[player][currentQuestion];
       if (quiz.selectedAnswer == quiz.answerIndex) {
-        incrementCount(i);
+        incrementCount(player);
       }
     }
     final quiz = playersQuizzes[currentPlayer][currentQuestion];
-
-    // print(
-    //     "currentQuestion = $currentQuestion, selectedAnswer = ${quiz.selectedAnswer}, answer = ${quiz.answerIndex} rightAnswerOption = ${quiz.options[quiz.answerIndex]}, ");
 
     showPlayerToast(currentPlayer,
         quiz.selectedAnswer == quiz.answerIndex ? "Correct" : "Wrong");
@@ -239,15 +242,18 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
   bool get finishedAnsweringQuestions => answeredQuestion >= quizzes.length - 1;
 
   List<int> getUnSubmittedPlayers([int? question]) {
-    List<int> players = [];
-    for (int i = 0; i < playersSize; i++) {
-      if (isPlayerActive(i) &&
-          playersQuizzes[i][question ?? currentQuestion].selectedAnswer ==
-              null) {
-        players.add(i);
+    List<int> unsubmitedPlayers = [];
+    final players = getActivePlayersIndices();
+
+    for (int i = 0; i < players.length; i++) {
+      final player = players[i];
+      final answer =
+          playersQuizzes[player][question ?? currentQuestion].selectedAnswer;
+      if (answer == null) {
+        unsubmitedPlayers.add(i);
       }
     }
-    return players;
+    return unsubmitedPlayers;
   }
 
   void gotoFirstQuestion() {
@@ -302,14 +308,13 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
       final answer = details.answer;
 
       final quizzes = details.quizzes;
-      final time = map["time"];
       final playerId = map["id"];
       final player = getPlayerIndex(playerId);
 
       if (quizzes != null) {
         initQuizzes(quizzesJson: quizzes);
       } else if (answer != null) {
-        submitAnswer(answer, player, false, time);
+        submitAnswer(answer, player, false);
       }
     }
   }
@@ -317,7 +322,7 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
   @override
   void onSpaceBarPressed() {
     if (selectedAnswer != null) {
-      submitAnswer(selectedAnswer, currentPlayer);
+      submitAnswer(selectedAnswer!, currentPlayer);
     }
   }
 
@@ -336,7 +341,7 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
     } else {
       if (event.logicalKey == LogicalKeyboardKey.enter) {
         if (selectedAnswer != null) {
-          submitAnswer(selectedAnswer, currentPlayer);
+          submitAnswer(selectedAnswer!, currentPlayer);
         }
       } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
         if (selectedAnswer == null) {
@@ -407,16 +412,14 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
   }
 
   @override
-  void onStart() {
-    //setInitialCount(0);
-  }
+  void onStart() {}
 
   @override
   void onConcede(int index) {}
 
   @override
   void onPlayerTimeEnd() {
-    submitAnswer(selectedAnswer, currentPlayer);
+    getResults();
   }
 
   @override
@@ -439,19 +442,18 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
                   ? const LoadingView()
                   : error.isNotEmpty
                       ? ErrorOrSuccessView(
-                          message: error,
-                          onPressed: initQuizzes,
-                        )
+                          message: error, onPressed: initQuizzes)
                       : playersQuizzes.isEmpty
                           ? null
                           : Column(
                               children: [
                                 Text(
                                   gameName,
-                                  style: context.headlineLarge
+                                  style: context.bodyLarge
                                       ?.copyWith(fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
                                 ),
-                                const SizedBox(height: 10),
+                                const SizedBox(height: 4),
                                 Expanded(
                                   child: PageView.builder(
                                       physics: finishedAnsweringQuestions
@@ -595,8 +597,9 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
     final quizzes = playersQuizzes[index];
     return RotatedBox(
       quarterTurns: getStraightTurn(index),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
+        alignment: Alignment.center,
+        //mainAxisSize: MainAxisSize.min,
         children: [
           LayoutBuilder(builder: (context, constraints) {
             final width = constraints.maxWidth / 10;
@@ -664,9 +667,9 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
                 title: "Submit",
                 height: 50,
                 wrapped: true,
-                color: Colors.purple,
+                bgColor: Colors.purple,
                 onPressed: () {
-                  submitAnswer(selectedAnswer, currentPlayer);
+                  submitAnswer(selectedAnswer!, currentPlayer);
                 })
           else if (!finishedAnsweringQuestions)
             const SizedBox(height: 70),

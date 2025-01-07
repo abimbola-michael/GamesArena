@@ -52,13 +52,13 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
 
   LudoTile? selectedLudoTile;
   Ludo? selectedLudo;
-  List<LudoColor> colors = [];
+  //List<LudoColor> ludoColors = [];
   List<List<Ludo>> ludos = [], activeLudos = [];
   List<List<Ludo>> playersWonLudos = [];
   List<List<LudoTile>> ludoTiles = [];
   List<List<int>> playersHouseIndices = [];
   List<int> diceValues = [0, 0];
-  List<String> ludoIndices = [];
+  //List<String> ludoIndices = [];
 
   bool showRollDice = true, roll = false;
 
@@ -151,24 +151,22 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
   }
 
   void initLudos() {
-    getCurrentPlayer();
+    setInitialCount(0);
+
     selectedLudoTile = null;
     selectedLudo = null;
     showMessage = false;
-    pausePlayerTime = false;
     hintPositions.clear();
     ludoTiles.clear();
     ludos.clear();
     activeLudos.clear();
     playersWonLudos.clear();
-    colors.clear();
     diceValues = [0, 0];
     activeLudos.clear();
     activeLudos = List.generate(playersSize, (index) => []);
     playersWonLudos = List.generate(4, (index) => []);
     List<Ludo> ludoList = getLudos();
-    colors.addAll(ludoColors);
-    colors = colors.arrangeWithStringList(ludoIndices);
+
     ludos = ludoList.groupListToList((ludo) => ludo.houseIndex);
     for (int i = 0; i < 4; i++) {
       ludoTiles.add(List.generate(18, (index) {
@@ -267,8 +265,8 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
     setState(() {});
   }
 
-  void rollDice() async {
-    if (!itsMyTurnToPlay(true)) return;
+  void rollDice([bool isClick = true]) async {
+    if (!itsMyTurnToPlay(isClick)) return;
 
     if (roll) return;
     setState(() {
@@ -352,7 +350,7 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
       List<String> playerColors = [];
       for (int i = 0; i < houses.length; i++) {
         final house = houses[i];
-        final color = colors[house];
+        final color = ludoColors[house];
         playerColors.add(color.name);
       }
       showPlayerToast(currentPlayer,
@@ -614,14 +612,14 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
     if (ludoTile.ludos.isNotEmpty) {
       int player = getPlayerFromHouseIndex(ludoTile.ludos.first.houseIndex);
       if (player != currentPlayer &&
-          selectedLudoTile == null &&
-          selectedLudo == null &&
+          // selectedLudoTile == null &&
+          // selectedLudo == null &&
           isClick) {
         final houses = playersHouseIndices[currentPlayer];
         List<String> playerColors = [];
         for (int i = 0; i < houses.length; i++) {
           final house = houses[i];
-          final color = colors[house];
+          final color = ludoColors[house];
           playerColors.add(color.name);
         }
         showPlayerToast(currentPlayer,
@@ -635,6 +633,8 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
 
       if (selectedLudoTile != null || selectedLudo != null) {
         moveLudo(ludoTile, index, pos, isClick);
+        // if (selectedLudo != null) selectedLudo = null;
+        // if (selectedLudoTile != null) selectedLudoTile = null;
       } else {
         selectedLudoTile = ludoTile;
         if (selectedLudo != null) selectedLudo = null;
@@ -1223,11 +1223,6 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
   @override
   void onSpaceBarPressed() {
     if (!paused && showRollDice) {
-      if (gameId != "" && currentPlayerId != myId) {
-        showPlayerToast(
-            playersSize - 1, "Its ${getUsername(currentPlayerId)}'s turn");
-        return;
-      }
       rollDice();
     }
   }
@@ -1242,8 +1237,6 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
 
   @override
   void onStart() {
-    ludoIndices = List.generate(4, (i) => "$i");
-    setInitialCount(0);
     initLudos();
   }
 
@@ -1364,7 +1357,7 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
                                           ? Colors.white
                                           : Colors.black,
                                       width: 1),
-                                  color: convertToColor(colors[index])),
+                                  color: convertToColor(ludoColors[index])),
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: [
@@ -1393,13 +1386,15 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
                                                   : lindex == 2
                                                       ? Alignment.bottomLeft
                                                       : Alignment.bottomRight,
-                                          child: lindex <
-                                                  playersWonLudos[index].length
+                                          child: playersWonLudos.isNotEmpty &&
+                                                  lindex <
+                                                      playersWonLudos[index]
+                                                          .length
                                               ? LudoDisc(
                                                   size:
                                                       cellSize.percentValue(60),
                                                   color: convertToColor(
-                                                      colors[index]))
+                                                      ludoColors[index]))
                                               : null,
                                         );
                                       }),
@@ -1417,7 +1412,7 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
                                         borderRadius: BorderRadius.circular(
                                             gridLength / 2)
                                         // color:
-                                        //     convertToColor(colors[index]),
+                                        //     convertToColor(ludoColors[index]),
                                         ),
                                     child: GridView(
                                       physics:
@@ -1430,16 +1425,11 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
                                       children: List.generate(4,
                                           //ludos[index].length,
                                           (lindex) {
-                                        // final ludo =
-                                        //     ludos[index][lindex];
-
-                                        // final ludoIndex = ludos[index]
-                                        //     .indexWhere((ludo) =>
-                                        //         (index * 4) + lindex ==
-                                        //         int.parse(ludo.id));
-                                        final ludoIndex = ludos[index]
-                                            .indexWhere((ludo) =>
-                                                lindex == ludo.housePos);
+                                        final ludoIndex = ludos
+                                                .get(index)
+                                                ?.indexWhere((ludo) =>
+                                                    lindex == ludo.housePos) ??
+                                            -1;
                                         if (ludoIndex == -1) {
                                           return SizedBox(
                                             width: cellSize,
@@ -1448,8 +1438,7 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
                                         }
 
                                         final ludo = ludos[index][ludoIndex];
-                                        // final player =
-                                        //     getPlayerFromHouseIndex(index);
+
                                         return GestureDetector(
                                           key: Key(ludo.id),
                                           behavior: HitTestBehavior.opaque,
@@ -1477,7 +1466,7 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
                                             child: LudoDisc(
                                                 size: cellSize.percentValue(60),
                                                 color: convertToColor(
-                                                    colors[index])),
+                                                    ludoColors[index])),
                                           ),
                                         );
                                       }),
@@ -1500,16 +1489,18 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
                                                 List.generate(6, (rowindex) {
                                               final lindex = convertToPosition(
                                                   [rowindex, colindex], 6);
-                                              final ludoTile =
-                                                  ludoTiles[index][lindex];
+                                              final ludoTile = ludoTiles
+                                                  .get(index)
+                                                  ?.get(lindex);
                                               return LudoTileWidget(
                                                 blink: hintPositions
                                                         .containsKey(index) &&
                                                     hintPositions[index]!
                                                         .contains(lindex),
-                                                key: Key(ludoTile.id),
+                                                key: Key(
+                                                    ludoTile?.id ?? "$lindex"),
                                                 ludoTile: ludoTile,
-                                                colors: colors,
+                                                colors: ludoColors,
                                                 size: cellSize,
                                                 pos: lindex,
                                                 highLight: selectedLudoTile ==
@@ -1518,7 +1509,7 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
                                                 onPressed: () {
                                                   playLudo(index, lindex);
                                                 },
-                                                color: colors[index],
+                                                color: ludoColors[index],
                                               );
                                             }),
                                           ),
@@ -1530,7 +1521,8 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
                                         ((minSize - 2) / 2) - houseLength,
                                         gridLength),
                                     painter: LudoTrianglePainter(
-                                        color: convertToColor(colors[index]))),
+                                        color:
+                                            convertToColor(ludoColors[index]))),
                               ],
                             ),
                           ],

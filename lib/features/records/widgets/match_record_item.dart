@@ -4,6 +4,7 @@ import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/shared/utils/utils.dart';
 
 import '../../../theme/colors.dart';
+import '../../game/utils.dart';
 import '../models/match_record.dart';
 import '../../game/models/match.dart';
 import 'match_or_round_header_item.dart';
@@ -39,6 +40,7 @@ class MatchRecordItem extends StatelessWidget {
                 game: record.game,
                 timeStart: record.time_start,
                 timeEnd: record.time_end,
+                duration: getMatchRecordDuration(record),
                 players: record.players,
                 outcome: getMatchOutcomeMessageFromScores(
                     record.scores.toList().cast(), record.players,

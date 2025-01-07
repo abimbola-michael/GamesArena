@@ -55,9 +55,7 @@ class SubscriptionInfoItem extends StatelessWidget {
                     Expanded(
                       child: Text(
                         infoName,
-                        style: context.bodySmall?.copyWith(
-                          color: lightTint,
-                        ),
+                        style: context.bodySmall?.copyWith(color: lightTint),
                       ),
                     )
                   ],
@@ -97,13 +95,14 @@ class SubscriptionInfoItem extends StatelessWidget {
                           style: context.bodySmall?.copyWith(color: tint),
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          "\$${info.dollarPrice ?? 0}",
-                          style: context.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: tint,
+                        if (info.dollarPrice != null)
+                          Text(
+                            "\$${info.dollarPrice ?? 0}",
+                            style: context.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: tint,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),

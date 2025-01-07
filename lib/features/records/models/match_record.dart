@@ -63,10 +63,8 @@ class MatchRecord {
       time_start: map['time_start'] as String,
       time_end: map['time_end'] != null ? map['time_end'] as String : null,
       players: List<String>.from((map['players'] as List<dynamic>)),
-      scores:
-          Map<String, dynamic>.from((map['scores'] as Map<String, dynamic>)),
-      rounds:
-          Map<String, dynamic>.from((map['rounds'] as Map<String, dynamic>)),
+      scores: Map<String, dynamic>.from((map['scores'])),
+      rounds: Map<String, dynamic>.from((map['rounds'])),
     );
   }
 

@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/widgets.dart';
+import 'package:gamesarena/features/game/widgets/profile_photo.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/shared/utils/utils.dart';
 import 'package:gamesarena/theme/colors.dart';
@@ -22,48 +23,42 @@ class PlayersProfilePhoto extends StatelessWidget {
     List<User> users = withoutMyId
         ? this.users.where((user) => user.user_id != myId).toList()
         : this.users;
+    // if (users.length == 1) {
+    //   users = List.generate(4, (index) => users.first);
+    // }
+    final length = users.length;
+    int gap = 2;
     return Container(
       width: size,
       height: size,
       clipBehavior: Clip.antiAliasWithSaveLayer,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: lightestTint),
+        // border: Border.all(color: lightestTint),
         // color: lightestTint,
       ),
-      child: CustomGridBuilder(
-        expandedWidth: true,
-        expandedHeight: true,
-        gridCount: 2,
-        crossAxisSpacing: 2,
-        mainAxisSpacing: 2,
-        itemCount: users.length,
-        itemBuilder: (context, index) {
+      child: Stack(
+        children: List.generate(length, (index) {
           final user = users[index];
-          final profilePhoto = user.profile_photo ?? "";
-          final name = user.username;
-          return Container(
-            width: double.infinity,
-            height: double.infinity,
-            decoration: BoxDecoration(
-              color: lightestTint,
-              image: profilePhoto.isNotEmpty
-                  ? DecorationImage(
-                      image: CachedNetworkImageProvider(profilePhoto))
-                  : null,
-            ),
-            alignment: Alignment.center,
-            child: profilePhoto.isNotEmpty
-                ? null
-                : Text(
-                    name.firstChar ?? "",
-                    style: TextStyle(
-                        fontSize: size / 2,
-                        color: primaryColor,
-                        fontWeight: FontWeight.bold),
-                  ),
+          final width = length == 1 ? size : size / 2;
+          final height =
+              length == 1 || length == 2 || (index == 0 && length == 3)
+                  ? size
+                  : size / 2;
+
+          return Positioned(
+            top: index == 0 || index == 1 ? 0 : null,
+            bottom: index == 2 || index == 3 ? 0 : null,
+            left: index == 0 || index == 3 ? 0 : null,
+            right: index == 1 || index == 2 ? 0 : null,
+            child: ProfilePhoto(
+                isDecorated: false,
+                width: width - (width == (size / 2) ? gap : 0),
+                height: height - (height == (size / 2) ? gap : 0),
+                profilePhoto: user.profile_photo ?? "",
+                name: user.username),
           );
-        },
+        }),
       ),
     );
   }

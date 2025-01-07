@@ -11,13 +11,15 @@ import '../../game/widgets/profile_photo.dart';
 class UserItem extends StatelessWidget {
   final User? user;
   final String type;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
+  final bool showCheck;
 
   const UserItem(
       {super.key,
       required this.user,
       required this.type,
-      required this.onPressed});
+      this.onPressed,
+      this.showCheck = true});
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +33,7 @@ class UserItem extends StatelessWidget {
               ProfilePhoto(
                   profilePhoto: user?.profile_photo,
                   name: user?.username ?? ""),
-              if (user?.checked ?? false) ...[
+              if (showCheck && (user?.checked ?? false)) ...[
                 Positioned(
                   bottom: 0,
                   right: 0,
@@ -39,7 +41,7 @@ class UserItem extends StatelessWidget {
                     onTap: onPressed,
                     child: CircleAvatar(
                       radius: 8,
-                      backgroundColor: Colors.blue,
+                      backgroundColor: Colors.red,
                       child: Icon(
                         type == "select" &&
                                 user != null &&

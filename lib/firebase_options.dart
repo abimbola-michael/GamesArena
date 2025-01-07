@@ -47,7 +47,7 @@ class DefaultFirebaseOptions {
     projectId: 'games-arena-dbc67',
     authDomain: 'games-arena-dbc67.firebaseapp.com',
     databaseURL: 'https://games-arena-dbc67-default-rtdb.firebaseio.com',
-    storageBucket: 'games-arena-dbc67.appspot.com',
+    storageBucket: 'games-arena-dbc67.firebasestorage.app',
     measurementId: 'G-ZY3PP8HB5S',
   );
 
@@ -57,7 +57,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '182221656090',
     projectId: 'games-arena-dbc67',
     databaseURL: 'https://games-arena-dbc67-default-rtdb.firebaseio.com',
-    storageBucket: 'games-arena-dbc67.appspot.com',
+    storageBucket: 'games-arena-dbc67.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
@@ -66,9 +66,11 @@ class DefaultFirebaseOptions {
     messagingSenderId: '182221656090',
     projectId: 'games-arena-dbc67',
     databaseURL: 'https://games-arena-dbc67-default-rtdb.firebaseio.com',
-    storageBucket: 'games-arena-dbc67.appspot.com',
-    androidClientId: '182221656090-shbjksn4n6qci7jm3nd58i5bq8sk54t6.apps.googleusercontent.com',
-    iosClientId: '182221656090-7pe7uevjqa9ick5udqnhgch2vt2rjvso.apps.googleusercontent.com',
+    storageBucket: 'games-arena-dbc67.firebasestorage.app',
+    androidClientId:
+        '182221656090-8eh6caa6b7vgesqviqfb7800l756165r.apps.googleusercontent.com',
+    iosClientId:
+        '182221656090-7pe7uevjqa9ick5udqnhgch2vt2rjvso.apps.googleusercontent.com',
     iosBundleId: 'com.hms.gamesarena',
   );
 
@@ -78,9 +80,11 @@ class DefaultFirebaseOptions {
     messagingSenderId: '182221656090',
     projectId: 'games-arena-dbc67',
     databaseURL: 'https://games-arena-dbc67-default-rtdb.firebaseio.com',
-    storageBucket: 'games-arena-dbc67.appspot.com',
-    androidClientId: '182221656090-shbjksn4n6qci7jm3nd58i5bq8sk54t6.apps.googleusercontent.com',
-    iosClientId: '182221656090-7pe7uevjqa9ick5udqnhgch2vt2rjvso.apps.googleusercontent.com',
+    storageBucket: 'games-arena-dbc67.firebasestorage.app',
+    androidClientId:
+        '182221656090-8eh6caa6b7vgesqviqfb7800l756165r.apps.googleusercontent.com',
+    iosClientId:
+        '182221656090-7pe7uevjqa9ick5udqnhgch2vt2rjvso.apps.googleusercontent.com',
     iosBundleId: 'com.hms.gamesarena',
   );
 
@@ -91,8 +95,7 @@ class DefaultFirebaseOptions {
     projectId: 'games-arena-dbc67',
     authDomain: 'games-arena-dbc67.firebaseapp.com',
     databaseURL: 'https://games-arena-dbc67-default-rtdb.firebaseio.com',
-    storageBucket: 'games-arena-dbc67.appspot.com',
+    storageBucket: 'games-arena-dbc67.firebasestorage.app',
     measurementId: 'G-ZY3PP8HB5S',
   );
-
 }

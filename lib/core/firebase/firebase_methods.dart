@@ -88,7 +88,13 @@ class FirebaseMethods {
   }
 
   Future<void> logOut() async {
-    return auth.signOut();
+    await auth.signOut();
+    // Sign out and disconnect Google account session
+    final GoogleSignIn googleSignIn = GoogleSignIn();
+    if (await googleSignIn.isSignedIn()) {
+      await googleSignIn.signOut(); // Sign out
+      await googleSignIn.disconnect(); // Disconnect the account
+    }
   }
 
   Future<void> sendEmailVerification() async {

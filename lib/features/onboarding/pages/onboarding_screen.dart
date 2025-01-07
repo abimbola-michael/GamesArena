@@ -67,11 +67,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void gotoMainScreen() {
-    context.pushAndPop(const HomePage());
+    context.pushReplacement(const HomePage());
   }
 
   void gotoWelcomeScreen() {
-    context.pushAndPop(const WelcomeScreen());
+    context.pushReplacement(const WelcomeScreen());
   }
 
   void goNext(bool isClick) {

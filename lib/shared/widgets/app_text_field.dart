@@ -82,7 +82,7 @@ class AppTextField extends StatefulWidget {
 }
 
 class _AppTextFieldState extends State<AppTextField> {
-  bool obscureText = false;
+  bool obscureText = true;
   bool _isFieldValid = true;
   bool _isFocused = false;
   FocusNode _focusNode = FocusNode();
@@ -92,11 +92,11 @@ class _AppTextFieldState extends State<AppTextField> {
   @override
   void initState() {
     super.initState();
-    hintText = widget.titleText.isNotEmpty ? widget.titleText : widget.hintText;
-    obscureText = hintText.contains("Password");
-    if (widget.focusNode != null) {
-      _focusNode = widget.focusNode!;
-    }
+    // hintText = widget.titleText.isNotEmpty ? widget.titleText : widget.hintText;
+    // obscureText = hintText.contains("Password");
+    // if (widget.focusNode != null) {
+    //   _focusNode = widget.focusNode!;
+    // }
     //_focusNode.addListener(_onFocusChange);
   }
 
@@ -133,7 +133,10 @@ class _AppTextFieldState extends State<AppTextField> {
 
   String? validate(String? value) {
     if (widget.validator != null) {
-      return widget.validator!(value);
+      final validatorValue = widget.validator!(value);
+      if (validatorValue != null) {
+        return validatorValue;
+      }
     }
     if (value == null || value.isEmpty) {
       return "$hintText is required";
@@ -176,6 +179,10 @@ class _AppTextFieldState extends State<AppTextField> {
 
   @override
   Widget build(BuildContext context) {
+    hintText = widget.titleText.isNotEmpty ? widget.titleText : widget.hintText;
+    if (widget.focusNode != null) {
+      _focusNode = widget.focusNode!;
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,9 +255,7 @@ class _AppTextFieldState extends State<AppTextField> {
                   });
                   return result;
                 }
-                return widget.validator != null
-                    ? widget.validator!(value)
-                    : null;
+                return result;
               },
               controller: widget.controller,
               onChanged: (value) {
@@ -269,7 +274,8 @@ class _AppTextFieldState extends State<AppTextField> {
               //         FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
               //       ]
               //     : null,
-              obscureText: widget.obscureText ?? obscureText,
+              obscureText: widget.obscureText ??
+                  (hintText.contains("Password") && obscureText),
               style: widget.style ?? context.bodyMedium?.copyWith(),
               cursorColor: primaryColor,
 

@@ -1,8 +1,13 @@
+import 'package:flutter/services.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:sim_card_info/sim_card_info.dart';
+import 'package:sim_card_info/sim_info.dart';
 
 import 'country_codes.dart';
 
+String dialCode = "";
 String countryCode = "";
 String countryDialCode = "";
 
@@ -25,7 +30,7 @@ Future<String?> getCurrentCountryCode() async {
         await placemarkFromCoordinates(position.latitude, position.longitude);
     if (placemarks.isNotEmpty) {
       countryCode = placemarks.first.isoCountryCode ?? "";
-      return placemarks.first.isoCountryCode; // e.g., "NG"
+      return countryCode; // e.g., "NG"
     }
   } catch (e) {
     print("Error getting country code: $e");
@@ -52,4 +57,25 @@ Future<String?> getCurrentCountryDialingCode([String? countryIsoCode]) async {
     countryDialCode = code ?? "";
   }
   return code;
+}
+
+Future<String?> getDialCode() async {
+  await Permission.phone.request();
+  final simCardInfoPlugin = SimCardInfo();
+  // bool isSupported = true;
+  List<SimInfo>? simCardInfo;
+  // Platform messages may fail, so we use a try/catch PlatformException.
+  // We also handle the message potentially returning null.
+  try {
+    simCardInfo = await simCardInfoPlugin.getSimInfo() ?? [];
+    if (simCardInfo.isEmpty) return null;
+    dialCode = simCardInfo.first.countryPhonePrefix;
+    return dialCode;
+  } on PlatformException {
+    simCardInfo = [];
+    // setState(() {
+    //   isSupported = false;
+    // });
+    return null;
+  }
 }

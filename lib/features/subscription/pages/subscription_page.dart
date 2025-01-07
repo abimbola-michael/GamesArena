@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/shared/extensions/special_context_extensions.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../../../shared/utils/utils.dart';
 import '../../../shared/utils/utils.dart';
@@ -36,32 +37,34 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         "Ads while playing game",
       ],
     ),
-    SubscriptionInfo(
-      type: SubscriptionType.paid,
-      plan: SubscriptionPlan.daily,
-      infos: [
-        "No Ads while playing game",
-      ],
-      dollarPrice: 1,
-    ),
-    SubscriptionInfo(
-      type: SubscriptionType.paid,
-      plan: SubscriptionPlan.weekly,
-      infos: [],
-      dollarPrice: 5,
-    ),
+    // SubscriptionInfo(
+    //   type: SubscriptionType.paid,
+    //   plan: SubscriptionPlan.daily,
+    //   infos: [
+    //     "No Ads while playing game",
+    //   ],
+    //   // dollarPrice: 1,
+    // ),
+    // SubscriptionInfo(
+    //   type: SubscriptionType.paid,
+    //   plan: SubscriptionPlan.weekly,
+    //   infos: [],
+    //   // dollarPrice: 5,
+    // ),
     SubscriptionInfo(
       type: SubscriptionType.paid,
       plan: SubscriptionPlan.monthly,
-      infos: [],
-      dollarPrice: 15,
+      infos: [
+        "No Ads while playing game",
+      ],
+      // dollarPrice: 15,
     ),
-    SubscriptionInfo(
-      type: SubscriptionType.paid,
-      plan: SubscriptionPlan.yearly,
-      infos: [],
-      dollarPrice: 165,
-    ),
+    // SubscriptionInfo(
+    //   type: SubscriptionType.paid,
+    //   plan: SubscriptionPlan.yearly,
+    //   infos: [],
+    //   // dollarPrice: 165,
+    // ),
   ];
   @override
   void initState() {
@@ -78,7 +81,11 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   }
 
   void listenToSubscriptionStatus() {
-    subscriptionUtils = SubscriptionUtils();
+    final plans = subscriptionInfos
+        .where((e) => e.plan != null)
+        .map((e) => e.plan!)
+        .toList();
+    subscriptionUtils = SubscriptionUtils(plans, addSubscriptionInfoPrices);
 
     subscriptionStatusSub =
         subscriptionUtils.subscriptionStatusStream?.listen((subStatus) {
@@ -126,12 +133,21 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     await subscriptionUtils.subscribe(currentPlan!);
   }
 
+  void addSubscriptionInfoPrices(List<ProductDetails> productDetails) {
+    for (int i = 0; i < productDetails.length; i++) {
+      final productDetail = productDetails[i];
+      final info = subscriptionInfos.firstWhereNullable(
+          (info) => info.plan != null && info.plan!.name == productDetail.id);
+      if (info != null) {
+        info.dollarPrice = productDetail.rawPrice;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const AppAppBar(
-        title: "Subscription",
-      ),
+      appBar: const AppAppBar(title: "Subscription"),
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : ListView.builder(
@@ -150,16 +166,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
               },
             ),
       bottomNavigationBar: isValidSelection
-          ? Container(
-              height: 50,
-              margin: const EdgeInsets.symmetric(vertical: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Center(
-                  child: AppButton(
-                      title: "Select Plan",
-                      //wrapped: true,
-                      onPressed: selectPlan)),
-            )
+          ? AppButton(title: "Select Plan", onPressed: selectPlan)
           : null,
     );
   }

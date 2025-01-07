@@ -60,7 +60,7 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
 
   int wordsLength = 20;
 
-  String getRandomWord() {
+  String getRandomWord(List<String> words) {
     final generator = WordGenerator();
     String word = generator.randomVerb().toUpperCase();
     while (word.length < 6 || word.length > 12 || words.contains(word)) {
@@ -72,7 +72,7 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
   List<String> generateRandomWords() {
     List<String> words = [];
     for (int i = 0; i < wordsLength; i++) {
-      words.add(getRandomWord());
+      words.add(getRandomWord(words));
     }
     return words;
   }
@@ -194,7 +194,7 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
       }
       if (count > 0) break;
 
-      final newWord = getRandomWord();
+      final newWord = getRandomWord(words);
       words[wordIndex] = newWord;
 
       word = newWord;
@@ -464,7 +464,7 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
 
   void playChar(int pos, int player, bool dragging,
       [bool isClick = true, String? time]) async {
-    if (!itsMyTurnToPlay(isClick, player)) return;
+    if (!itsMyTurnToPlay(isClick)) return;
     final matchLines = playersMatchLines[player];
     final coordinates = convertToGrid(pos, gridSize);
 
@@ -713,10 +713,7 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
   }
 
   @override
-  void onStart() {
-    // resetGrids();
-    // setInitialCount(0);
-  }
+  void onStart() {}
 
   @override
   void onConcede(int index) {}

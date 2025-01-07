@@ -33,19 +33,21 @@ class _MatchesListViewState extends State<MatchesListView>
   }
 
   void readMatches() async {
-    if (!hasMore || loading) return;
+    if (!hasMore || loading || !mounted) return;
     setState(() {
       loading = true;
     });
-    final newMatches = await getPlayedMatches(widget.gameId,
-        type: widget.type,
-        lastTime: matches.lastOrNull?.time_created,
-        limit: limit);
-    matches.addAll(newMatches);
+    try {
+      final newMatches = await getPlayedMatches(widget.gameId,
+          type: widget.type,
+          lastTime: matches.lastOrNull?.time_created,
+          limit: limit);
+      if (hasMore && newMatches.length < limit) {
+        hasMore = false;
+      }
+      matches.addAll(newMatches);
+    } catch (e) {}
 
-    if (hasMore && newMatches.length < limit) {
-      hasMore = false;
-    }
     if (!mounted) return;
 
     setState(() {

@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:firebase_auth/firebase_auth.dart' as auth;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:country_code_picker_plus/country_code_picker_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -7,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:gamesarena/core/firebase/auth_methods.dart';
+import 'package:gamesarena/core/firebase/extensions/firebase_extensions.dart';
 import 'package:gamesarena/features/onboarding/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/shared/extensions/special_context_extensions.dart';
@@ -16,13 +20,24 @@ import 'package:gamesarena/theme/colors.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/firebase/firebase_notification.dart';
+import '../../../main.dart';
 import '../../../shared/utils/country_code_utils.dart';
 import '../../../shared/utils/utils.dart';
+import '../../../shared/widgets/app_appbar.dart';
 import '../../app_info/pages/app_info_page.dart';
+import '../../home/pages/home_page.dart';
 import '../../user/models/user.dart';
 import '../../user/services.dart';
 
-enum AuthMode { login, signUp, forgotPassword, username }
+enum AuthMode {
+  login,
+  signUp,
+  forgotPassword,
+  username,
+  usernameAndPhoneNumber,
+  phone,
+  verifyEmail
+}
 
 class AuthPage extends StatefulWidget {
   final AuthMode mode;
@@ -32,7 +47,7 @@ class AuthPage extends StatefulWidget {
   State<AuthPage> createState() => _AuthPageState();
 }
 
-class _AuthPageState extends State<AuthPage> {
+class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
   AuthMode mode = AuthMode.login;
   AuthMethods authMethods = AuthMethods();
   GlobalKey<FormState> formStateKey = GlobalKey<FormState>();
@@ -47,6 +62,15 @@ class _AuthPageState extends State<AuthPage> {
 
   String countryDialCode = "";
   String countryCode = "";
+  bool sentEmail = false;
+  Timer? timer;
+  int? emailExpiryTime;
+  int emailExpiryDuration = 2 * 60;
+
+  User? user;
+  bool savedUsernameOrPhone = false;
+  bool verifiedEmail = false;
+
   @override
   void initState() {
     super.initState();
@@ -56,15 +80,33 @@ class _AuthPageState extends State<AuthPage> {
     phoneController = TextEditingController();
     passwordController = TextEditingController();
     getCountryCode();
+    WidgetsBinding.instance.addObserver(this);
+
+    if (mode == AuthMode.verifyEmail) {
+      checkEmailVerification();
+    }
   }
 
   @override
   void dispose() {
+    timer?.cancel();
     usernameController.dispose();
     emailController.dispose();
     phoneController.dispose();
     passwordController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      if (mode == AuthMode.verifyEmail) {
+        checkEmailVerification();
+      }
+    }
   }
 
   void clearControllers() {
@@ -86,49 +128,78 @@ class _AuthPageState extends State<AuthPage> {
 
   void getCountryCode() async {
     final code = await getCurrentCountryCode();
+    countryDialCode = await getCurrentCountryDialingCode(code) ?? "";
     countryCode = code ?? "";
     setState(() {});
   }
 
-  void googleSignIn() async {
-    showLoading(message: "Google Signin in...");
+  Future<User> createUser(auth.User authUser) async {
+    final userId = authUser.uid;
+    final time = timeNow;
 
-    authMethods.signInWithGoogle().then((cred) async {
-      if (cred == null || cred.user == null) {
-        showErrorToast("Google Signin Failed");
+    print("user.phoneNumber = ${authUser.phoneNumber}");
+    final phone = authUser.phoneNumber?.toValidNumber() ?? "";
+    print("phone = $phone");
+
+    final newUser = User(
+      email: authUser.email ?? "",
+      user_id: userId,
+      username: "",
+      phone: phone,
+      time_modified: time,
+      time: time,
+      last_seen: time,
+      tokens: [],
+      profile_photo: authUser.photoURL,
+    );
+    await createOrUpdateUser(newUser.toMap());
+    saveUserProperty(userId, newUser.toMap().removeNull(), prevUser: newUser);
+    return newUser;
+  }
+
+  void gotoNext(User? user) async {
+    hideDialog();
+    clearControllers();
+    user ??= await getUser(myId);
+    if (user == null) {
+      if (!mounted) return;
+      context.pop();
+      return;
+    }
+    print("user = $user");
+
+    if (!authMethods.emailVerified) {
+      mode = AuthMode.verifyEmail;
+      startEmailVerifcationTimer();
+      setState(() {});
+    } else if (user.username.isEmpty && user.phone.isEmpty) {
+      mode = AuthMode.usernameAndPhoneNumber;
+      setState(() {});
+    } else if (user.username.isEmpty) {
+      mode = AuthMode.username;
+      setState(() {});
+    } else if (user.phone.isEmpty) {
+      mode = AuthMode.phone;
+      setState(() {});
+    } else {
+      gotoHomePage();
+    }
+  }
+
+  void googleSignIn() async {
+    showLoading(message: "Signin in...");
+
+    authMethods.signInWithGoogle().then((authUser) async {
+      if (authUser == null) {
+        showErrorToast("Google Sign in Failed");
         return;
       }
-      final user = cred.user!;
-      final userId = user.uid;
-      final userData = await getUser(userId);
-      final needsUsername = userData == null || userData.username.isEmpty;
+      final userId = authUser.uid;
+      User? user = await getUser(userId);
+      user ??= await createUser(authUser);
+      showSuccessToast("Sign in Successfully");
 
-      if (userData == null) {
-        final phoneNumer = user.phoneNumber ?? "";
-        final phone = phoneNumer.isNotEmpty
-            ? phoneNumer.startsWith("+")
-                ? phoneNumer.substring(1)
-                : phoneNumer
-            : "";
-        final newUser = User(
-          email: user.email ?? "",
-          user_id: userId,
-          username: "",
-          phone: phone,
-          time: timeNow,
-          last_seen: timeNow,
-          token: "",
-          profile_photo: user.photoURL,
-        );
-        await createUser(newUser.toMap());
-      }
-      if (needsUsername) {
-        setState(() {
-          mode = AuthMode.username;
-        });
-      } else {
-        gotoHomePage();
-      }
+      gotoNext(user);
     }).onError((error, stackTrace) {
       showErrorSnackbar(error.toString().onlyErrorMessage,
           onPressed: googleSignIn);
@@ -143,49 +214,17 @@ class _AuthPageState extends State<AuthPage> {
     showLoading(message: "Creating Account...");
 
     final email = emailController.text.trim();
-    final username =
-        usernameController.text.toLowerCase().replaceAll(" ", "").trim();
-    final phoneNumber = phoneController.text.trim();
-    final phone =
-        phoneNumber.startsWith("0") ? phoneNumber.substring(1) : phoneNumber;
     final password = passwordController.text.trim();
 
-    usernameExist = await usernameExists(username);
-
-    if (usernameExist) {
-      // Fluttertoast.showToast(
-      //     msg: "Username already exist", toastLength: Toast.LENGTH_LONG);
-      // ignore: use_build_context_synchronously
-      showErrorToast("Username already exist");
-      if (!mounted) return;
-      context.hideDialog();
-      return;
-    }
-
-    authMethods.createAccount(email, password).then((value) async {
+    authMethods.createAccount(email, password).then((userCred) async {
       await authMethods.sendEmailVerification();
-      if (!mounted) return;
-      showToast(
-        "A verification link has been sent to your mail. Click to comfirm",
-      );
-      // Fluttertoast.showToast(
-      //     msg:
-      //         "A verification link has been sent to your mail. Click to comfirm");
-      final user = User(
-        email: email,
-        user_id: "",
-        username: username,
-        phone: "$countryDialCode$phone",
-        time: timeNow,
-        last_seen: timeNow,
-        token: "",
-      );
 
-      await createUser(user.toMap());
-      authMethods.logOut();
-      mode = AuthMode.login;
-      clearControllers();
-      setState(() {});
+      if (userCred?.user == null) return;
+
+      final user = await createUser(userCred!.user!);
+      showSuccessToast("Account created Successfully");
+
+      gotoNext(user);
     }).onError((error, stackTrace) {
       showErrorSnackbar(error.toString().onlyErrorMessage,
           onPressed: createAccount);
@@ -193,41 +232,21 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Future login() async {
-    //duration: const Duration(seconds: 5)
     showLoading(message: "Logging in...");
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
-    authMethods.login(email, password).then((value) async {
-      final verified = await authMethods.isEmailVerified();
-      if (!verified) {
-        showErrorToast("Email not verified");
-        if (!mounted) return;
-        await showSuccessSnackbar(
-          "A verification link has been sent to your mail. Click to comfirm\nIf not found Resend",
-          action: "Resend",
-          onPressed: () => authMethods.sendEmailVerification(),
-        );
+    authMethods.login(email, password).then((userCred) async {
+      User? user = await getUser(myId);
+      if (user?.time_deleted != null) {
+        showErrorToast("Account deleted");
         authMethods.logOut();
         return;
       }
-
-      final user = await getUser(getCurrentUserId());
-      if (user == null) {
-        showErrorToast("User not found");
-        authMethods.logOut();
-        return;
-      }
-      if (user.username.isEmpty) {
-        setState(() {
-          mode = AuthMode.username;
-        });
-      } else {
-        showSuccessToast("Login Successfully");
-        FirebaseNotification().updateFirebaseToken();
-
-        gotoHomePage();
-      }
+      if (userCred?.user == null) return;
+      user ??= await createUser(userCred!.user!);
+      gotoNext(user);
+      showSuccessToast("Login Successfully");
     }).onError((error, stackTrace) {
       showErrorSnackbar(error.toString().onlyErrorMessage, onPressed: login);
     }).whenComplete(() => context.hideDialog);
@@ -235,8 +254,10 @@ class _AuthPageState extends State<AuthPage> {
 
   void resetPassword() {
     final email = emailController.text.trim();
+    showLoading(message: "Sending Password Reset Email...");
 
     authMethods.sendPasswordResetEmail(email).then((value) {
+      hideDialog();
       clearControllers();
       mode = AuthMode.login;
       showToast(
@@ -245,22 +266,98 @@ class _AuthPageState extends State<AuthPage> {
     }).onError((error, stackTrace) {
       showErrorSnackbar(error.toString().onlyErrorMessage,
           onPressed: resetPassword);
-    }).whenComplete(() => context.pop());
+    }).whenComplete(() => context.hideDialog());
   }
 
-  Future createUsername() async {
+  void startEmailVerifcationTimer() {
+    emailExpiryTime = emailExpiryDuration;
+    timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (emailExpiryTime != null) {
+        emailExpiryTime = emailExpiryTime! - 1;
+        if (emailExpiryTime == 0) {
+          emailExpiryTime = null;
+          timer.cancel();
+          this.timer = null;
+        }
+        setState(() {});
+      }
+    });
+  }
+
+  void checkEmailVerification([bool isClick = false]) async {
+    if (await authMethods.isEmailVerified()) {
+      timer?.cancel();
+      timer = null;
+      emailExpiryTime = null;
+      showSuccessToast("Email Verified successfully");
+      verifiedEmail = true;
+      gotoNext(user);
+    } else {
+      if (isClick) {
+        showErrorToast("Email not yet verified. Check mail for link or resend");
+      }
+    }
+  }
+
+  void resendVerificationEmail() {
+    showLoading(message: "Sending verification email...");
+
+    authMethods.sendEmailVerification().then((value) {
+      hideDialog();
+      //mode = AuthMode.login;
+      showToast("A verification email has been sent to you.\nCheck your mail");
+      startEmailVerifcationTimer();
+      setState(() {});
+    }).onError((error, stackTrace) {
+      showErrorSnackbar(error.toString().onlyErrorMessage,
+          onPressed: resendVerificationEmail);
+    }).whenComplete(() => context.hideDialog());
+  }
+
+  Future createUsernameOrPhone() async {
     final username =
         usernameController.text.toLowerCase().replaceAll(" ", "").trim();
-    usernameExist = await usernameExists(username);
+    if (username.isNotEmpty) {
+      usernameExist = await usernameExists(username);
 
-    if (usernameExist) {
-      showErrorToast("Username already exist");
-      if (!mounted) return;
-      context.pop();
-      return;
+      if (usernameExist) {
+        showErrorToast("Username already exist");
+        if (!mounted) return;
+        context.pop();
+        return;
+      }
     }
-    await createUser({"username": username});
+    final phone =
+        phoneController.text.trim().toValidNumber(countryDialCode) ?? "";
+
+    final value = {
+      if (username.isNotEmpty) ...{"username": username},
+      if (phone.isNotEmpty) ...{"phone": phone}
+    };
+    print("value = $value");
+    showLoading(message: "Saving...");
+
+    if (username.isNotEmpty || phone.isNotEmpty) {
+      await createOrUpdateUser(value);
+    }
+    savedUsernameOrPhone = true;
+
     gotoHomePage();
+  }
+
+  String getTitle() {
+    switch (mode) {
+      case AuthMode.login:
+        return "Login";
+      case AuthMode.signUp:
+        return "Sign Up";
+      case AuthMode.forgotPassword:
+        return "Reset Password";
+      case AuthMode.verifyEmail:
+        return "Verify Email";
+      default:
+        return "Complete profile";
+    }
   }
 
   void executeAction() {
@@ -277,14 +374,17 @@ class _AuthPageState extends State<AuthPage> {
       case AuthMode.forgotPassword:
         resetPassword();
         break;
-      case AuthMode.username:
-        createUsername();
+      case AuthMode.verifyEmail:
+        checkEmailVerification(true);
+        break;
+      default:
+        createUsernameOrPhone();
         break;
     }
   }
 
   String getActionTitle() {
-    String title = "";
+    String title = "Save";
     switch (mode) {
       case AuthMode.login:
         title = "Login";
@@ -292,10 +392,13 @@ class _AuthPageState extends State<AuthPage> {
       case AuthMode.signUp:
         title = "Sign Up";
         break;
+      case AuthMode.verifyEmail:
+        title = "Verify";
+        break;
       case AuthMode.forgotPassword:
         title = "Send Password Reset Email";
         break;
-      case AuthMode.username:
+      default:
         title = "Save";
         break;
     }
@@ -315,17 +418,32 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   void gotoHomePage() {
-    context.pop();
-    //context.pushTo(const HomePage());
-    // Navigator.of(context).pushAndRemoveUntil(
-    //     MaterialPageRoute(builder: ((context) => const HomePage())),
-    //     (route) => false);
+    firebaseNotification.updateFirebaseToken();
+    if (!mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: ((context) => const HomePage())),
+      (Route<dynamic> route) => false, // Remove all routes
+    );
+  }
+
+  Future logout() async {
+    try {
+      await logoutUser();
+      authMethods.logOut();
+    } catch (e) {}
+  }
+
+  void gotoTermsAndPrivacy() {
+    context.pushTo(const AppInfoPage(type: "Terms and Privacy Policies"));
   }
 
   void gotoTermsAndConditions() {
-    context.pushTo(const AppInfoPage(
-      type: "Terms and Conditions and Privacy Policy",
-    ));
+    context.pushTo(const AppInfoPage(type: "Terms and Conditions"));
+  }
+
+  void gotoPrivacyPolicies() {
+    context.pushTo(const AppInfoPage(type: "Privacy Policies"));
   }
 
   @override
@@ -341,11 +459,19 @@ class _AuthPageState extends State<AuthPage> {
             mode = AuthMode.login;
           });
         }
+        if ((mode == AuthMode.verifyEmail && !verifiedEmail) ||
+            ((mode == AuthMode.username ||
+                    mode == AuthMode.phone ||
+                    mode == AuthMode.usernameAndPhoneNumber) &&
+                !savedUsernameOrPhone)) {
+          logout();
+        }
       },
       child: KeyboardListener(
         focusNode: FocusNode(),
         onKeyEvent: _onKey,
         child: Scaffold(
+          appBar: const AppAppBar(title: "Games Arena", hideBackButton: true),
           body: Center(
             child: SizedBox(
               width: 350,
@@ -356,16 +482,33 @@ class _AuthPageState extends State<AuthPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      // Text(
+                      //   "Games Arena",
+                      //   style: GoogleFonts.merienda(
+                      //       fontSize: 30, fontWeight: FontWeight.bold),
+                      //   textAlign: TextAlign.center,
+                      // ),
                       Text(
-                        "Games Arena",
-                        style: GoogleFonts.merienda(
-                            fontSize: 30, fontWeight: FontWeight.bold),
+                        getTitle(),
+                        style: context.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.bold, fontSize: 20),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(
                         height: 20,
                       ),
-                      if (mode != AuthMode.username)
+                      if (mode == AuthMode.verifyEmail)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Text(
+                            "A verification email should have been sent to you. Check your mail and if link expired or not found resend.",
+                            style: context.bodySmall,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      if (mode == AuthMode.login ||
+                          mode == AuthMode.signUp ||
+                          mode == AuthMode.forgotPassword)
                         AppTextField(
                           controller: emailController,
                           hintText: "Email",
@@ -375,12 +518,14 @@ class _AuthPageState extends State<AuthPage> {
                           controller: passwordController,
                           hintText: "Password",
                         ),
-                      if (mode == AuthMode.signUp || mode == AuthMode.username)
+                      if (mode == AuthMode.usernameAndPhoneNumber ||
+                          mode == AuthMode.username)
                         AppTextField(
                           controller: usernameController,
                           hintText: "Username",
                         ),
-                      if (mode == AuthMode.signUp)
+                      if (mode == AuthMode.usernameAndPhoneNumber ||
+                          mode == AuthMode.phone)
                         AppTextField(
                           controller: phoneController,
                           hintText: "Phone",
@@ -401,7 +546,7 @@ class _AuthPageState extends State<AuthPage> {
                                   countryCode.isNotEmpty ? countryCode : "US",
                               showFlag: false,
                               showDropDownButton: false,
-                              dialogBackgroundColor: tint,
+                              dialogBackgroundColor: offtint,
                               onChanged: (country) {
                                 setState(() {
                                   countryDialCode = country.dialCode;
@@ -412,9 +557,10 @@ class _AuthPageState extends State<AuthPage> {
                         ),
                       if (mode == AuthMode.signUp)
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Checkbox(
-                              activeColor: Colors.blue,
+                              activeColor: primaryColor,
                               value: acceptTerms,
                               onChanged: (value) {
                                 setState(() {
@@ -428,30 +574,55 @@ class _AuthPageState extends State<AuthPage> {
                               child: TextButton(
                                 style: TextButton.styleFrom(
                                     padding: EdgeInsets.zero),
-                                onPressed: gotoTermsAndConditions,
+                                onPressed: gotoTermsAndPrivacy,
                                 child: const Text(
-                                  "Accept Terms, Conditions and Privacy Policy",
-                                  style: TextStyle(color: Colors.blue),
-                                ),
+                                    "Accept Terms and Privacy Policies",
+                                    style: TextStyle(color: primaryColor)),
                               ),
                             ),
                           ],
                         ),
                       const SizedBox(
-                        height: 20,
+                        height: 10,
                       ),
-                      AppButton(
-                        height: 40,
-                        title: getActionTitle(),
-                        onPressed: executeAction,
+                      Row(
+                        children: [
+                          if (mode == AuthMode.verifyEmail) ...[
+                            Expanded(
+                              child: AppButton(
+                                height: 40,
+                                title:
+                                    "Resend${emailExpiryTime == null ? "" : " in ${emailExpiryTime?.toDurationString()}"}",
+                                bgColor: lightestTint,
+                                color: tint,
+                                onPressed: emailExpiryTime == null
+                                    ? resendVerificationEmail
+                                    : null,
+                                margin: const EdgeInsets.only(bottom: 10),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                          ],
+                          Expanded(
+                            child: AppButton(
+                              height: 40,
+                              title: getActionTitle(),
+                              onPressed: executeAction,
+                              margin: const EdgeInsets.only(bottom: 10),
+                            ),
+                          ),
+                        ],
                       ),
+
                       if (canGoogleSignIn &&
                           (mode == AuthMode.login || mode == AuthMode.signUp))
                         AppButton(
                           height: 40,
-                          title: "Login With Gmail",
+                          title:
+                              "${mode == AuthMode.login ? "Login" : "Sign Up"} With Gmail",
                           bgColor: const Color(0xffDB4437),
-                          margin: const EdgeInsets.only(top: 6),
+                          // margin: const EdgeInsets.only(top: 6),
+                          margin: const EdgeInsets.only(bottom: 10),
                           onPressed: googleSignIn,
                         ),
                       if (mode == AuthMode.login)
@@ -475,25 +646,54 @@ class _AuthPageState extends State<AuthPage> {
             ),
           ),
           bottomNavigationBar: (mode == AuthMode.login ||
-                  mode == AuthMode.signUp)
+                  mode == AuthMode.signUp ||
+                  mode == AuthMode.forgotPassword)
               ? Padding(
                   padding: const EdgeInsets.all(20.0),
-                  child: RichText(
-                    textAlign: TextAlign.center,
-                    text: TextSpan(
-                      text: mode == AuthMode.login
-                          ? "Don't have an account? "
-                          : "Already have an account? ",
-                      style: TextStyle(color: tint),
-                      children: [
-                        TextSpan(
-                          text: mode == AuthMode.login ? "Sign Up" : "Login",
-                          style: const TextStyle(color: primaryColor),
-                          recognizer: TapGestureRecognizer()
-                            ..onTap = toggleLoginAndSignUp,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      RichText(
+                        textAlign: TextAlign.center,
+                        text: TextSpan(
+                          text: mode == AuthMode.login
+                              ? "Don't have an account? "
+                              : mode == AuthMode.signUp
+                                  ? "Already have an account? "
+                                  : "",
+                          style: TextStyle(color: tint),
+                          children: [
+                            TextSpan(
+                              text:
+                                  mode == AuthMode.login ? "Sign Up" : "Login",
+                              style: const TextStyle(color: primaryColor),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = toggleLoginAndSignUp,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          TextButton(
+                              onPressed: gotoTermsAndConditions,
+                              child: Text("Terms and Conditions",
+                                  style: context.bodySmall
+                                      ?.copyWith(color: primaryColor))),
+                          Container(
+                            height: 10,
+                            width: 1,
+                            color: lightestTint,
+                          ),
+                          TextButton(
+                              onPressed: gotoPrivacyPolicies,
+                              child: Text("Privacy Policies",
+                                  style: context.bodySmall
+                                      ?.copyWith(color: primaryColor))),
+                        ],
+                      ),
+                    ],
                   ),
                 )
               : null,

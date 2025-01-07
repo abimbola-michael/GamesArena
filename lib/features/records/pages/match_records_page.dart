@@ -105,14 +105,18 @@ class _MatchRecordsPageState extends State<MatchRecordsPage> {
     matchRecords = getMatchRecords(match);
 
     if (!mounted) return;
-    print("match = $match");
 
     setState(() {});
   }
 
-  void gotoGame(String game, int recordId, int roundId) {
-    gotoGamePage(context, game, match.game_id!, match.match_id!,
-        match: match, users: users, recordId: recordId, roundId: roundId);
+  void gotoGame(String game, int recordId, int roundId) async {
+    await gotoGamePage(context, game, match.game_id!, match.match_id!,
+        match: match,
+        users: users,
+        recordId: recordId,
+        roundId: roundId,
+        isReplacement: false);
+    setState(() {});
   }
 
   void gotoGameRounds(MatchRecord record) {
@@ -138,7 +142,9 @@ class _MatchRecordsPageState extends State<MatchRecordsPage> {
                     return MatchOverallRecordItem(
                         match: match,
                         onWatchPressed: () => gotoGame(
-                            widget.match.games?.firstOrNull ?? "", index, 0));
+                            widget.match.games?.firstOrNull ?? "",
+                            index - 1,
+                            0));
                   }
                   final record = matchRecords[index];
                   return MatchRecordItem(

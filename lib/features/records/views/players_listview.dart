@@ -119,6 +119,7 @@ class _PlayersListViewState extends State<PlayersListView>
   }
 
   void showPlayerOptions(Player player) {
+    if (player.id == myId) return;
     final username = player.user?.username ?? "";
     List<String> options = [
       if (widget.game.groupName != null) "Play with $username in group",
@@ -173,10 +174,11 @@ class _PlayersListViewState extends State<PlayersListView>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    if (loading) {
+      return const LoadingView();
+    }
     if (widget.players.isEmpty) {
-      if (loading) {
-        return const LoadingView();
-      }
       return const EmptyListView(message: "No player");
     }
     return ListView.builder(

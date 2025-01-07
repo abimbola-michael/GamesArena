@@ -187,8 +187,8 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
   // }
 
   void initGrids() {
-    //pausePlayerTime = false;
-    //finishedRound = false;
+    setInitialCount(0);
+
     playedCount = 0;
     awaiting = false;
     winDirection = null;
@@ -222,19 +222,12 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
     if (map != null) {
       final details = XandODetails.fromMap(map);
 
-      // played = false;
-      // pausePlayerTime = false;
-      // if (details.currentPlayerId == updatePlayerId) {
-      //   return;
-      // }
-      // updatePlayerId = details.currentPlayerId;
       final playPos = details.playPos;
       if (playPos != -1) {
         playChar(playPos, false);
       } else {
         changePlayer();
       }
-      pausePlayerTime = false;
       setState(() {});
     }
   }
@@ -268,7 +261,6 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
 
   @override
   void onStart() {
-    setInitialCount(0);
     initGrids();
   }
 
@@ -280,7 +272,6 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
   @override
   void onTimeEnd() {
     updateWinForPlayerWithHighestCount();
-    setInitialCount(0);
   }
 
   @override
@@ -310,10 +301,12 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
                   final coordinates = convertToGrid(index, gridSize);
                   final rowindex = coordinates[0];
                   final colindex = coordinates[1];
-                  final xandoTile = xandoTiles[colindex][rowindex];
+                  final xandoTile = xandoTiles.get(colindex)?.get(rowindex);
                   return XandOTileWidget(
-                    key: Key(xandoTile.id),
-                    blink: firstTime && xandoTile.char == null,
+                    key: Key(xandoTile?.id ?? "$index"),
+                    blink: firstTime &&
+                        xandoTile != null &&
+                        xandoTile.char == null,
                     xandOTile: xandoTile,
                     onPressed: () {
                       playChar(index);

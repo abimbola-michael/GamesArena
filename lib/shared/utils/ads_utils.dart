@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:gamesarena/main.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../services.dart';
+
 InterstitialAd? _interstitialAd;
 
 class AdUtils {
@@ -39,6 +41,7 @@ class AdUtils {
   }
 
   void loadAd() async {
+    privateKey ??= await getPrivateKey();
     if (privateKey == null) return;
     await _interstitialAd?.dispose();
     _interstitialAd = null;

@@ -65,7 +65,7 @@ class AppButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: outlined
               ? Colors.transparent
-              : (bgColor ?? primaryColor).withOpacity(disabled ? 0.5 : 1),
+              : (bgColor ?? primaryColor.withOpacity(disabled ? 0.5 : 1)),
           borderRadius: BorderRadius.circular(radius ?? 30),
           border: outlined
               ? Border.all(

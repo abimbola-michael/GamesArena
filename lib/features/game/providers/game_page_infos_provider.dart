@@ -22,22 +22,7 @@ class GamePageInfosNotifier extends StateNotifier<GamePageInfos?> {
     state = state?.copyWith(currentPage: currentPage);
   }
 
-  void updateFirst(int firstRecordId, int firstRecordIdRoundId,
-      {int? totalPages}) {
-    if (state?.firstRecordId == firstRecordId &&
-        state?.firstRecordIdRoundId == firstRecordIdRoundId &&
-        state?.totalPages == totalPages) {
-      return;
-    }
-
-    state = state?.copyWith(
-      firstRecordId: firstRecordId,
-      firstRecordIdRoundId: firstRecordIdRoundId,
-      totalPages: totalPages,
-    );
-  }
-
-  void updateLast(int lastRecordId, int lastRecordIdRoundId,
+  void updateInfos(int lastRecordId, int lastRecordIdRoundId,
       {int? totalPages}) {
     if (state?.lastRecordId == lastRecordId &&
         state?.lastRecordIdRoundId == lastRecordIdRoundId &&

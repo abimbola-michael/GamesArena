@@ -66,7 +66,11 @@ class _MatchRoundsPageState extends State<MatchRoundsPage> {
 
   void gotoGame(String game, int recordId, int roundId) {
     gotoGamePage(context, game, match.game_id!, match.match_id!,
-        match: match, users: users, recordId: recordId, roundId: roundId);
+        match: match,
+        users: users,
+        recordId: recordId,
+        roundId: roundId,
+        isReplacement: false);
   }
 
   @override

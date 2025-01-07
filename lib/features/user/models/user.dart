@@ -10,34 +10,36 @@ class User {
   String username;
   String email;
   String phone;
-  String token;
+  List<String>? tokens;
   String time;
   String? time_modified;
   String? time_deleted;
   String last_seen;
   String? profile_photo;
-  List<UserGame>? user_games;
+  List<String>? games;
   bool? answeredRequests;
   String? subExpiryTime;
   String? sub;
-  bool checked = false;
-  String action = "";
   String? phoneName;
+  bool? checked;
+
   User({
     required this.user_id,
     required this.username,
     required this.email,
     required this.phone,
-    required this.token,
+    this.tokens,
     required this.time,
     this.time_modified,
     this.time_deleted,
     required this.last_seen,
     this.profile_photo,
-    this.user_games,
+    this.games,
     this.answeredRequests,
     this.subExpiryTime,
     this.sub,
+    this.phoneName,
+    this.checked,
   });
 
   User copyWith({
@@ -45,32 +47,36 @@ class User {
     String? username,
     String? email,
     String? phone,
-    String? token,
+    List<String>? tokens,
     String? time,
     String? time_modified,
     String? time_deleted,
     String? last_seen,
     String? profile_photo,
-    List<UserGame>? user_games,
+    List<String>? games,
     bool? answeredRequests,
     String? subExpiryTime,
     String? sub,
+    String? phoneName,
+    bool? checked,
   }) {
     return User(
       user_id: user_id ?? this.user_id,
       username: username ?? this.username,
       email: email ?? this.email,
       phone: phone ?? this.phone,
-      token: token ?? this.token,
+      tokens: tokens ?? this.tokens,
       time: time ?? this.time,
       time_modified: time_modified ?? this.time_modified,
       time_deleted: time_deleted ?? this.time_deleted,
       last_seen: last_seen ?? this.last_seen,
       profile_photo: profile_photo ?? this.profile_photo,
-      user_games: user_games ?? this.user_games,
+      games: games ?? this.games,
       answeredRequests: answeredRequests ?? this.answeredRequests,
       subExpiryTime: subExpiryTime ?? this.subExpiryTime,
       sub: sub ?? this.sub,
+      phoneName: phoneName ?? this.phoneName,
+      checked: checked ?? this.checked,
     );
   }
 
@@ -80,16 +86,18 @@ class User {
       'username': username,
       'email': email,
       'phone': phone,
-      'token': token,
+      'tokens': tokens,
       'time': time,
       'time_modified': time_modified,
       'time_deleted': time_deleted,
       'last_seen': last_seen,
       'profile_photo': profile_photo,
-      'user_games': user_games?.map((x) => x?.toMap()).toList(),
+      'games': games,
       'answeredRequests': answeredRequests,
       'subExpiryTime': subExpiryTime,
       'sub': sub,
+      'phoneName': phoneName,
+      'checked': checked,
     };
   }
 
@@ -99,7 +107,9 @@ class User {
       username: map['username'] as String,
       email: map['email'] as String,
       phone: map['phone'] as String,
-      token: map['token'] as String,
+      tokens: map['tokens'] != null
+          ? List<String>.from((map['tokens'] as List<dynamic>))
+          : null,
       time: map['time'] as String,
       time_modified:
           map['time_modified'] != null ? map['time_modified'] as String : null,
@@ -108,12 +118,8 @@ class User {
       last_seen: map['last_seen'] as String,
       profile_photo:
           map['profile_photo'] != null ? map['profile_photo'] as String : null,
-      user_games: map['user_games'] != null
-          ? List<UserGame>.from(
-              (map['user_games'] as List<dynamic>).map<UserGame?>(
-                (x) => UserGame.fromMap(x as Map<String, dynamic>),
-              ),
-            )
+      games: map['games'] != null
+          ? List<String>.from((map['games'] as List<dynamic>))
           : null,
       answeredRequests: map['answeredRequests'] != null
           ? map['answeredRequests'] as bool
@@ -121,6 +127,8 @@ class User {
       subExpiryTime:
           map['subExpiryTime'] != null ? map['subExpiryTime'] as String : null,
       sub: map['sub'] != null ? map['sub'] as String : null,
+      phoneName: map['phoneName'] != null ? map['phoneName'] as String : null,
+      checked: map['checked'] != null ? map['checked'] as bool : null,
     );
   }
 
@@ -131,7 +139,7 @@ class User {
 
   @override
   String toString() {
-    return 'User(user_id: $user_id, username: $username, email: $email, phone: $phone, token: $token, time: $time, time_modified: $time_modified, time_deleted: $time_deleted, last_seen: $last_seen, profile_photo: $profile_photo, user_games: $user_games, answeredRequests: $answeredRequests, subExpiryTime: $subExpiryTime, sub: $sub)';
+    return 'User(user_id: $user_id, username: $username, email: $email, phone: $phone, tokens: $tokens, time: $time, time_modified: $time_modified, time_deleted: $time_deleted, last_seen: $last_seen, profile_photo: $profile_photo, games: $games, answeredRequests: $answeredRequests, subExpiryTime: $subExpiryTime, sub: $sub, phoneName: $phoneName, checked: $checked)';
   }
 
   @override
@@ -142,16 +150,18 @@ class User {
         other.username == username &&
         other.email == email &&
         other.phone == phone &&
-        other.token == token &&
+        listEquals(other.tokens, tokens) &&
         other.time == time &&
         other.time_modified == time_modified &&
         other.time_deleted == time_deleted &&
         other.last_seen == last_seen &&
         other.profile_photo == profile_photo &&
-        listEquals(other.user_games, user_games) &&
+        listEquals(other.games, games) &&
         other.answeredRequests == answeredRequests &&
         other.subExpiryTime == subExpiryTime &&
-        other.sub == sub;
+        other.sub == sub &&
+        other.phoneName == phoneName &&
+        other.checked == checked;
   }
 
   @override
@@ -160,15 +170,17 @@ class User {
         username.hashCode ^
         email.hashCode ^
         phone.hashCode ^
-        token.hashCode ^
+        tokens.hashCode ^
         time.hashCode ^
         time_modified.hashCode ^
         time_deleted.hashCode ^
         last_seen.hashCode ^
         profile_photo.hashCode ^
-        user_games.hashCode ^
+        games.hashCode ^
         answeredRequests.hashCode ^
         subExpiryTime.hashCode ^
-        sub.hashCode;
+        sub.hashCode ^
+        phoneName.hashCode ^
+        checked.hashCode;
   }
 }

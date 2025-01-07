@@ -5,6 +5,7 @@ import 'package:icons_plus/icons_plus.dart';
 
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_container.dart';
+import '../../../shared/widgets/app_popup_menu_button.dart';
 import '../../../theme/colors.dart';
 import '../../game/widgets/profile_photo.dart';
 import '../../user/models/user.dart';
@@ -104,45 +105,63 @@ class ContactItem extends StatelessWidget {
             ),
             if (contactStatus == ContactStatus.requested || isInvite)
               if (availablePlatforms.contains("WhatsApp"))
-                PopupMenuButton<String>(
-                  itemBuilder: (context) {
-                    return availablePlatforms.map((option) {
-                      return PopupMenuItem(
-                        value: option,
-                        child: Text(
-                          option,
-                          style: context.bodySmall,
-                        ),
-                      );
-                    }).toList();
-                  },
-                  onSelected: onShare,
-                  child: const AppButton(title: "Invite", wrapped: true),
-                )
+                AppPopupMenuButton(
+                    options: availablePlatforms,
+                    onSelected: onShare,
+                    child: const AppButton(title: "Invite", wrapped: true))
+              // PopupMenuButton<String>(
+              //   itemBuilder: (context) {
+              //     return availablePlatforms.map((option) {
+              //       return PopupMenuItem(
+              //         value: option,
+              //         child: Text(
+              //           option,
+              //           style: context.bodySmall,
+              //         ),
+              //       );
+              //     }).toList();
+              //   },
+              //   onSelected: onShare,
+              //   child: const AppButton(title: "Invite", wrapped: true),
+              // )
               else
-                AppButton(title: "Invite", wrapped: true, onPressed: onPressed)
+                AppButton(
+                  title: "Invite",
+                  wrapped: true,
+                  onPressed: onPressed,
+                  margin: EdgeInsets.zero,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                )
             else if (contactStatus == ContactStatus.unadded)
               AppButton(
                 title: "Add",
                 wrapped: true,
                 onPressed: onPressed,
+                margin: EdgeInsets.zero,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               )
             else if (contactStatus == null)
-              PopupMenuButton<String>(
-                itemBuilder: (context) {
-                  return availablePlatforms.map((option) {
-                    return PopupMenuItem(
-                      value: option,
-                      child: Text(
-                        option,
-                        style: context.bodySmall,
-                      ),
-                    );
-                  }).toList();
-                },
-                onSelected: onShare,
-                child: const Icon(EvaIcons.share_outline, color: white),
-              )
+              AppPopupMenuButton(
+                  options: availablePlatforms,
+                  onSelected: onShare,
+                  child: const Icon(EvaIcons.share_outline))
+            // PopupMenuButton<String>(
+            //   itemBuilder: (context) {
+            //     return availablePlatforms.map((option) {
+            //       return PopupMenuItem(
+            //         value: option,
+            //         child: Text(
+            //           option,
+            //           style: context.bodySmall,
+            //         ),
+            //       );
+            //     }).toList();
+            //   },
+            //   onSelected: onShare,
+            //   child: const Icon(EvaIcons.share_outline),
+            // )
           ],
         ),
       ),

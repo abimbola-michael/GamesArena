@@ -34,6 +34,7 @@ class MatchRoundItem extends StatelessWidget {
             game: round.game,
             timeStart: round.time_start,
             timeEnd: round.time_end,
+            duration: round.duration,
             players: round.players,
             outcome: getMatchOutcomeMessageFromWinners(
                 round.winners, round.players,

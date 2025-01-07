@@ -65,7 +65,7 @@ class ChessWidget extends StatelessWidget {
 }
 
 class ChessTileWidget extends StatelessWidget {
-  final ChessTile chessTile;
+  final ChessTile? chessTile;
   final int x, y;
   final VoidCallback onPressed;
   final bool highLight;
@@ -95,22 +95,22 @@ class ChessTileWidget extends StatelessWidget {
         height: size,
         width: size,
         alignment: Alignment.center,
-        color: highLight
+        color: chessTile != null && highLight
             ? Colors.purple
             : (x + y).isOdd
                 ? tileDarkColor
                 : tileLightColor,
         // ? tileColor
         // : tileColor.withOpacity(0.3),
-        child: chessTile.chess == null
+        child: chessTile?.chess == null
             ? null
             : RotatedBox(
                 quarterTurns:
-                    (gameId.isEmpty && chessTile.chess!.player == 0) ||
+                    (gameId.isEmpty && chessTile!.chess!.player == 0) ||
                             (gameId.isNotEmpty && myPlayer == 0)
                         ? 2
                         : 0,
-                child: ChessWidget(chess: chessTile.chess!, size: size / 2),
+                child: ChessWidget(chess: chessTile!.chess!, size: size / 2),
               ),
       ),
     );

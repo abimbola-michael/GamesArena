@@ -36,8 +36,8 @@ class GameScoreItem extends StatelessWidget {
                   profilePhoto: profilePhoto, name: username, size: 50),
               if (action == "start") ...[
                 const Positioned(
-                  bottom: 4,
-                  right: 4,
+                  bottom: 0,
+                  right: 0,
                   child: CircleAvatar(
                     radius: 8,
                     backgroundColor: Colors.blue,

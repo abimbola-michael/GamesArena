@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart' as firebaseUser;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gemini/flutter_gemini.dart';
+import 'package:gamesarena/core/firebase/auth_methods.dart';
 import 'package:gamesarena/core/firebase/firebase_notification.dart';
 import 'package:gamesarena/features/games/quiz/pages/quiz_game_page.dart';
 import 'package:gamesarena/shared/models/private_key.dart';
@@ -33,12 +34,13 @@ String currentUserId = "";
 PrivateKey? privateKey;
 Map<String, User?> usersMap = {};
 AdUtils adUtils = AdUtils();
+FirebaseNotification firebaseNotification = FirebaseNotification();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   privateKey = await getPrivateKey();
+  // await AuthMethods().logOut();
   //if (privateKey != null) {
   //   Gemini.init(apiKey: privateKey!.chatGptApiKey);
   // }
@@ -75,9 +77,13 @@ Future<void> main() async {
   await Hive.openBox<String>("players");
   await Hive.openBox<String>("contacts");
 
+  // Hive.box<String>("matches").clear();
+  // Hive.box<String>("gamelists").clear();
+  // Hive.box<String>("players").clear();
+
   //final hivePath = Hive.deleteFromDisk();
 
-  FirebaseNotification().initNotification();
+  firebaseNotification.initNotification();
   //FirebaseService().updatePresence();
   runApp(const ProviderScope(child: MyApp()));
 }

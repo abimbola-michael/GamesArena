@@ -37,8 +37,13 @@ Future<List<Match>> getPlayedMatches(String gameId,
         "outcome",
         "==",
         type == "loss" ? "win" : type,
-        ...[type == "win" ? "winners" : "others", "contains", myId]
+        type == "win" ? "winners" : "others",
+        "contains",
+        myId,
       ] else ...[
+        "outcome",
+        "!=",
+        "",
         "players",
         "contains",
         myId,
@@ -61,12 +66,12 @@ Future<GameStat> getGameStats(String gameId, int? playersCount) async {
     gameId,
     "matches"
   ], where: [
-    "players",
-    "contains",
-    myId,
     "outcome",
     "!=",
     "",
+    "players",
+    "contains",
+    myId,
   ]);
 
   int wins = await fm.getSnapshotCount([
@@ -74,13 +79,12 @@ Future<GameStat> getGameStats(String gameId, int? playersCount) async {
     gameId,
     "matches"
   ], where: [
-    "players",
-    "contains",
-    myId,
     "outcome",
     "==",
     "win",
-    ...["winners", "contains", myId]
+    "winners",
+    "contains",
+    myId,
   ]);
 
   int draws = await fm.getSnapshotCount([
@@ -91,7 +95,9 @@ Future<GameStat> getGameStats(String gameId, int? playersCount) async {
     "outcome",
     "==",
     "draw",
-    ...["others", "contains", myId]
+    "others",
+    "contains",
+    myId,
   ]);
   //int playedMatches = wins + ties + losses + draws;
   int losses = playedMatches - (wins + draws);

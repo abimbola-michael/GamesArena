@@ -57,7 +57,7 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
   bool needShape = false;
   int iNeedCardIndex = -1;
 
-  int pickCount = 1;
+  // int pickCount = 1;
   int pickPlayer = 0;
 
   String updatePlayerId = "";
@@ -85,38 +85,6 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
     }
   }
 
-  void shareCards() async {
-    if (whots.isEmpty) return;
-    for (int i = 0; i < playersSize; i++) {
-      playersWhots.add([]);
-    }
-    awaiting = true;
-    final cardsToShare = (startCards * playersSize) + 1;
-    int j = 0;
-    for (int i = 0; i < cardsToShare; i++) {
-      if (i < whots.length) {
-        final whot = whots.first;
-        if (!seeking) {
-          await Future.delayed(const Duration(milliseconds: 100));
-        }
-        if (i == cardsToShare - 1) {
-          playWhot(j, -1);
-        } else {
-          playersWhots[j].insert(0, whot);
-          j = j == playersSize - 1 ? 0 : j + 1;
-        }
-        whots.removeAt(0);
-        if (!mounted) return;
-        setState(() {});
-      }
-    }
-    awaiting = false;
-    pausePlayerTime = false;
-
-    message = "";
-    setState(() {});
-  }
-
   void showPossiblePlayPositions() {
     if (!firstTime) return;
     hintPositions.clear();
@@ -141,7 +109,7 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
         }
       }
     } else {
-      final currentWhot = playedWhots.first;
+      final currentWhot = playedWhots.last;
       if (((currentWhot.number == 14 && pickPlayer != currentPlayer) ||
               (currentWhot.number == 2 && pickPlayer == currentPlayer)) &&
           pickPlayer != -1) {
@@ -196,227 +164,209 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
     setState(() {});
   }
 
-  void playWhot(int player, int index, [bool isClick = true]) async {
-    if (index != -1 && isClick) {
-      if (cardVisibilities[player] == WhotCardVisibility.turned) {
-        if (gameId.isNotEmpty && player != myPlayer && !finishedRound) {
-          showToast("You can't flip your opponent's card");
-          return;
-        }
-        cardVisibilities[player] = WhotCardVisibility.visible;
-        getHintPositions();
-        setState(() {});
-        return;
-      }
-      if (!itsMyTurnToPlay(true, player)) return;
+  void shareCards() async {
+    if (whots.isEmpty) return;
+    for (int i = 0; i < playersSize; i++) {
+      playersWhots.add([]);
+    }
+    pickCards(playersSize * startCards, 1);
+    playInitialWhot();
+    // awaiting = true;
+    // final cardsToShare = (startCards * playersSize) + 1;
+    // int j = 0;
+    // for (int i = 0; i < cardsToShare; i++) {
+    //   if (i < whots.length) {
+    //     final whot = whots.first;
+    //     if (!seeking) {
+    //       await Future.delayed(const Duration(milliseconds: 100));
+    //     }
+    //     if (i == cardsToShare - 1) {
+    //       playWhot(j, -1);
+    //     } else {
+    //       playersWhots[j].insert(0, whot);
+    //       j = j == playersSize - 1 ? 0 : j + 1;
+    //     }
+    //     whots.removeAt(0);
+    //     if (!mounted) return;
+    //     setState(() {});
+    //   }
+    // }
+    // awaiting = false;
+    // pausePlayerTime = false;
 
-      final currentNumber = playedWhots.first.number;
-      if (currentNumber == 14 &&
-          pickPlayer != -1 &&
-          pickPlayer != currentPlayer) {
-        showPlayerToast(index, "Pick General Market");
-        return;
-      }
+    message = "";
+    setState(() {});
+  }
 
-      if (currentNumber == 2 &&
-          pickPlayer != -1 &&
-          pickPlayer == currentPlayer) {
-        showPlayerToast(index, "Pick 2 From Market");
-        return;
-      }
+  Future pickCards(int rounds, int count, [int duration = 1000]) async {
+    for (int i = 0; i < rounds; i++) {
+      pickWhot(count, false, null, false);
+    }
+  }
 
-      if (needShape && index != -1) {
-        showPlayerToast(currentPlayer, "Select shape");
-        return;
-      }
+  void playInitialWhot() {
+    final whot = whots.last;
+    playedWhots.add(whot);
+
+    changePlayer();
+
+    showActivePlayersMessages("");
+
+    if (whot.number == 14) {
+      showActivePlayersMessages("General Market", currentPlayer);
+
+      pickCards(playersSize - 1, 1);
+    } else if (whot.number == 2) {
+      showPlayerMessage(currentPlayer, "Pick 2");
+
+      pickCards(1, 2);
+    } else if (whot.number == 1 || whot.number == 8) {
+      showPlayerMessage(
+          currentPlayer, whot.number == 1 ? "Hold On" : "Suspension");
+      changePlayer();
+      showPlayerMessage(currentPlayer, "Continue");
+    } else if (whot.number == 20) {
+      showPlayerMessage(currentPlayer, "Select Card shape");
+      needShape = true;
     }
 
-    Whot whot = index == -1 ? whots.first : playersWhots[currentPlayer][index];
-    final currentWhot = playedWhots.isEmpty ? whots.first : playedWhots.first;
-    if (shapeNeeded != null &&
-        shapeNeeded != whotCardShapes[whot.shape] &&
-        whot.number != 20 &&
-        index != -1) {
-      showPlayerToast(currentPlayer,
-          "This is not ${shapeNeeded!.name}\n Go to Market if you don't have");
+    // if (whot.number == 14) {
+    //   showActivePlayersMessages("General Market", currentPlayer);
+
+    //   pickCards(playersSize, 1);
+    // } else if (whot.number == 2) {
+    //   showPlayerMessage(currentPlayer, "Pick 2");
+
+    //   pickCards(1, 2);
+    // } else if (whot.number == 1 || whot.number == 8) {
+    //   showPlayerMessage(
+    //       currentPlayer, whot.number == 1 ? "Hold On" : "Suspension");
+    //   print("beforecurrentPlayer = $currentPlayer");
+
+    //   changePlayer();
+    //   showPlayerMessage(currentPlayer, "Continue");
+    //   print("aftercurrentPlayer = $currentPlayer");
+    // } else if (whot.number == 20) {
+    //   showPlayerMessage(currentPlayer, "Select Card shape");
+    //   getHintPositions();
+    //   needShape = true;
+    // }
+
+    setState(() {});
+  }
+
+  void playWhot(int player, int index, [bool isClick = true]) {
+    if (isClick && cardVisibilities[player] == WhotCardVisibility.turned) {
+      if (gameId.isNotEmpty && player != myPlayer && !finishedRound) {
+        showToast("You can't flip your opponent's card");
+        return;
+      }
+      cardVisibilities[player] = WhotCardVisibility.visible;
+      getHintPositions();
+      setState(() {});
       return;
     }
+    if (!itsMyTurnToPlay(isClick, player)) return;
 
-    final next = nextPlayer();
-    final prev = prevPlayer();
-    final next2 = nextPlayer(true);
-    //final prev2 = prevPlayer(true);
-    if (currentWhot.number == whot.number ||
-        currentWhot.shape == whot.shape ||
-        whot.number == 20 ||
-        (shapeNeeded != null && shapeNeeded == whotCardShapes[whot.shape])) {
-      //making sure the cards match
-      final number = whot.number;
-      if (index != -1) {
-        // if (playedWhots.isNotEmpty && playedWhots.first.number == 1) {
-        //   for (int i = 0; i < playersSize; i++) {
-        //     if (i != currentPlayer) {
-        //       playersMessages[i] = playersMessages[i].replaceAll("Hold On", "");
-        //     }
-        //   }
-        // }
-        playedWhots.insert(0, whot);
-        final currentPlayerWhots = playersWhots[currentPlayer];
-        if (currentPlayerWhots.isNotEmpty) {
-          currentPlayerWhots.removeAt(index);
-        }
-        updateCount(currentPlayer, currentPlayerWhots.length);
-      } else {
-        playedWhots.add(whot);
-      }
+    if (playedWhots.isEmpty) return;
+    final currentWhot = playedWhots.last;
+    final whot = playersWhots[currentPlayer][index];
 
-      playersMessages[currentPlayer] = "";
-      playersMessages[prev] = "";
-
-      String lastMessage = "";
-      hastLastCard = false;
-      // if (playersWhots[currentPlayer].length == 2) {
-      //   lastMessage = "Semi Last Card ";
-      //   hastLastCard = true;
-      // } else
-      if (playersWhots[currentPlayer].length == 1) {
-        lastMessage = "Last Card ";
-        hastLastCard = true;
-      } else if (playersWhots[currentPlayer].isEmpty) {
-        if (number != 1 &&
-            number != 8 &&
-            number != 14 &&
-            number != 2 &&
-            number != 20) {
-          lastMessage = "Check Up";
-        }
-      }
-      // if (lastMessage != "") {
-      //   if (playersSize > 2) {
-      //     lastMessage +=
-      //         ": ${users != null ? "${users![currentPlayer]?.username ?? ""}\n" : "${currentPlayer + 1}"}\n";
-      //   } else {
-      //     lastMessage += "\n";
-      //   }
-      // }
-
-      if (number == 1 || number == 8 || number == 14 || number == 2) {
-        String nextMessage = number == 1
-            ? "Hold On"
-            : number == 8
-                ? "Suspension"
-                : number == 2
-                    ? "Pick 2"
-                    : "General Market";
-        if (number == 14) {
-          pickCount = 1;
-          pickPlayer = currentPlayer;
-        } else if (number == 2) {
-          pickCount = 2;
-          pickPlayer = next;
-        }
-// || number == 1
-        if (number == 14) {
-          for (int i = 0; i < playersSize; i++) {
-            if (i != currentPlayer) {
-              playersMessages[i] = "$lastMessage$nextMessage";
-            }
-            // else {
-            //   if (number == 1) {
-            //     playersMessages[currentPlayer] += "Continue";
-            //   }
-            // }
-          }
-        } else {
-          playersMessages[next] = "";
-          playersMessages[next2] = "";
-          if (lastMessage != "") {
-            for (int i = 0; i < playersSize; i++) {
-              if (i != currentPlayer) {
-                playersMessages[i] = lastMessage;
-              }
-            }
-          }
-          playersMessages[next] += nextMessage;
-          if (number == 8 || number == 1) {
-            playersMessages[next2] += "Continue";
-          }
-        }
-      } else {
-        if (lastMessage != "") {
-          for (int i = 0; i < playersSize; i++) {
-            if (i != currentPlayer) {
-              playersMessages[i] = lastMessage;
-            }
-          }
-        }
-        needShape = number == 20;
-        if (index != -1 && number != 20) {
-          checkWinGame();
-        }
-      }
-
-      if (shapeNeeded != null && shapeNeeded == whotCardShapes[whot.shape]) {
-        needShape = false;
-        shapeNeeded = null;
-      }
-// || number == 1
-
-      if (number == 20) {
-        iNeedCardIndex = index;
-        //resetPlayerTime();
-        if (index == -1) {
-          showPossiblePlayPositions();
-        } else {
-          getHintPositions();
-        }
-      } else {
-        if (isClick && index != -1) {
-          updateDetails(index);
-        }
-        changePlayer(suspend: number == 8 || number == 1);
-        showPossiblePlayPositions();
-      }
-      // if (gameId.isEmpty && (playersSize != 2 || (number != 8 && number != 1))) {
-      //   hideCards();
-      // }
-      if (gameId.isEmpty && number != 8 && number != 1 && number != 20) {
-        hideCards();
-      }
-
-      hintGeneralMarket = number == 2 || number == 14;
-      awaiting = false;
-      setState(() {});
-    } else {
-      showPlayerToast(currentPlayer, "Cards Don't Match");
+    if (needShape) {
+      showPlayerToast(
+          currentPlayer, "You are to select a shape you need above");
+      return;
     }
+    if (shapeNeeded != null && whot.number != 20) {
+      if (shapeNeeded!.index != whot.shape) {
+        showPlayerToast(
+            currentPlayer, "Shape doesn't match ${shapeNeeded!.name}");
+        return;
+      }
+    } else {
+      if (whot.number != 20 &&
+          currentWhot.number != whot.number &&
+          currentWhot.shape != whot.shape) {
+        showPlayerToast(currentPlayer, "Whot doesn't match shape or number");
+        return;
+      }
+    }
+
+    playedWhots.add(whot);
+    playersWhots[currentPlayer].removeAt(index);
+    updateCount(currentPlayer, playersWhots[currentPlayer].length);
+
+    int prevPlayer = currentPlayer;
+
+    if (whot.number != 20) {
+      if (isClick) updateDetails(index);
+      checkWinGame();
+      changePlayer();
+    }
+    showActivePlayersMessages("");
+
+    if (shapeNeeded != null) {
+      shapeNeeded = null;
+    }
+
+    if (whot.number == 14) {
+      showActivePlayersMessages("General Market", prevPlayer);
+
+      pickCards(playersSize - 1, 1);
+    } else if (whot.number == 2) {
+      showPlayerMessage(currentPlayer, "Pick 2");
+
+      pickCards(1, 2);
+    } else if (whot.number == 1 || whot.number == 8) {
+      showPlayerMessage(
+          currentPlayer, whot.number == 1 ? "Hold On" : "Suspension");
+      changePlayer();
+      showPlayerMessage(currentPlayer, "Continue");
+    } else if (whot.number == 20) {
+      showPlayerMessage(currentPlayer, "Select Card shape");
+      needShape = true;
+      iNeedCardIndex = index;
+    }
+    // print("prevPlayer = $prevPlayer, currentPlayer = $currentPlayer");
+
+    if (gameId.isEmpty && currentPlayer != prevPlayer) {
+      hideCards();
+    }
+
+    showPossiblePlayPositions();
+
+    setState(() {});
   }
 
   void playShape(int index, [bool isClick = true]) async {
     if (!itsMyTurnToPlay(isClick)) return;
 
     shapeNeeded = whotCardShapes[index];
-    final next = nextPlayer();
-    playersMessages[next] =
-        "${playersMessages[currentPlayer].contains("I need") ? "" : "${playersMessages[currentPlayer]} "}I need ${shapeNeeded!.name}";
+
     needShape = false;
     if (isClick) updateINeedDetails(iNeedCardIndex, index);
     iNeedCardIndex = -1;
     changePlayer();
+    showActivePlayersMessages("");
+
+    showPlayerMessage(currentPlayer, "I need ${shapeNeeded!.name}");
+
     showPossiblePlayPositions();
     setState(() {});
   }
 
-  void pickWhot([bool isClick = true, String? whotIndices]) async {
+  void pickWhot(
+      [int pickCount = 1,
+      bool isMe = true,
+      String? whotIndices,
+      bool isClick = true]) async {
     if (!itsMyTurnToPlay(isClick)) return;
+    //awaiting
 
-    if (!mounted || awaiting || whots.isEmpty) return;
-    // if (shapeNeeded == null) {
-    //   message = "";
-    // }
+    if (!mounted || whots.isEmpty) return;
 
     if (pickCount >= whots.length) {
-      final firstPlayedWhot = playedWhots.first;
+      final lastPlayedWhot = playedWhots.last;
       List<Whot> otherPlayedWhots = [];
       if (whotIndices != null) {
         otherPlayedWhots = (jsonDecode(whotIndices) as List)
@@ -424,7 +374,7 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
             .toList();
       } else {
         otherPlayedWhots = playedWhots
-            .where((element) => element.id != firstPlayedWhot.id)
+            .where((element) => element.id != lastPlayedWhot.id)
             .toList();
         otherPlayedWhots.shuffle();
         if (isClick) {
@@ -432,52 +382,239 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
         }
       }
 
-      playedWhots = [firstPlayedWhot];
+      playedWhots = [lastPlayedWhot];
       whots.addAll(otherPlayedWhots);
     } else {
       if (isClick) {
         updateDetails(-1);
       }
     }
-
-    for (int i = 0; i < pickCount; i++) {
-      final whot = whots.first;
-      playersWhots[currentPlayer].insert(0, whot);
-      whots.removeAt(0);
-      awaiting = false;
-      updateCount(currentPlayer, playersWhots[currentPlayer].length);
-      if (whots.isEmpty) {
-        tenderCards();
-        return;
-      }
-    }
-
-    // if (playedWhots.isNotEmpty && playedWhots.first.number == 1) {
-    //   for (int i = 0; i < playersSize; i++) {
-    //     if (i != currentPlayer) {
-    //       playersMessages[i] = playersMessages[i].replaceAll("Hold On", "");
-    //     }
-    //   }
-    // }
-    resetLastOrSemiLastCard();
-    final next = nextPlayer();
-    final prev = prevPlayer();
-    playersMessages[currentPlayer] = "";
-    playersMessages[prev] = "";
-    // changePlayer(false, true);
-    changePlayer();
-
-    if (pickPlayer == currentPlayer) {
-      pickPlayer = -1;
-    }
-    pickCount = 1;
-    hastLastCard = false;
-    showPossiblePlayPositions();
     if (gameId.isEmpty) {
       hideCards();
     }
+
+    for (int i = 0; i < pickCount; i++) {
+      if (whots.isEmpty) return;
+
+      final whot = whots.last;
+      playersWhots[currentPlayer].insert(0, whot);
+      whots.removeLast();
+      updateCount(currentPlayer, playersWhots[currentPlayer].length);
+    }
+
+    changePlayer();
+    if (isMe) {
+      showActivePlayersMessages("");
+      showPlayerMessage(currentPlayer, "I pick, Play");
+    }
+
+    if (shapeNeeded != null) {
+      showPlayerMessage(currentPlayer, "I need ${shapeNeeded!.name}");
+    }
+
+    hastLastCard = false;
+    showPossiblePlayPositions();
+    // if (gameId.isEmpty) {
+    //   hideCards();
+    // }
     setState(() {});
   }
+
+//   void playWhot(int player, int index, [bool isClick = true]) async {
+//     if (index != -1 && isClick) {
+//       if (cardVisibilities[player] == WhotCardVisibility.turned) {
+//         if (gameId.isNotEmpty && player != myPlayer && !finishedRound) {
+//           showToast("You can't flip your opponent's card");
+//           return;
+//         }
+//         cardVisibilities[player] = WhotCardVisibility.visible;
+//         getHintPositions();
+//         setState(() {});
+//         return;
+//       }
+//       if (!itsMyTurnToPlay(isClick, player)) return;
+
+//       final currentNumber = playedWhots.first.number;
+//       if (currentNumber == 14 &&
+//           pickPlayer != -1 &&
+//           pickPlayer != currentPlayer) {
+//         showPlayerToast(index, "Pick General Market");
+//         return;
+//       }
+
+//       if (currentNumber == 2 &&
+//           pickPlayer != -1 &&
+//           pickPlayer == currentPlayer) {
+//         showPlayerToast(index, "Pick 2 From Market");
+//         return;
+//       }
+
+//       if (needShape && index != -1) {
+//         showPlayerToast(currentPlayer, "Select shape");
+//         return;
+//       }
+//     }
+
+//     Whot whot = index == -1 ? whots.first : playersWhots[currentPlayer][index];
+//     final currentWhot = playedWhots.isEmpty ? whots.first : playedWhots.first;
+//     if (shapeNeeded != null &&
+//         shapeNeeded != whotCardShapes[whot.shape] &&
+//         whot.number != 20 &&
+//         index != -1) {
+//       showPlayerToast(currentPlayer,
+//           "This is not ${shapeNeeded!.name}\n Go to Market if you don't have");
+//       return;
+//     }
+
+//     final next = nextPlayer();
+//     final prev = prevPlayer();
+//     final next2 = nextPlayer(true);
+//     //final prev2 = prevPlayer(true);
+//     if (currentWhot.number == whot.number ||
+//         currentWhot.shape == whot.shape ||
+//         whot.number == 20 ||
+//         (shapeNeeded != null && shapeNeeded == whotCardShapes[whot.shape])) {
+//       //making sure the cards match
+//       final number = whot.number;
+//       if (index != -1) {
+//         // if (playedWhots.isNotEmpty && playedWhots.first.number == 1) {
+//         //   for (int i = 0; i < playersSize; i++) {
+//         //     if (i != currentPlayer) {
+//         //       playersMessages[i] = playersMessages[i].replaceAll("Hold On", "");
+//         //     }
+//         //   }
+//         // }
+//         playedWhots.insert(0, whot);
+//         final currentPlayerWhots = playersWhots[currentPlayer];
+//         if (currentPlayerWhots.isNotEmpty) {
+//           currentPlayerWhots.removeAt(index);
+//         }
+//         updateCount(currentPlayer, currentPlayerWhots.length);
+//       } else {
+//         playedWhots.add(whot);
+//       }
+
+//       playersMessages[currentPlayer] = "";
+//       playersMessages[prev] = "";
+
+//       String lastMessage = "";
+//       hastLastCard = false;
+//       // if (playersWhots[currentPlayer].length == 2) {
+//       //   lastMessage = "Semi Last Card ";
+//       //   hastLastCard = true;
+//       // } else
+//       if (playersWhots[currentPlayer].length == 1) {
+//         lastMessage = "Last Card ";
+//         hastLastCard = true;
+//       } else if (playersWhots[currentPlayer].isEmpty) {
+//         if (number != 1 &&
+//             number != 8 &&
+//             number != 14 &&
+//             number != 2 &&
+//             number != 20) {
+//           lastMessage = "Check Up";
+//         }
+//       }
+//       // if (lastMessage != "") {
+//       //   if (playersSize > 2) {
+//       //     lastMessage +=
+//       //         ": ${users != null ? "${users![currentPlayer]?.username ?? ""}\n" : "${currentPlayer + 1}"}\n";
+//       //   } else {
+//       //     lastMessage += "\n";
+//       //   }
+//       // }
+
+//       if (number == 1 || number == 8 || number == 14 || number == 2) {
+//         String nextMessage = number == 1
+//             ? "Hold On"
+//             : number == 8
+//                 ? "Suspension"
+//                 : number == 2
+//                     ? "Pick 2"
+//                     : "General Market";
+//         if (number == 14) {
+//           pickCount = 1;
+//           pickPlayer = currentPlayer;
+//         } else if (number == 2) {
+//           pickCount = 2;
+//           pickPlayer = next;
+//         }
+// // || number == 1
+//         if (number == 14) {
+//           for (int i = 0; i < playersSize; i++) {
+//             if (i != currentPlayer) {
+//               playersMessages[i] = "$lastMessage$nextMessage";
+//             }
+//             // else {
+//             //   if (number == 1) {
+//             //     playersMessages[currentPlayer] += "Continue";
+//             //   }
+//             // }
+//           }
+//         } else {
+//           playersMessages[next] = "";
+//           playersMessages[next2] = "";
+//           if (lastMessage != "") {
+//             for (int i = 0; i < playersSize; i++) {
+//               if (i != currentPlayer) {
+//                 playersMessages[i] = lastMessage;
+//               }
+//             }
+//           }
+//           playersMessages[next] += nextMessage;
+//           if (number == 8 || number == 1) {
+//             playersMessages[next2] += "Continue";
+//           }
+//         }
+//       } else {
+//         if (lastMessage != "") {
+//           for (int i = 0; i < playersSize; i++) {
+//             if (i != currentPlayer) {
+//               playersMessages[i] = lastMessage;
+//             }
+//           }
+//         }
+//         needShape = number == 20;
+//         if (index != -1 && number != 20) {
+//           checkWinGame();
+//         }
+//       }
+
+//       if (shapeNeeded != null && shapeNeeded == whotCardShapes[whot.shape]) {
+//         needShape = false;
+//         shapeNeeded = null;
+//       }
+// // || number == 1
+
+//       if (number == 20) {
+//         iNeedCardIndex = index;
+//         //resetPlayerTime();
+//         if (index == -1) {
+//           showPossiblePlayPositions();
+//         } else {
+//           getHintPositions();
+//         }
+//       } else {
+//         if (isClick) {
+//           updateDetails(index);
+//         }
+//         changePlayer(suspend: number == 8 || number == 1);
+//         showPossiblePlayPositions();
+//       }
+//       // if (gameId.isEmpty && (playersSize != 2 || (number != 8 && number != 1))) {
+//       //   hideCards();
+//       // }
+//       if (gameId.isEmpty && number != 8 && number != 1 && number != 20) {
+//         hideCards();
+//       }
+
+//       hintGeneralMarket = number == 2 || number == 14;
+//       awaiting = false;
+//       setState(() {});
+//     } else {
+//       showPlayerToast(currentPlayer, "Cards Don't Match");
+//     }
+//   }
 
   void resetLastOrSemiLastCard() {
     if (hastLastCard && playersWhots[currentPlayer].length == 1) {
@@ -494,52 +631,6 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
       }
     }
   }
-
-  // void getNewWhots() {
-  //   List<Whot> newWhots = [];
-  //   if (playedWhots.isNotEmpty) {
-  //     newWhots.addAll(playedWhots);
-  //     newWhots.removeAt(0);
-  //     final indices = newWhots.map((value) => value.id).toList();
-  //     for (int i = 0; i < 10; i++) {
-  //       indices.shuffle();
-  //     }
-  //     if (gameId == "") {
-  //       updateNewWhots(indices);
-  //     } else {
-  //       updateDetails(-1, -1, indices.join(","));
-  //     }
-  //   } else {
-  //     if (gameId == "") {
-  //       pickWhot();
-  //     } else {
-  //       updateDetails(-1, -1, "");
-  //     }
-  //   }
-  // }
-
-  // void updateNewWhots(List<String> indices) {
-  //   List<Whot> newPlayedWhot = [];
-  //   List<Whot> newWhots = [], convertedWhots = [];
-  //   if (playedWhots.isNotEmpty) {
-  //     newPlayedWhot.add(playedWhots[0]);
-  //     newWhots.addAll(playedWhots);
-  //     newWhots.removeAt(0);
-  //     for (int i = 0; i < indices.length; i++) {
-  //       final id = indices[i];
-  //       convertedWhots
-  //           .add(newWhots.firstWhereNullable((element) => element.id == id));
-  //     }
-  //     newWhots = convertedWhots;
-  //     whots.addAll(newWhots);
-  //     playedWhots.clear();
-  //     playedWhots.addAll(newPlayedWhot);
-  //     whotIndices = indices;
-  //     setState(() {});
-  //     showPlayerToast(currentPlayer, "Updated new whots");
-  //     pickWhot();
-  //   }
-  // }
 
   void hideCards() {
     if (needShape && shapeNeeded == null || isWatch) return;
@@ -582,18 +673,6 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
     // }
     setState(() {});
   }
-
-  // void changePlayer(bool suspend, [bool picked = false]) {
-  //   hintGeneralMarket = false;
-  //   playerTime = maxPlayerTime;
-  //   // message = "Player $currentPlayer ${picked ? "picked" : "awaiting"} Play";
-  //   getNextPlayer();
-  //   if (suspend) getNextPlayer();
-  //   if (gameId != "" || (playersSize == 2 && suspend)) {
-  //     return;
-  //   }
-  //   hideCards();
-  // }
 
   int prevPlayer([bool doubleCount = false]) {
     int index = getPrevPlayerIndex();
@@ -648,7 +727,7 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
         messages.add(message);
       }
       counts.add(count);
-      playersMessages[i] = "$count cards";
+      playersMessages[i] = "$count count";
       //playersMessages[i] = "${messages.join("+")} = $count";
       playersWhotsCount.add(count);
       setState(() {});
@@ -724,6 +803,7 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
     setInitialCount(startCards);
 
     //getCurrentPlayer();
+    iNeedCardIndex = -1;
     needShape = false;
     shapeNeeded = null;
     hintPositions.clear();
@@ -734,8 +814,11 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
     for (int i = 0; i < playersSize; i++) {
       playersMessages[i] = "";
     }
-    cardVisibilities.addAll(
-        List.generate(playersSize, (index) => WhotCardVisibility.turned));
+    cardVisibilities.addAll(List.generate(
+        playersSize,
+        (index) => finishedRound
+            ? WhotCardVisibility.visible
+            : WhotCardVisibility.turned));
     if (whotIndices != null) {
       whots = (jsonDecode(whotIndices) as List)
           .map((e) => Whot.fromJson(e))
@@ -806,15 +889,16 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
       final shapePos = details.shapePos;
 
       final whotIndices = details.whotIndices;
+      final playerIndex = getPlayerIndex(map["id"]);
       //final shapeNeeded = details.shapeNeeded;
       if (playPos == null) {
         if (whotIndices != null) {
           initWhots(false, whotIndices);
         }
       } else if (playPos == -1) {
-        pickWhot(false, whotIndices);
+        pickWhot(1, true, whotIndices, false);
       } else {
-        playWhot(currentPlayer, playPos, false);
+        playWhot(playerIndex, playPos, false);
         if (shapePos != null) {
           playShape(shapePos, false);
         }
@@ -837,7 +921,7 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
 
   @override
   void onLeave(int index) {
-    if (gameId.isEmpty) hideCards();
+    // if (gameId.isEmpty) hideCards();
   }
 
   @override
@@ -847,31 +931,12 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
 
   @override
   void onSpaceBarPressed() {
-    if (!paused) {
-      if (gameId != "" && currentPlayerId != myId) {
-        showPlayerToast(myPlayer, "Its ${getUsername(currentPlayerId)}'s turn");
-        return;
-      }
-      // if (pickCount >= whots.length) {
-      //   getNewWhots();
-      // } else {
-      //   if (gameId != "") {
-      //     updateDetails(-1, -1, "");
-      //   } else {
-      //     pickWhot();
-      //   }
-      // }
-      pickWhot();
-    }
+    pickWhot();
   }
 
   @override
   void onInit() {
     initWhots();
-
-    // if (gameId.isEmpty || (gameId.isNotEmpty && currentPlayerId == myId)) {
-    //   initWhots();
-    // }
   }
 
   @override
@@ -885,7 +950,6 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
   @override
   void onPlayerTimeEnd() {
     playIfTimeOut();
-    // setState(() {});
   }
 
   @override
@@ -901,64 +965,42 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
     if (whots.isEmpty || playersWhots.isEmpty) {
       return Container();
     }
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // if (needShape && currentPlayer == index) ...[
-        //   Row(
-        //       mainAxisAlignment: MainAxisAlignment.center,
-        //       children: List.generate(5, (index) {
-        //         return WhotCard(
-        //             blink:
-        //                 firstTime && hintPositions.contains(index) && !awaiting,
-        //             height: cardWidth / 2,
-        //             width: cardWidth / 2,
-        //             whot: Whot("", -1, index),
-        //             onPressed: () {
-        //               playShape(index);
-        //             });
-        //       }))
-        // ],
-        SizedBox(
-          height: cardHeight,
-          child: ListView.builder(
-              padding: EdgeInsets.zero,
-              shrinkWrap: true,
-              primary: (gameId != "" && index == myPlayer) ||
-                  (gameId == "" && index == currentPlayer),
-              scrollDirection: Axis.horizontal,
-              itemCount: playersWhots[index].length,
-              itemBuilder: ((context, whotindex) {
-                final whot = playersWhots[index][whotindex];
-                return WhotCard(
-                  blink: firstTime &&
-                      index == currentPlayer &&
-                      hintPositions.contains(whotindex) &&
-                      !needShape &&
-                      !awaiting,
-                  key: Key(whot.id),
-                  height: cardHeight,
-                  width: cardWidth,
-                  whot: whot,
-                  isBackCard:
-                      cardVisibilities[index] == WhotCardVisibility.turned,
-                  onLongPressed: () {
-                    flipCards(index);
-                  },
-                  onPressed: () {
-                    playWhot(index, whotindex);
-                  },
-                );
-              })),
-        ),
-      ],
+    return SizedBox(
+      height: cardHeight,
+      child: ListView.builder(
+          padding: EdgeInsets.zero,
+          shrinkWrap: true,
+          // primary: (gameId != "" && index == myPlayer) ||
+          //     (gameId == "" && index == currentPlayer),
+          scrollDirection: Axis.horizontal,
+          itemCount: playersWhots[index].length,
+          itemBuilder: ((context, whotindex) {
+            final whot = playersWhots[index][whotindex];
+            return WhotCard(
+              blink: firstTime &&
+                  index == currentPlayer &&
+                  hintPositions.contains(whotindex) &&
+                  !needShape &&
+                  !awaiting,
+              key: Key(whot.id),
+              height: cardHeight,
+              width: cardWidth,
+              whot: whot,
+              isBackCard: cardVisibilities[index] == WhotCardVisibility.turned,
+              onLongPressed: () {
+                flipCards(index);
+              },
+              onPressed: () {
+                playWhot(index, whotindex);
+              },
+            );
+          })),
     );
   }
 
   @override
   Widget buildBody(BuildContext context) {
     // print("gameDetails = $gameDetails");
-    // print("timeStart = $timeStart, timeEnd = $timeEnd");
     bool isEdgeTilt =
         gameId != "" && playersSize > 2 && (myPlayer == 1 || myPlayer == 3);
     final value = isEdgeTilt ? !landScape : landScape;
@@ -1005,7 +1047,7 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
                             blink: false,
                             height: cardHeight,
                             width: cardWidth,
-                            whot: playedWhots.first,
+                            whot: playedWhots.last,
                             isBackCard: false,
                           ),
                           Positioned(
@@ -1019,7 +1061,7 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
                           ),
                           if (shapeNeeded != null &&
                               playedWhots.isNotEmpty &&
-                              playedWhots.first.number == 20) ...[
+                              playedWhots.last.number == 20) ...[
                             Positioned(
                               bottom: 4,
                               left: 4,
@@ -1070,7 +1112,7 @@ class _WhotGamePageState extends BaseGamePageState<WhotGamePage> {
                                       firstTime,
                                   height: cardHeight,
                                   width: cardWidth,
-                                  whot: whots.first,
+                                  whot: whots.last,
                                   isBackCard: true,
                                   onPressed: () {
                                     pickWhot();

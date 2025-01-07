@@ -17,7 +17,7 @@ class LoadingOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppContainer(
-      color: lighterBlack,
+      color: loading ? lighterBlack : transparent,
       child: Stack(
         alignment: Alignment.center,
         children: [

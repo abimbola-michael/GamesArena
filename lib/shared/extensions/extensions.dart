@@ -64,7 +64,7 @@ extension ContextExtensions on BuildContext {
       Navigator.of(this).push(MaterialPageRoute(builder: (context) => page));
   Future pushNamedTo(String routeName, {Object? args}) =>
       Navigator.of(this).pushNamed(routeName, arguments: args);
-  Future pushAndPop(Widget page, [result]) => Navigator.of(this)
+  Future pushReplacement(Widget page, [result]) => Navigator.of(this)
       .pushReplacement(MaterialPageRoute(builder: (context) => page));
   Future pushReplacementNamed(String routeName,
           {Object? args, Object? result}) =>
@@ -202,18 +202,35 @@ extension DateTimeExtensions on DateTime {
   }
 
   bool showDate(DateTime prevDate) {
-    return (day - prevDate.day) > 0;
+    return dateRange() != prevDate.dateRange();
+  }
+
+  bool isTheSameDayAs(DateTime dateTime) {
+    return dateTime.day == day &&
+        dateTime.month == month &&
+        dateTime.year == year;
   }
 
   String dateRange() {
-    final difference = DateTime.now().day - day;
-    if (difference <= 0) {
-      return "Today";
-    } else if (difference == 1) {
-      return "Yesterday";
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    if (isTheSameDayAs(today)) {
+      return 'Today';
+    } else if (isTheSameDayAs(yesterday)) {
+      return 'Yesterday';
     } else {
       return date;
     }
+    // final difference = DateTime.now().difference(this).inDays;
+    // if (difference <= 0) {
+    //   return "Today";
+    // } else if (difference == 1) {
+    //   return "Yesterday";
+    // } else {
+    //   return date;
+    // }
   }
 
   String timeRange() {
@@ -229,21 +246,24 @@ extension DateTimeExtensions on DateTime {
 }
 
 extension StringExtensions on String {
-  String? toValidNumber(String? dialCode) {
+  String? toValidNumber([String? dialCode]) {
     if (trim().length < 10 ||
         (RegExp(r"[^0-9]").hasMatch(trim().firstChar!) &&
             trim().firstChar != "+")) {
       return null;
     }
-    dialCode ??= "+1";
-    bool startsWithZero = trim().startsWith("0");
+    // dialCode ??= "+1";
+    //dialCode ??= "+";
     String refinedNumber = replaceAll(RegExp(r"\D"), "")
         .replaceAll(" ", "")
         .replaceAll("+", "")
         .trim();
-    return startsWithZero
-        ? "$dialCode${refinedNumber.substring(1)}"
-        : "+$refinedNumber";
+
+    if (trim().startsWith("+")) {
+      return "+$refinedNumber";
+    } else {
+      return "${dialCode ?? ""}${refinedNumber.startsWith("0") ? refinedNumber.substring(1) : refinedNumber}";
+    }
   }
 
   String get onlyErrorMessage {
@@ -325,7 +345,7 @@ extension StringExtensions on String {
   bool isOnlyNumber() {
     for (int i = 0; i < length; i++) {
       final char = this[i];
-      if (!numbers.contains(char)) {
+      if (char != "+" && !numbers.contains(char)) {
         return false;
       }
     }
@@ -497,6 +517,7 @@ extension ListExtensions<T, U> on List<T> {
   T? get lastOrNull => isEmpty ? null : last;
   T? get firstOrNull => isEmpty ? null : first;
   T? valueOrNull(int index) => isEmpty ? null : this[index];
+  T? get(int index) => index < length ? this[index] : null;
 
   T? firstWhereNullable(bool Function(T t) callback, [int start = 0]) {
     final index = indexWhere(callback, start);
@@ -542,8 +563,8 @@ extension ListExtensions<T, U> on List<T> {
     List<T> list = [];
     list.addAll(this);
     list.sort((i, j) => dsc
-        ? callback(j)?.compareTo(callback(i))
-        : callback(i)?.compareTo(callback(j)));
+        ? callback(j)?.compareTo(callback(i) ?? 0)
+        : callback(i)?.compareTo(callback(j) ?? 0));
     return list;
   }
 

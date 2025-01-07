@@ -15,7 +15,9 @@ import 'package:hive/hive.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import '../../../shared/utils/utils.dart';
+import '../../../shared/views/loading_view.dart';
 import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/app_popup_menu_button.dart';
 import '../../../theme/colors.dart';
 import '../../game/models/game.dart';
 import '../../game/models/player.dart';
@@ -39,7 +41,7 @@ class _GameProfilePageState extends State<GameProfilePage>
     with SingleTickerProviderStateMixin {
   GameStat? gameStat;
   late TabController tabController;
-  List<String> tabs = ["Players", "Matches", "Wins", "Draws", "Losses"];
+  List<String> tabs = ["Players", "Plays", "Wins", "Draws", "Losses"];
   Player? myPlayer;
   String myRole = "";
   bool loading = false;
@@ -124,7 +126,7 @@ class _GameProfilePageState extends State<GameProfilePage>
       profilePhoto: game?.profilePhoto,
       isGroup: game?.groupName != null,
       canEditGroup: canEditGroup,
-      userGames: game?.user_games,
+      games: game?.games,
     ));
   }
 
@@ -157,6 +159,13 @@ class _GameProfilePageState extends State<GameProfilePage>
 
   @override
   Widget build(BuildContext context) {
+    List<String> options = [];
+    if (myRole != "participant") {
+      options.addAll(["Edit Group", "Add Players"]);
+    } else {
+      options.addAll(["View Group"]);
+    }
+    options.add("Leave Group");
     return Scaffold(
       appBar: AppAppBar(
         title: "Game Profile",
@@ -164,155 +173,154 @@ class _GameProfilePageState extends State<GameProfilePage>
           mainAxisSize: MainAxisSize.min,
           children: [
             if (game?.groupName != null)
-              PopupMenuButton<String>(
-                itemBuilder: (context) {
-                  List<String> options = [];
-                  if (myRole != "participant") {
-                    options.addAll(["Edit Group", "Add Players"]);
-                  } else {
-                    options.addAll(["View Group"]);
-                  }
-                  options.add("Leave Group");
-                  return List.generate(options.length, (index) {
-                    final option = options[index];
-                    return PopupMenuItem<String>(
-                        value: option,
-                        child: Text(
-                          option,
-                          style: context.bodyMedium,
-                        ));
-                  });
-                },
-                onSelected: executeGroupOptions,
-                child: const Icon(EvaIcons.more_vertical),
-              )
+              AppPopupMenuButton(
+                  options: options, onSelected: executeGroupOptions)
+            // PopupMenuButton<String>(
+            //   itemBuilder: (context) {
+
+            //     return List.generate(options.length, (index) {
+            //       final option = options[index];
+            //       return PopupMenuItem<String>(
+            //           value: option,
+            //           child: Text(
+            //             option,
+            //             style: context.bodyMedium,
+            //           ));
+            //     });
+            //   },
+            //   onSelected: executeGroupOptions,
+            //   child: const Icon(EvaIcons.more_vertical),
+            // )
           ],
         ),
       ),
-      body: Column(
-        children: [
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (game?.users != null)
-                PlayersProfilePhoto(
-                  users: game!.users!,
-                  withoutMyId: true,
-                  size: 100,
-                )
-              else if ((game?.groupName ?? "").isNotEmpty)
-                ProfilePhoto(
-                  profilePhoto: game!.profilePhoto ?? "",
-                  name: game!.groupName!,
-                  size: 100,
-                ),
-              const SizedBox(height: 10),
-              Text(
-                game?.users != null
-                    ? getOtherPlayersUsernames(game!.users!)
-                    : game?.groupName != null
-                        ? game!.groupName!
-                        : "",
-                style: TextStyle(
-                  fontSize: 20,
-                  color: tint,
-                  fontWeight: FontWeight.bold,
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
-              if (game?.user_games != null) ...[
-                const SizedBox(height: 5),
-                Text(
-                  getUserGamesString(game!.user_games),
-                  style: context.bodySmall?.copyWith(color: lighterTint),
-                ),
-              ],
-              const SizedBox(height: 5),
-              if (gameStat != null)
-                Center(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      //crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        GameStatItem(
-                          title: "Players",
-                          count: gameStat!.players,
-                          onPressed: () {
-                            tabController.animateTo(0);
-                          },
-                        ),
-                        GameStatItem(
-                          title: "All Matches",
-                          count: gameStat!.allMatches,
-                          onPressed: () {
-                            context.pop();
-                          },
-                        ),
-                        GameStatItem(
-                          title: "Played Matches",
-                          count: gameStat!.playedMatches,
-                          onPressed: () {
-                            tabController.animateTo(1);
-                          },
-                        ),
-                        GameStatItem(
-                          title: "Wins",
-                          count: gameStat!.wins,
-                          onPressed: () {
-                            tabController.animateTo(2);
-                          },
-                        ),
-                        GameStatItem(
-                          title: "Draws",
-                          count: gameStat!.draws,
-                          onPressed: () {
-                            tabController.animateTo(3);
-                          },
-                        ),
-                        GameStatItem(
-                          title: "Losses",
-                          count: gameStat!.losses,
-                          onPressed: () {
-                            tabController.animateTo(4);
-                          },
-                        ),
-                      ],
+      body: loading
+          ? const LoadingView()
+          : Column(
+              children: [
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (game?.users != null)
+                      PlayersProfilePhoto(
+                        users: game!.users!,
+                        withoutMyId: true,
+                        size: 100,
+                      )
+                    else if ((game?.groupName ?? "").isNotEmpty)
+                      ProfilePhoto(
+                        profilePhoto: game!.profilePhoto ?? "",
+                        name: game!.groupName!,
+                        size: 100,
+                      ),
+                    const SizedBox(height: 10),
+                    Text(
+                      game?.users != null
+                          ? getOtherPlayersUsernames(game!.users!)
+                          : game?.groupName != null
+                              ? game!.groupName!
+                              : "",
+                      style: TextStyle(
+                        fontSize: 20,
+                        color: tint,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
+                    if (game?.games != null) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        getGamesString(game!.games),
+                        style: context.bodySmall?.copyWith(color: lighterTint),
+                      ),
+                    ],
+                    const SizedBox(height: 5),
+                    if (gameStat != null)
+                      Center(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            //crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              GameStatItem(
+                                title: "Players",
+                                count: gameStat!.players,
+                                onPressed: () {
+                                  tabController.animateTo(0);
+                                },
+                              ),
+                              GameStatItem(
+                                title: "Matches",
+                                count: gameStat!.allMatches,
+                                onPressed: () {
+                                  context.pop();
+                                },
+                              ),
+                              GameStatItem(
+                                title: "Plays",
+                                count: gameStat!.playedMatches,
+                                onPressed: () {
+                                  tabController.animateTo(1);
+                                },
+                              ),
+                              GameStatItem(
+                                title: "Wins",
+                                count: gameStat!.wins,
+                                onPressed: () {
+                                  tabController.animateTo(2);
+                                },
+                              ),
+                              GameStatItem(
+                                title: "Draws",
+                                count: gameStat!.draws,
+                                onPressed: () {
+                                  tabController.animateTo(3);
+                                },
+                              ),
+                              GameStatItem(
+                                title: "Losses",
+                                count: gameStat!.losses,
+                                onPressed: () {
+                                  tabController.animateTo(4);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                  ],
+                ),
+                TabBar(
+                  controller: tabController,
+                  padding: EdgeInsets.zero,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.center,
+                  dividerColor: transparent,
+                  tabs: List.generate(tabs.length, (index) {
+                    final tab = tabs[index];
+                    return Tab(text: tab);
+                  }),
+                ),
+                Expanded(
+                  child: TabBarView(
+                    controller: tabController,
+                    children: [
+                      if (game != null && players.isNotEmpty)
+                        PlayersListView(game: game!, players: players)
+                      else
+                        Container(),
+                      // const EmptyListView(message: "No player"),
+                      MatchesListView(gameId: gameId),
+                      MatchesListView(gameId: gameId, type: "win"),
+                      MatchesListView(gameId: gameId, type: "draw"),
+                      MatchesListView(gameId: gameId, type: "loss"),
+                    ],
                   ),
                 )
-            ],
-          ),
-          TabBar(
-            controller: tabController,
-            padding: EdgeInsets.zero,
-            isScrollable: true,
-            tabAlignment: TabAlignment.center,
-            dividerColor: transparent,
-            tabs: List.generate(tabs.length, (index) {
-              final tab = tabs[index];
-              return Tab(text: tab);
-            }),
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: tabController,
-              children: [
-                if (game != null)
-                  PlayersListView(game: game!, players: players)
-                else
-                  const EmptyListView(message: "No player"),
-                MatchesListView(gameId: gameId),
-                MatchesListView(gameId: gameId, type: "win"),
-                MatchesListView(gameId: gameId, type: "draw"),
-                MatchesListView(gameId: gameId, type: "loss"),
               ],
             ),
-          )
-        ],
-      ),
     );
   }
 }

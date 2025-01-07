@@ -93,7 +93,7 @@ class _TextInputDialogState extends State<TextInputDialog> {
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  // const SizedBox(width: 10),
                   Expanded(
                     child: AppButton(
                       title:

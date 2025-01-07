@@ -49,30 +49,33 @@ class _NewGroupPageState extends State<NewGroupPage> {
       showToast("Group name is required");
       return;
     }
+    showLoading(message: "Creating group...");
     setState(() {
       creating = true;
     });
     try {
       await createGameGroup(
           groupname, widget.users.map((e) => e.user_id).toList());
+      await hideDialog();
+
       if (!mounted) return;
+
       context.pop(true);
     } catch (e) {
       setState(() {
         creating = false;
       });
+      hideDialog();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const AppAppBar(
-        title: "New Group",
-        subtitle: "Enter Group name",
-      ),
+      appBar: const AppAppBar(title: "New Group", subtitle: "Enter Group name"),
       body: LoadingOverlay(
-        loading: creating,
+        // loading: creating,
+        loading: false,
         child: Form(
           key: formFieldStateKey,
           child: Padding(

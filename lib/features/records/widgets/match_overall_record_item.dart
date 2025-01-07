@@ -37,6 +37,7 @@ class MatchOverallRecordItem extends StatelessWidget {
                 game: match.games?.join(", ") ?? "",
                 timeStart: match.time_start ?? "",
                 timeEnd: match.time_end,
+                duration: getMatchDuration(match),
                 players: match.players!,
                 outcome: getMatchOutcomeMessageFromScores(
                     overallOutcome.scores.toList().cast(), match.players!,

@@ -35,45 +35,45 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   void siginInWithGoogle() async {
     showLoading(message: "Google Signin in...");
 
-    authMethods.signInWithGoogle().then((cred) async {
-      if (cred == null || cred.user == null) {
-        showErrorToast("Google Signin Failed");
-        return;
-      }
-      final user = cred.user!;
-      final userId = user.uid;
-      final userData = await getUser(userId);
-      final needsUsername = userData == null || userData.username.isEmpty;
+    // authMethods.signInWithGoogle().then((cred) async {
+    //   if (cred == null || cred.user == null) {
+    //     showErrorToast("Google Signin Failed");
+    //     return;
+    //   }
+    //   final user = cred.user!;
+    //   final userId = user.uid;
+    //   final userData = await getUser(userId);
+    //   final needsUsername = userData == null || userData.username.isEmpty;
 
-      if (userData == null) {
-        final phoneNumer = user.phoneNumber ?? "";
-        final phone = phoneNumer.isNotEmpty
-            ? phoneNumer.startsWith("+")
-                ? phoneNumer.substring(1)
-                : phoneNumer
-            : "";
-        final newUser = User(
-          email: user.email ?? "",
-          user_id: userId,
-          username: "",
-          phone: phone,
-          time: timeNow,
-          last_seen: timeNow,
-          token: "",
-          profile_photo: user.photoURL,
-        );
-        await createUser(newUser.toMap());
-      }
-      if (!mounted) return;
-      if (needsUsername) {
-        context.pushAndPop(const AuthPage(mode: AuthMode.username));
-      } else {
-        context.pushAndPop(const HomePage());
-      }
-    }).onError((error, stackTrace) {
-      showErrorSnackbar(error.toString().onlyErrorMessage,
-          onPressed: siginInWithGoogle);
-    }).whenComplete(() => context.hideDialog);
+    //   if (userData == null) {
+    //     final phoneNumer = user.phoneNumber ?? "";
+    //     final phone = phoneNumer.isNotEmpty
+    //         ? phoneNumer.startsWith("+")
+    //             ? phoneNumer.substring(1)
+    //             : phoneNumer
+    //         : "";
+    //     final newUser = User(
+    //       email: user.email ?? "",
+    //       user_id: userId,
+    //       username: "",
+    //       phone: phone,
+    //       time: timeNow,
+    //       last_seen: timeNow,
+    //       token: "",
+    //       profile_photo: user.photoURL,
+    //     );
+    //     await createOrUpdateUser(newUser.toMap());
+    //   }
+    //   if (!mounted) return;
+    //   if (needsUsername) {
+    //     context.pushReplacement(const AuthPage(mode: AuthMode.username));
+    //   } else {
+    //     context.pushReplacement(const HomePage());
+    //   }
+    // }).onError((error, stackTrace) {
+    //   showErrorSnackbar(error.toString().onlyErrorMessage,
+    //       onPressed: siginInWithGoogle);
+    // }).whenComplete(() => context.hideDialog);
   }
 
   @override
@@ -202,8 +202,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         ),
                       ),
                       onPressed: () {
-                        context
-                            .pushAndPop(const AuthPage(mode: AuthMode.signUp));
+                        context.pushTo(const AuthPage(mode: AuthMode.signUp));
                       },
                     ),
                     const SizedBox(
@@ -234,7 +233,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                           ),
                           onPressed: () {
                             //context.pushNamedTo(MainScreen.route);
-                            context.pushAndPop(
+                            context.pushReplacement(
                                 const AuthPage(mode: AuthMode.login));
                           },
                         ),

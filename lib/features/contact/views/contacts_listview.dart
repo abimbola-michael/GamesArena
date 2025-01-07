@@ -32,10 +32,10 @@ class ContactsListView extends ConsumerWidget {
       this.newlyAddedPlayers});
 
   void addContact(PhoneContact contact, WidgetRef ref) async {
-    final dialCode = await getCurrentCountryDialingCode();
-    final number = contact.phone.toValidNumber(dialCode);
-    if (number == null) return;
-    final users = await getUsersWithNumber(number);
+    // final dialCode = await getCurrentCountryDialingCode();
+    // final number = contact.phone.toValidNumber(dialCode);
+    // if (number == null) return;
+    final users = await getUsersWithNumber(contact.phone);
     final phoneContactsBox = Hive.box<String>("contacts");
     if (users.isNotEmpty) {
       final usersBox = Hive.box<String>("users");
@@ -48,7 +48,7 @@ class ContactsListView extends ConsumerWidget {
         usersBox.put(user.user_id, user.toJson());
 
         final player = await addPlayer(user.user_id);
-        playersBox.put(user.user_id, player.toJson());
+        playersBox.put(player.id, player.toJson());
         if (newlyAddedPlayers != null) {
           newlyAddedPlayers!.add(player);
         }
@@ -101,7 +101,7 @@ class ContactsListView extends ConsumerWidget {
             username: "",
             email: "",
             phone: phoneContact.phone,
-            token: "",
+            tokens: [],
             time: phoneContact.createdAt,
             last_seen: "",
             time_deleted: phoneContact.modifiedAt ?? phoneContact.createdAt,

@@ -1,5 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:gamesarena/features/onboarding/pages/auth_page.dart';
+import 'package:gamesarena/features/onboarding/services.dart';
 import 'package:gamesarena/features/profile/pages/edit_profile_page.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/shared/extensions/special_context_extensions.dart';
@@ -45,25 +47,36 @@ class _SettingsAndMorePageState extends State<SettingsAndMorePage> {
   Future logout() async {
     final comfirm = await context.showComfirmationDialog(
         title: "Logout", message: "Are you sure you want to logout?");
-    if (!comfirm) return;
+    if (comfirm == null) return;
 
-    gotoStartPage();
+    try {
+      showLoading(message: "Logging out...");
 
-    if (!mounted) return;
+      await logoutUser();
+      await am.logOut();
+      gotoStartPage();
+    } catch (e) {
+      showErrorToast("Unable to logout");
+    }
   }
 
   void deleteAccount() async {
     final comfirm = await context.showComfirmationDialog(
         title: "Delete Account",
         message: "Are you sure you want to delete account?");
-    if (!comfirm) return;
-    await am.deleteAccount();
-    await logout();
-    Hive.box<String>("details").delete("dailyLimit");
-    Hive.box<String>("details").delete("dailyLimitDate");
+    if (comfirm == null) return;
+    try {
+      await deleteUser();
+      await am.deleteAccount();
+      await am.logOut();
+      Hive.box<String>("details").delete("dailyLimit");
+      Hive.box<String>("details").delete("dailyLimitDate");
 
-    if (!mounted) return;
-    gotoStartPage();
+      if (!mounted) return;
+      gotoStartPage();
+    } catch (e) {
+      showErrorToast("Unable to delete account");
+    }
   }
 
   void gotoStartPage() {
@@ -82,7 +95,7 @@ class _SettingsAndMorePageState extends State<SettingsAndMorePage> {
     context.pushTo(const AppInfoPage(type: "Terms and Conditions"));
   }
 
-  void gotoPrivacyPoilicies() {
+  void gotoPrivacyPolicies() {
     context.pushTo(const AppInfoPage(type: "Privacy Policies"));
   }
 
@@ -119,29 +132,30 @@ class _SettingsAndMorePageState extends State<SettingsAndMorePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SettingsCategoryItem(title: "Account", children: [
-              SettingsItem(
-                title: "Change Email",
-                icon: OctIcons.mail,
-                onPressed: changeEmail,
-              ),
-              SettingsItem(
-                title: "Change Password",
-                icon: OctIcons.lock,
-                onPressed: changePassword,
-              ),
-              SettingsItem(
-                title: "Logout",
-                icon: Icons.exit_to_app_outlined,
-                onPressed: logout,
-              ),
-              SettingsItem(
-                title: "Delete Account",
-                icon: OctIcons.trash,
-                color: Colors.red,
-                onPressed: deleteAccount,
-              ),
-            ]),
+            if (myId != "")
+              SettingsCategoryItem(title: "Account", children: [
+                SettingsItem(
+                  title: "Change Email",
+                  icon: OctIcons.mail,
+                  onPressed: changeEmail,
+                ),
+                SettingsItem(
+                  title: "Change Password",
+                  icon: OctIcons.lock,
+                  onPressed: changePassword,
+                ),
+                SettingsItem(
+                  title: "Logout",
+                  icon: Icons.exit_to_app_outlined,
+                  onPressed: logout,
+                ),
+                SettingsItem(
+                  title: "Delete Account",
+                  icon: OctIcons.trash,
+                  color: Colors.red,
+                  onPressed: deleteAccount,
+                ),
+              ]),
             SettingsCategoryItem(title: "More", children: [
               SettingsItem(
                 title: "About",
@@ -156,7 +170,7 @@ class _SettingsAndMorePageState extends State<SettingsAndMorePage> {
               SettingsItem(
                 title: "Privacy Polices",
                 icon: OctIcons.info,
-                onPressed: gotoPrivacyPoilicies,
+                onPressed: gotoPrivacyPolicies,
               ),
               SettingsItem(
                 title: "Help",

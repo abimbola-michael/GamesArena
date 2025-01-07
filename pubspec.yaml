@@ -87,6 +87,10 @@ dependencies:
   geocoding:
   in_app_purchase:
   visibility_detector:
+  connectivity_plus:
+  googleapis_auth:
+  sim_card_info:
+  permission_handler:
 
 dev_dependencies:
   flutter_test:

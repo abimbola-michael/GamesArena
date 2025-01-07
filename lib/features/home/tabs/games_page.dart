@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:gamesarena/shared/extensions/special_context_extensions.dart';
 import 'package:icons_plus/icons_plus.dart';
 import '../../../shared/utils/utils.dart';
+import '../../../shared/widgets/app_appbar.dart';
 import '../../../shared/widgets/game_card.dart';
 import '../../../theme/colors.dart';
 import '../../game/services.dart';
@@ -58,7 +59,7 @@ class GamesPageState extends ConsumerState<GamesPage>
   int playersSize = 2;
   int gridSize = 2;
   int currentTab = 0;
-  //List<String> games = [];
+  List<String> gameCategories = [];
   void Function(String game)? gameCallback;
 
   List<String> boardGames = [];
@@ -71,31 +72,33 @@ class GamesPageState extends ConsumerState<GamesPage>
   @override
   void initState() {
     super.initState();
-    tabController = TabController(
-        length: allGameCategories.length,
-        vsync: this,
-        initialIndex: currentTab);
-    //tabController!.addListener(tabListener);
 
     players = widget.players;
-    playersSize = widget.playersSize ?? 2;
     gameCallback = widget.gameCallback;
 
-    if (playersSize == 1) {
-      puzzleGames.addAll(allPuzzleGames);
-      quizGames.addAll(allQuizGames);
-    } else {
-      if (playersSize > 2) {
-        boardGames.add(ludoGame);
-        boardGames.add(whotGame);
-      } else {
-        boardGames.addAll(allBoardGames);
-      }
-      cardGames.addAll(allCardGames);
-      if ((widget.gameId ?? "").isNotEmpty) {
+    if (widget.playersSize != null) {
+      playersSize = widget.playersSize!;
+      if (playersSize == 1) {
         puzzleGames.addAll(allPuzzleGames);
         quizGames.addAll(allQuizGames);
+      } else {
+        if (playersSize > 2) {
+          boardGames.add(ludoGame);
+          cardGames.add(whotGame);
+        } else {
+          boardGames.addAll(allBoardGames);
+          cardGames.addAll(allCardGames);
+        }
+        if ((widget.gameId ?? "").isNotEmpty) {
+          puzzleGames.addAll(allPuzzleGames);
+          quizGames.addAll(allQuizGames);
+        }
       }
+    } else {
+      cardGames.addAll(allCardGames);
+      boardGames.addAll(allBoardGames);
+      puzzleGames.addAll(allPuzzleGames);
+      quizGames.addAll(allQuizGames);
     }
 
     if (widget.currentGame != null) {
@@ -109,6 +112,20 @@ class GamesPageState extends ConsumerState<GamesPage>
         quizGames.remove(widget.currentGame);
       }
     }
+    if (boardGames.isNotEmpty) {
+      gameCategories.add("Board");
+    }
+    if (cardGames.isNotEmpty) {
+      gameCategories.add("Card");
+    }
+    if (puzzleGames.isNotEmpty) {
+      gameCategories.add("Puzzle");
+    }
+    if (quizGames.isNotEmpty) {
+      gameCategories.add("Quiz");
+    }
+    tabController = TabController(
+        length: gameCategories.length, vsync: this, initialIndex: currentTab);
   }
 
   @override
@@ -144,9 +161,7 @@ class GamesPageState extends ConsumerState<GamesPage>
       child: Scaffold(
         appBar: widget.isTab
             ? null
-            : AppBar(
-                titleSpacing: 20,
-                centerTitle: true,
+            : AppAppBar(
                 leading: IconButton(
                   onPressed: widget.onBackPressed ?? () => context.pop(),
                   icon: const Icon(
@@ -154,205 +169,193 @@ class GamesPageState extends ConsumerState<GamesPage>
                     color: Colors.white,
                   ),
                 ),
-                title: Text(
-                  "${players?.isEmpty ?? true ? "Select" : "Create"} Game",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                title: "Select Game",
               ),
-        body: creating
-            ? const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+        body:
+            //  creating
+            //     ? const Center(
+            //         child: Column(
+            //           mainAxisSize: MainAxisSize.min,
+            //           children: [
+            //             CircularProgressIndicator(),
+            //             Padding(
+            //               padding: EdgeInsets.all(8.0),
+            //               child: Text(
+            //                 "Creating game...",
+            //                 style: TextStyle(
+            //                     fontSize: 18, fontWeight: FontWeight.bold),
+            //                 textAlign: TextAlign.center,
+            //               ),
+            //             )
+            //           ],
+            //         ),
+            //       )
+            //     :
+            Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: current == "game"
+              ? Column(
                   children: [
-                    CircularProgressIndicator(),
-                    Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Text(
-                        "Creating game...",
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
+                    TabBar(
+                      controller: tabController,
+                      padding: EdgeInsets.zero,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.center,
+                      dividerColor: transparent,
+                      tabs: List.generate(
+                        gameCategories.length,
+                        (index) {
+                          final tab = gameCategories[index];
+                          return Tab(text: tab, height: 35);
+                        },
                       ),
-                    )
-                  ],
-                ),
-              )
-            : Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: current == "game"
-                    ? Column(
-                        children: [
-                          TabBar(
-                            controller: tabController,
-                            padding: EdgeInsets.zero,
-                            isScrollable: true,
-                            tabAlignment: TabAlignment.center,
-                            dividerColor: transparent,
-                            tabs: List.generate(
-                              allGameCategories.length,
-                              (index) {
-                                final tab = allGameCategories[index];
-                                return Tab(text: tab);
-                              },
-                            ),
-                          ),
-                          Expanded(
-                            child: TabBarView(
-                              controller: tabController,
-                              children: List.generate(allGameCategories.length,
-                                  (index) {
-                                final foundGames = index == 0
-                                    ? boardGames
-                                    : index == 1
-                                        ? cardGames
-                                        : index == 2
-                                            ? puzzleGames
-                                            : quizGames;
-                                final games = foundGames
-                                    .where((game) => game
-                                        .toLowerCase()
-                                        .contains(searchString))
-                                    .toList();
-                                return SingleChildScrollView(
-                                  primary: true,
-                                  scrollDirection: Axis.vertical,
-                                  child: Wrap(
-                                    direction: Axis.horizontal,
-                                    children:
-                                        List.generate(games.length, (index) {
-                                      String game = games[index];
-                                      return GameItemWidget(
-                                        width: (context.screenWidth - 32) /
-                                            gridSize,
-                                        game: game,
-                                        onPressed: () async {
-                                          if (game == yourTopicQuizGame) {
-                                            final topicName = await context
-                                                .showTextInputDialog(
-                                              title: "Quiz Topic",
-                                              hintText: "Topic",
-                                              message:
-                                                  "Enter your quiz topic without ending with quiz and should be between 1 to 3 words",
-                                              actions: ["Cancel", "Start Quiz"],
-                                            );
-                                            if (topicName == null) {
-                                              return;
-                                            }
-                                            String name =
-                                                (topicName as String).trim();
-                                            if (name.isEmpty ||
-                                                name.split(" ").length > 3) {
-                                              showErrorToast(
-                                                  "Please enter a valid topic. Your topic should be between 1 to 3 words");
-                                              return;
-                                            }
-                                            if (name
-                                                .toLowerCase()
-                                                .endsWith("quiz")) {
-                                              name = name.substring(
-                                                  0, name.length - 4);
-                                            }
-                                            game = "${name.capitalize} Quiz";
-                                          }
-                                          if (gameCallback != null) {
-                                            gameCallback!(game);
-                                            if (widget.isChangeGame) {
-                                              return;
-                                            }
-                                          }
-                                          //this.game = index;
-                                          this.game = game;
-
-                                          if (!context.mounted) return;
-
-                                          if (widget.isCallback) {
-                                            Navigator.of(context)
-                                                .pop(games[index]);
-                                          } else {
-                                            if (widget.isTab) {
-                                              setState(() {
-                                                current = "mode";
-                                              });
-                                            } else {
-                                              if (players != null &&
-                                                  players!.isNotEmpty) {
-                                                createNewGame();
-                                              } else if (widget.gameId !=
-                                                  null) {
-                                                gotoSelectPlayers();
-                                              } else if (widget.playersSize !=
-                                                  null) {
-                                                gotoGame();
-                                              } else {
-                                                gotoOfflineGame();
-                                              }
-                                            }
-                                          }
-                                        },
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        controller: tabController,
+                        children: List.generate(gameCategories.length, (index) {
+                          final category = gameCategories[index];
+                          List<String> foundGames = category == "Board"
+                              ? boardGames
+                              : category == "Card"
+                                  ? cardGames
+                                  : category == "Puzzle"
+                                      ? puzzleGames
+                                      : category == "Quiz"
+                                          ? quizGames
+                                          : [];
+                          final games = foundGames
+                              .where((game) =>
+                                  game.toLowerCase().contains(searchString))
+                              .toList();
+                          return SingleChildScrollView(
+                            primary: true,
+                            scrollDirection: Axis.vertical,
+                            child: Wrap(
+                              direction: Axis.horizontal,
+                              children: List.generate(games.length, (index) {
+                                String game = games[index];
+                                return GameItemWidget(
+                                  width: (context.screenWidth - 32) / gridSize,
+                                  game: game,
+                                  onPressed: () async {
+                                    if (game == yourTopicQuizGame) {
+                                      final topicName =
+                                          await context.showTextInputDialog(
+                                        title: "Quiz Topic",
+                                        hintText: "Topic",
+                                        message:
+                                            "Enter your quiz topic without ending with quiz and should be between 1 to 3 words",
+                                        actions: ["Cancel", "Start"],
                                       );
-                                    }),
-                                  ),
+                                      if (topicName == null) {
+                                        return;
+                                      }
+                                      String name =
+                                          (topicName as String).trim();
+                                      if (name.isEmpty ||
+                                          name.split(" ").length > 3) {
+                                        showErrorToast(
+                                            "Please enter a valid topic. Your topic should be between 1 to 3 words");
+                                        return;
+                                      }
+                                      if (name.toLowerCase().isQuiz) {
+                                        name =
+                                            name.substring(0, name.length - 4);
+                                      }
+                                      game = "${name.capitalize} Quiz";
+                                    }
+                                    if (gameCallback != null) {
+                                      gameCallback!(game);
+                                      if (widget.isChangeGame) {
+                                        return;
+                                      }
+                                    }
+                                    //this.game = index;
+                                    this.game = game;
+
+                                    if (!context.mounted) return;
+
+                                    if (widget.isCallback) {
+                                      Navigator.of(context).pop(games[index]);
+                                    } else {
+                                      if (widget.isTab) {
+                                        setState(() {
+                                          current = "mode";
+                                        });
+                                      } else {
+                                        if (players != null &&
+                                            players!.isNotEmpty) {
+                                          createNewMatch();
+                                        } else if (widget.gameId != null) {
+                                          gotoSelectPlayers();
+                                        } else if (widget.playersSize != null) {
+                                          gotoGame();
+                                        } else {
+                                          gotoOfflineGame();
+                                        }
+                                      }
+                                    }
+                                  },
                                 );
                               }),
                             ),
-                          )
-                        ],
-                      )
-                    : Center(
-                        child: SingleChildScrollView(
-                          primary: true,
-                          scrollDirection: Axis.vertical,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (game.isNotEmpty) ...[
-                                Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Text(
-                                    game,
-                                    style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              ],
-                              Wrap(
-                                direction: Axis.horizontal,
-                                children: List.generate(modes.length, (index) {
-                                  String mode = modes[index];
-                                  return SizedBox(
-                                    width:
-                                        (context.screenWidth - 32) / gridSize,
-                                    child: GameCard(
-                                        text: mode,
-                                        icon: Icons.gamepad_rounded,
-                                        onPressed: () {
-                                          if (index == 1) {
-                                            gotoOfflineGame();
-                                          } else {
-                                            gotoSelectPlayers();
-                                          }
-                                        }),
-                                  );
-                                }),
-                              ),
-                            ],
-                          ),
-                        ),
+                          );
+                        }),
                       ),
-              ),
+                    )
+                  ],
+                )
+              : Center(
+                  child: SingleChildScrollView(
+                    primary: true,
+                    scrollDirection: Axis.vertical,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (game.isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                              game,
+                              style: const TextStyle(
+                                  fontSize: 24, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                        Wrap(
+                          direction: Axis.horizontal,
+                          children: List.generate(modes.length, (index) {
+                            String mode = modes[index];
+                            return SizedBox(
+                              width: (context.screenWidth - 32) / gridSize,
+                              child: GameCard(
+                                  text: mode,
+                                  icon: Icons.gamepad_rounded,
+                                  onPressed: () {
+                                    if (index == 1) {
+                                      gotoOfflineGame();
+                                    } else {
+                                      gotoSelectPlayers();
+                                    }
+                                  }),
+                            );
+                          }),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+        ),
       ),
     );
   }
 
   void goBackToGames() {
     if (creating) return;
+
     if (gameCallback != null) {
       gameCallback!("");
     }
@@ -362,13 +365,14 @@ class GamesPageState extends ConsumerState<GamesPage>
     setState(() {});
   }
 
-  void createNewGame() async {
+  void createNewMatch() async {
     if (creating) return;
-    setState(() {
-      creating = true;
-    });
+    // setState(() {
+    //   creating = true;
+    // });
+    showLoading(message: "Creating match...");
     try {
-      final match = await createMatch(game, null, List.from(players!));
+      final match = await createMatch(game, widget.gameId, List.from(players!));
       if (!mounted || match == null) return;
       if (match.users == null && match.players != null) {
         List<User> users = await playersToUsers(match.players!);
@@ -377,9 +381,10 @@ class GamesPageState extends ConsumerState<GamesPage>
         final game = await getGame(match.game_id!);
         match.game = game;
       }
-      if (!mounted) return;
+      await hideDialog();
 
-      context.pushTo(NewOnlineGamePage(
+      if (!mounted) return;
+      final page = NewOnlineGamePage(
         indices: "",
         players: const [],
         users: const [],
@@ -389,7 +394,14 @@ class GamesPageState extends ConsumerState<GamesPage>
         creatorId: match.creator_id!,
         match: match,
         creatorName: "",
-      ));
+      );
+      if (widget.isTab) {
+        context.pushTo(page);
+      } else {
+        context.pushReplacement(page);
+      }
+    } catch (e) {
+      hideDialog();
     } finally {
       if (mounted) {
         setState(() {
@@ -414,9 +426,6 @@ class GamesPageState extends ConsumerState<GamesPage>
       if (result == true) {
         goBackToGames();
       }
-      // setState(() {
-      //   current = "game";
-      // });
     }
   }
 
@@ -434,7 +443,7 @@ class GamesPageState extends ConsumerState<GamesPage>
       this.players = players;
       if (creating) return;
 
-      createNewGame();
+      createNewMatch();
       goBackToGames();
     }
   }

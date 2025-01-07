@@ -5,7 +5,7 @@ class SubscriptionInfo {
   SubscriptionType type;
   SubscriptionPlan? plan;
   List<String> infos;
-  int? dollarPrice;
+  double? dollarPrice;
   SubscriptionInfo({
     required this.type,
     this.plan,

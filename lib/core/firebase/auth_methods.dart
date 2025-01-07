@@ -9,11 +9,14 @@ class AuthMethods {
   AuthMethods() {
     getCurrentUserId();
   }
-  FirebaseAuth auth = FirebaseAuth.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+      clientId:
+          "182221656090-9phi32s2nujj8fk5dvcu36anp07u9sg8.apps.googleusercontent.com");
 
   Future<UserCredential?> createAccount(String email, String password) async {
     try {
-      return auth.createUserWithEmailAndPassword(
+      return _auth.createUserWithEmailAndPassword(
           email: email, password: password);
     } on FirebaseException catch (e) {
       return null;
@@ -22,73 +25,97 @@ class AuthMethods {
 
   Future<UserCredential?> login(String email, String password) async {
     try {
-      return auth.signInWithEmailAndPassword(email: email, password: password);
+      return _auth.signInWithEmailAndPassword(email: email, password: password);
     } on FirebaseException catch (e) {
       return null;
     }
   }
 
-  Future<UserCredential?> signInWithGoogle() async {
-    if (!kIsWeb && Platform.isWindows) return null;
+  Future<User?> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      final GoogleSignInAuthentication? googleAuth =
-          await googleUser?.authentication;
-      final credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth?.accessToken, idToken: googleAuth?.idToken);
+      // Trigger the Google Sign-In process
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        return null; // User canceled the sign-in
+      }
+
+      // Obtain the authentication details from the request
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      // Create a credential for Firebase authentication
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Sign in to Firebase with the Google credentials
       final UserCredential userCredential =
-          await auth.signInWithCredential(credential);
-      return userCredential;
-    } on FirebaseException catch (e) {
+          await _auth.signInWithCredential(credential);
+
+      // Return the signed-in user
+      return userCredential.user;
+    } catch (e) {
+      print("Error signing in with Google: $e");
       return null;
     }
   }
-
-  void addUser() {}
 
   Future<void> logOut() async {
     try {
-      return auth.signOut();
+      await _auth.signOut();
+      // Sign out and disconnect Google account session
+      if (!kIsWeb && Platform.isWindows) return;
+      if (await _googleSignIn.isSignedIn()) {
+        await _googleSignIn.signOut(); // Sign out
+        await _googleSignIn.disconnect(); // Disconnect the account
+      }
     } on FirebaseException catch (e) {}
   }
 
   Future<void> sendEmailVerification() async {
-    final user = auth.currentUser;
+    final user = _auth.currentUser;
     try {
       return user?.sendEmailVerification();
     } on FirebaseException catch (e) {}
   }
 
+  bool get emailVerified {
+    final user = _auth.currentUser;
+    return user?.emailVerified ?? false;
+  }
+
   Future<bool> isEmailVerified() async {
-    final user = auth.currentUser;
+    final user = _auth.currentUser;
+    await user?.reload();
     return user?.emailVerified ?? false;
   }
 
   Future<void> sendPasswordResetEmail(String email) async {
     try {
-      return auth.sendPasswordResetEmail(email: email);
+      return _auth.sendPasswordResetEmail(email: email);
     } on FirebaseException catch (e) {}
   }
 
   String getCurrentUserId() {
-    myId = auth.currentUser?.uid ?? "";
+    myId = _auth.currentUser?.uid ?? "";
     return myId;
   }
 
   Future<void> deleteAccount() async {
-    final user = auth.currentUser;
+    final user = _auth.currentUser;
     try {
       return user?.delete();
     } on FirebaseException catch (e) {}
   }
 
   Future<bool> checkIfEmailExists(String email) async {
-    final task = await auth.fetchSignInMethodsForEmail(email);
+    final task = await _auth.fetchSignInMethodsForEmail(email);
     return task.length == 1;
   }
 
   Future<bool> comfirmPassword(String password) async {
-    final user = auth.currentUser;
+    final user = _auth.currentUser;
     if (user == null) return false;
     try {
       final credential =
@@ -102,35 +129,35 @@ class AuthMethods {
   }
 
   Future<void> updateEmail(String email) async {
-    final user = auth.currentUser;
+    final user = _auth.currentUser;
     try {
       return user?.verifyBeforeUpdateEmail(email);
     } on FirebaseException catch (e) {}
   }
 
   Future<void> updatePassword(String password) async {
-    final user = auth.currentUser;
+    final user = _auth.currentUser;
     try {
       return user?.updatePassword(password);
     } on FirebaseException catch (e) {}
   }
 
   Future<void> updateName(String? name) async {
-    final user = auth.currentUser;
+    final user = _auth.currentUser;
     try {
       return user?.updateDisplayName(name);
     } on FirebaseException catch (e) {}
   }
 
   Future<void> updatePhotoUrl(String? photo_url) async {
-    final user = auth.currentUser;
+    final user = _auth.currentUser;
     try {
       return user?.updatePhotoURL(photo_url);
     } on FirebaseException catch (e) {}
   }
 
   Future<void> updatePhoneNumber(String phone) async {
-    final user = auth.currentUser;
+    final user = _auth.currentUser;
     try {
       //user?.updatePhoneNumber(phone);
     } on FirebaseException catch (e) {}

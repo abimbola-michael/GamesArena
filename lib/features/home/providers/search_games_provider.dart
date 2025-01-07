@@ -4,6 +4,7 @@ class SearchGamesNotifier extends StateNotifier<String> {
   SearchGamesNotifier(super.state);
 
   void updateSearch(String text) {
+    if (state == text) return;
     state = text;
   }
 }

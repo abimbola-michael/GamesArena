@@ -1,5 +1,6 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter/material.dart';
+import 'package:gamesarena/features/game/utils.dart';
 import 'package:gamesarena/shared/widgets/app_appbar.dart';
 
 import '../../../shared/utils/constants.dart';
@@ -24,7 +25,7 @@ class _AboutGamePageState extends State<AboutGamePage> {
   @override
   void initState() {
     super.initState();
-    if (widget.game.endsWith("Quiz")) {
+    if (widget.game.isQuiz) {
       gameInfo = quizGameInfo();
     } else {
       gameInfo = gamesInfo[widget.game];

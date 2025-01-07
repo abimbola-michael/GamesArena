@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:flutter/foundation.dart';
 import 'package:gamesarena/core/firebase/extensions/firebase_extensions.dart';
 import 'package:gamesarena/core/firebase/firebase_methods.dart';
@@ -15,13 +16,14 @@ import '../../../enums/emums.dart';
 import '../../features/game/models/match_outcome.dart';
 import '../../features/game/models/player.dart';
 import '../../features/game/services.dart';
-import '../../features/games/board/ludo/models/ludo.dart';
-import '../../features/games/card/whot/models/whot.dart';
+
 import '../../features/game/models/player.dart';
 import '../../features/user/models/user.dart';
 import '../extensions/special_context_extensions.dart';
 
-String get myId => currentUserId;
+// String get myId => currentUserId;
+String get myId => auth.FirebaseAuth.instance.currentUser?.uid ?? "";
+
 bool get isAndroidAndIos => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 bool get isWindows => !kIsWeb && Platform.isWindows;
 
@@ -199,7 +201,8 @@ String getMatchOutcomeMessageFromWinners(
                   ?.username ??
               "")
           .toList()
-      : List.generate(winners.length, (index) => "Player ${index + 1}");
+      : List.generate(
+          winners.length, (index) => "Player ${winners[index] + 1}");
   if (winnersUsernames.length == 1) {
     return "${winnersUsernames.first} won";
   } else {
@@ -280,15 +283,16 @@ String getAction(List<Player> players) {
   String action = "";
   for (int i = 0; i < players.length; i++) {
     final player = players[i];
-    if (action == "") {
-      action = player.action ?? "";
+    final playerAction = player.action ?? "";
+    if (action == "" && playerAction.isNotEmpty) {
+      action = playerAction;
     } else {
-      if (action != player.action) {
+      if (action != playerAction) {
         return "pause";
       }
     }
   }
-  return action;
+  return action.isEmpty ? "pause" : action;
 }
 
 Player? getMyPlayer(List<Player> players) {
@@ -370,7 +374,7 @@ Future updateAction(
     // } else if (action == "start") {
     //   await startGame(game, gameId, matchId, players, id, started);
     // }
-    await updatePlayerAction(gameId, matchId, action, game);
+    await updatePlayerAction(gameId, action, game);
   }
   final othersPlaying = players.where((element) => element.id != myId).toList();
   final othersWithDiffAction = othersPlaying

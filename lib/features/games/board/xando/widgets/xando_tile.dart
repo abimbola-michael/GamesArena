@@ -6,7 +6,7 @@ import '../../../../../enums/emums.dart';
 import '../../../../../theme/colors.dart';
 
 class XandOTileWidget extends StatelessWidget {
-  final XandOTile xandOTile;
+  final XandOTile? xandOTile;
   final VoidCallback onPressed;
   final bool blink;
   const XandOTileWidget(
@@ -30,12 +30,12 @@ class XandOTileWidget extends StatelessWidget {
           //     right: BorderSide(color: Colors.white, width: 3),
           //     bottom: BorderSide(color: Colors.white, width: 3))
         ),
-        child: xandOTile.char == null
+        child: xandOTile?.char == null
             ? null
             : Text(
-                xandOTile.char == XandOChar.x ? "X" : "O",
+                xandOTile!.char == XandOChar.x ? "X" : "O",
                 style: GoogleFonts.rubikMonoOne(
-                    color: xandOTile.char == XandOChar.x
+                    color: xandOTile!.char == XandOChar.x
                         ? Colors.blue
                         : Colors.red,
                     fontSize: 70),

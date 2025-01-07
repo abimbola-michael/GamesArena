@@ -102,10 +102,10 @@ class _LoginPageState extends State<LoginPage> {
           phone: phone,
           time: timeNow,
           last_seen: timeNow,
-          token: "",
+          tokens: [],
           profile_photo: user.photoURL,
         );
-        await createUser(newUser.toMap());
+        await createOrUpdateUser(newUser.toMap());
       }
       // email = user.email ?? "";
       // username =
@@ -173,10 +173,10 @@ class _LoginPageState extends State<LoginPage> {
           phone: phone,
           time: timeNow,
           last_seen: timeNow,
-          token: "",
+          tokens: [],
         );
         await currentuser.updateDisplayName(username);
-        await createUser(user.toMap());
+        await createOrUpdateUser(user.toMap());
         clearControllers();
         setState(() {
           loading = false;
@@ -328,7 +328,7 @@ class _LoginPageState extends State<LoginPage> {
           //         time: timeNow,
           //         last_seen: timeNow,
           //       );
-          //       await createUser(user);
+          //       await createOrUpdateUser(user);
           //       clearControllers();
           //       Fluttertoast.showToast(
           //           msg:

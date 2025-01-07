@@ -4,6 +4,7 @@ class SearchMatchesNotifier extends StateNotifier<String> {
   SearchMatchesNotifier(super.state);
 
   void updateSearch(String text) {
+    if (state == text) return;
     state = text;
   }
 }

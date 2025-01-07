@@ -87,6 +87,7 @@ class _WatchGameControlsViewState extends State<WatchGameControlsView>
         color: !widget.showWatchControls
             ? Colors.transparent
             : Colors.black.withOpacity(0.5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 30),
         child: !widget.showWatchControls
             ? null
             : Column(
@@ -153,8 +154,10 @@ class _WatchGameControlsViewState extends State<WatchGameControlsView>
                         //       final duration = durationValue + value;
 
                         return Padding(
+                          // padding: const EdgeInsets.only(
+                          //     left: 10, right: 10, bottom: 30),
                           padding: const EdgeInsets.only(
-                              left: 10, right: 10, bottom: 30),
+                              left: 0, right: 0, bottom: 0),
                           child: Row(
                             children: [
                               SizedBox(
@@ -195,6 +198,8 @@ class _WatchGameControlsViewState extends State<WatchGameControlsView>
                                         color: !widget.finishedRound
                                             ? Colors.red
                                             : Colors.white),
+                                            textAlign: TextAlign.end,
+                                            
                                   ),
                                 ),
                               ),

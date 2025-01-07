@@ -50,7 +50,6 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
   int drawMoveCount = 0;
   int maxDrawMoveCount = 50;
 
-  double messagePadding = 0, wonChessesPadding = 60, pawnPromotionPadding = 60;
   bool choosePawnPromotion = false;
   int player1KingPos = 4;
   int player2KingPos = 60;
@@ -129,18 +128,15 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     size = minSize / gridSize;
-    // wonChessSize = padding / 10;
-    // wonChessesPadding = padding - size - 20;
-    messagePadding = wonChessesPadding - 30;
   }
 
   void initChessGrids() {
+    setInitialCount(0);
     clearPattern();
     selectedChessTile = null;
     drawMoveCount = 0;
     player1KingPos = 4;
     player2KingPos = 60;
-    getCurrentPlayer();
     message = "Play";
     hintPositions.clear();
     playersChesses.clear();
@@ -184,6 +180,8 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
       }
       return ChessTile(x, y, "$index", chess);
     });
+    showPossiblePlayPositions();
+    setState(() {});
   }
 
   Future updateDetails(int pos) async {
@@ -1612,20 +1610,6 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
         changePlayer();
       }
 
-      // final startPos = details.startPos;
-      // final endPos = details.endPos;
-
-      // if (endPos != -1) {
-      //   playChess(startPos, false);
-      //   playChess(endPos, false);
-      // } else {
-      //   if (startPos != -1) {
-      //     updateChessPromotion(startPos, false);
-      //   } else {
-      //     changePlayer();
-      //   }
-      // }
-
       setState(() {});
     }
   }
@@ -1665,9 +1649,7 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
 
   @override
   void onStart() {
-    setInitialCount(0);
     initChessGrids();
-    showPossiblePlayPositions();
   }
 
   @override
@@ -1702,11 +1684,11 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
                           final x = coordinates[0];
                           final y = coordinates[1];
                           bool isHintPosition = hintPositions.contains(index);
-                          final chessTile = chessTiles[index];
+                          final chessTile = chessTiles.get(index);
                           return ChessTileWidget(
                               blink: isHintPosition && !finishedRound,
                               gameId: gameId,
-                              key: Key(chessTile.id),
+                              key: Key(chessTile?.id ?? "$index"),
                               myPlayer: myPlayer,
                               x: x,
                               y: y,
@@ -1762,22 +1744,6 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
                             player: currentPlayer,
                             size: size / 1.5),
                       ),
-                      // child: Container(
-                      //   height: size,
-                      //   width: size,
-                      //   alignment: Alignment.center,
-                      //   child: RotatedBox(
-                      //     quarterTurns: currentPlayer == 0 ? 2 : 0,
-                      //     child: SvgPicture.asset(
-                      //       getAsset(chessPromotionShapes[index]),
-                      //       width: size / 2,
-                      //       height: size / 2,
-                      //       color: currentPlayer == 1
-                      //           ? Colors.white
-                      //           : Colors.black,
-                      //     ),
-                      //   ),
-                      // ),
                     ),
                   );
                 })),

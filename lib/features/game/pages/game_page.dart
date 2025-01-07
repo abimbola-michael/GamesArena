@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamesarena/features/game/models/game_page_infos.dart';
 import 'package:gamesarena/features/game/models/match_outcome.dart';
 import 'package:gamesarena/features/game/providers/game_action_provider.dart';
+import 'package:gamesarena/features/game/utils.dart';
 import 'package:gamesarena/features/games/pages.dart';
 import 'package:gamesarena/features/games/quiz/pages/quiz_game_page.dart';
+import 'package:gamesarena/features/user/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 
 import '../models/concede_or_left.dart';
@@ -33,7 +35,7 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
 
   GameAction? gameAction;
 
-  String gameName = "";
+  //String gameName = "";
 
   String matchId = "";
   String gameId = "";
@@ -47,8 +49,7 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
   int roundId = 0;
   int lastRecordId = 0;
   int lastRecordIdRoundId = 0;
-  int firstRecordId = 0;
-  int firstRecordIdRoundId = 0;
+
   int adsTime = 0;
 
   //Player
@@ -105,7 +106,7 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
     super.didChangeDependencies();
     if (!gottenDependencies) {
       if (context.args != null) {
-        gameName = context.args["gameName"] ?? "";
+        //gameName = context.args["gameName"] ?? "";
         matchId = context.args["matchId"] ?? "";
         gameId = context.args["gameId"] ?? "";
         match = context.args["match"];
@@ -120,25 +121,25 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
         adsTime = context.args["adsTime"] ?? 0;
         isTournament = context.args["isTournament"] ?? false;
       }
-      // ref.read(gameActionProvider.notifier).updateGameAction(null);
       gottenDependencies = true;
       init();
     }
   }
 
   void init() {
-    lastRecordId = recordId;
-    lastRecordIdRoundId = roundId;
-    firstRecordId = recordId;
-    firstRecordIdRoundId = roundId;
-
     if (gameId.isNotEmpty && match != null) {
-      gameName = match!.records?["$recordId"]?["$roundId"]?["game"] ?? gameName;
+      final rounds = match!.records?["$recordId"]?["rounds"];
+      if (rounds != null) {
+        lastRecordId = match!.records!.length - 1;
+        lastRecordIdRoundId =
+            match!.records!["$lastRecordId"]!["rounds"]!.length - 1;
+      }
+      updateRoundDetails(context.args);
     }
 
     currentPlayers.addAll(players);
 
-    final gamePageData = getFullGamePageData(context.args, gameName);
+    final gamePageData = getFullGamePageData(context.args);
     gamePagesDatas.add(gamePageData);
 
     Future.delayed(const Duration(milliseconds: 100)).then((value) {
@@ -147,9 +148,7 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
               totalPages: gamePagesDatas.length,
               currentPage: currentPage,
               lastRecordId: lastRecordId,
-              lastRecordIdRoundId: lastRecordIdRoundId,
-              firstRecordId: firstRecordId,
-              firstRecordIdRoundId: firstRecordIdRoundId));
+              lastRecordIdRoundId: lastRecordIdRoundId));
     });
   }
 
@@ -177,7 +176,7 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
   }
 
   Widget getGamePage(Map<String, dynamic> args, String gameName) {
-    if (gameName.endsWith("Quiz")) {
+    if (gameName.isQuiz) {
       return QuizGamePage(args, updateGameAction);
     }
     switch (gameName) {
@@ -197,8 +196,9 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
     return Container();
   }
 
-  GamePageData getFullGamePageData(Map<String, dynamic> args, String gameName,
+  GamePageData getFullGamePageData(Map<String, dynamic> args,
       {bool hasDetails = false}) {
+    String gameName = args["gameName"];
     var players = args["players"] as List<Player>?;
     //final playersSize = args["playersSize"] as int;
 
@@ -243,8 +243,44 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
       }
 
       gamePage = getGamePage(args, gameName);
-      print("args = $args, gameName = $gameName");
+      // print("args = $args, gameName = $gameName");
       return GamePageData(child: gamePage, args: args);
+    }
+  }
+
+  void updateRoundDetails(Map<String, dynamic> args) {
+    int recordId = args["recordId"];
+    int roundId = args["roundId"];
+    print("recordId = $recordId, roundId = $roundId");
+
+    final rounds = match?.records?["$recordId"]?["rounds"];
+    if (rounds == null) return;
+
+    final gameName = rounds["$roundId"]!["game"];
+    args["gameName"] = gameName;
+
+    final playerIds = rounds!["$roundId"]["players"] as List<dynamic>?;
+    if (playerIds != null) {
+      args["players"] = List.generate(
+          playerIds.length,
+          (index) =>
+              players.firstWhereNullable(
+                  (player) => player.id == playerIds[index]) ??
+              Player(id: playerIds[index], time: timeNow, order: index));
+
+      args["users"] = List.generate(
+          playerIds.length,
+          (index) async =>
+              users?.firstWhereNullable(
+                  (user) => user?.user_id == playerIds[index]) ??
+              (await getUser(playerIds[index])));
+      // args["users"] = users == null
+      //     ? null
+      //     : List.generate(
+      //         playerIds.length,
+      //         (index) async => users?.firstWhereNullable(
+      //             (user) => user?.user_id == playerIds[index]));
+      args["playersSize"] = playerIds.length;
     }
   }
 
@@ -278,8 +314,9 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
     if (gameAction.action == "change" || gameAction.action == "restart") {
       if (gameAction.hasDetails) {
         recordId++;
+        roundId = 0;
         args["recordId"] = recordId;
-        args["roundId"] = 0;
+        args["roundId"] = roundId;
       }
       args.remove("playersScores");
 
@@ -310,21 +347,13 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
         args["recordId"] = recordId;
         args["roundId"] = roundId;
 
-        final playerIds = match!.records!["$recordId"]["rounds"]["$roundId"]
-            ["players"] as List<String>?;
-        if (playerIds != null) {
-          args["players"] = List.generate(
-              playerIds.length,
-              (index) =>
-                  Player(id: playerIds[index], time: timeNow, order: index));
-          args["playersSize"] = playerIds.length;
-        }
-        //args["players"] = ;
+        updateRoundDetails(args);
       }
     } else if (gameAction.action == "next") {
       if (currentPage < gamePagesDatas.length - 1) {
         pageController.nextPage(
             duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
+
         return;
       }
       if (match?.records != null) {
@@ -344,21 +373,13 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
         args["recordId"] = recordId;
         args["roundId"] = roundId;
 
-        final playerIds = match.records!["$recordId"]["rounds"]["$roundId"]
-            ["players"] as List<String>?;
-        if (playerIds != null) {
-          args["players"] = List.generate(
-              playerIds.length,
-              (index) =>
-                  Player(id: playerIds[index], time: timeNow, order: index));
-          args["playersSize"] = playerIds.length;
-        }
+        updateRoundDetails(args);
       }
     }
     //else if (gameAction.action == "jump") {}
 
-    final gamePageData = getFullGamePageData(args, gameAction.game,
-        hasDetails: gameAction.hasDetails);
+    final gamePageData =
+        getFullGamePageData(args, hasDetails: gameAction.hasDetails);
 
     if (gameAction.hasDetails ||
         gameAction.action == "previous" ||
@@ -366,12 +387,13 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
       if (gameAction.action == "previous") {
         gamePagesDatas.insert(0, gamePageData);
         setState(() {});
-        pageController.previousPage(
+        await pageController.previousPage(
             duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
       } else {
         gamePagesDatas.add(gamePageData);
         setState(() {});
-        pageController.nextPage(
+
+        await pageController.nextPage(
             duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
       }
     } else {
@@ -379,27 +401,19 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
       setState(() {});
     }
 
-    if (recordId <= firstRecordId) {
-      firstRecordId = recordId;
-      if (roundId < firstRecordIdRoundId) {
-        firstRecordIdRoundId = roundId;
+    if (recordId >= lastRecordId) {
+      if (recordId > lastRecordId) {
+        lastRecordId = recordId;
+        lastRecordIdRoundId = roundId;
+      } else if (recordId == lastRecordId) {
+        if (roundId > lastRecordIdRoundId) {
+          lastRecordIdRoundId = roundId;
+        }
       }
 
-      ref.read(gamePageInfosProvider.notifier).updateFirst(
-          firstRecordId, firstRecordIdRoundId,
-          totalPages: gamePagesDatas.length);
-    } else if (recordId >= lastRecordId) {
-      lastRecordId = recordId;
-      if (roundId > lastRecordIdRoundId) {
-        lastRecordIdRoundId = roundId;
-      }
-      ref.read(gamePageInfosProvider.notifier).updateLast(
+      ref.read(gamePageInfosProvider.notifier).updateInfos(
           lastRecordId, lastRecordIdRoundId,
           totalPages: gamePagesDatas.length);
-    } else {
-      ref
-          .read(gamePageInfosProvider.notifier)
-          .updateTotalPages(gamePagesDatas.length);
     }
   }
 

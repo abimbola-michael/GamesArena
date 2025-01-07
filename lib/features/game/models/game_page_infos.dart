@@ -8,15 +8,11 @@ class GamePageInfos {
   int currentPage;
   int lastRecordId;
   int lastRecordIdRoundId;
-  int firstRecordId;
-  int firstRecordIdRoundId;
   GamePageInfos({
     required this.totalPages,
     required this.currentPage,
     required this.lastRecordId,
     required this.lastRecordIdRoundId,
-    required this.firstRecordId,
-    required this.firstRecordIdRoundId,
   });
 
   GamePageInfos copyWith({
@@ -24,16 +20,12 @@ class GamePageInfos {
     int? currentPage,
     int? lastRecordId,
     int? lastRecordIdRoundId,
-    int? firstRecordId,
-    int? firstRecordIdRoundId,
   }) {
     return GamePageInfos(
       totalPages: totalPages ?? this.totalPages,
       currentPage: currentPage ?? this.currentPage,
       lastRecordId: lastRecordId ?? this.lastRecordId,
       lastRecordIdRoundId: lastRecordIdRoundId ?? this.lastRecordIdRoundId,
-      firstRecordId: firstRecordId ?? this.firstRecordId,
-      firstRecordIdRoundId: firstRecordIdRoundId ?? this.firstRecordIdRoundId,
     );
   }
 
@@ -43,8 +35,6 @@ class GamePageInfos {
       'currentPage': currentPage,
       'lastRecordId': lastRecordId,
       'lastRecordIdRoundId': lastRecordIdRoundId,
-      'firstRecordId': firstRecordId,
-      'firstRecordIdRoundId': firstRecordIdRoundId,
     };
   }
 
@@ -54,8 +44,6 @@ class GamePageInfos {
       currentPage: map['currentPage'] as int,
       lastRecordId: map['lastRecordId'] as int,
       lastRecordIdRoundId: map['lastRecordIdRoundId'] as int,
-      firstRecordId: map['firstRecordId'] as int,
-      firstRecordIdRoundId: map['firstRecordIdRoundId'] as int,
     );
   }
 
@@ -66,7 +54,7 @@ class GamePageInfos {
 
   @override
   String toString() {
-    return 'GamePageInfos(totalPages: $totalPages, currentPage: $currentPage, lastRecordId: $lastRecordId, lastRecordIdRoundId: $lastRecordIdRoundId, firstRecordId: $firstRecordId, firstRecordIdRoundId: $firstRecordIdRoundId)';
+    return 'GamePageInfos(totalPages: $totalPages, currentPage: $currentPage, lastRecordId: $lastRecordId, lastRecordIdRoundId: $lastRecordIdRoundId)';
   }
 
   @override
@@ -76,9 +64,7 @@ class GamePageInfos {
     return other.totalPages == totalPages &&
         other.currentPage == currentPage &&
         other.lastRecordId == lastRecordId &&
-        other.lastRecordIdRoundId == lastRecordIdRoundId &&
-        other.firstRecordId == firstRecordId &&
-        other.firstRecordIdRoundId == firstRecordIdRoundId;
+        other.lastRecordIdRoundId == lastRecordIdRoundId;
   }
 
   @override
@@ -86,8 +72,6 @@ class GamePageInfos {
     return totalPages.hashCode ^
         currentPage.hashCode ^
         lastRecordId.hashCode ^
-        lastRecordIdRoundId.hashCode ^
-        firstRecordId.hashCode ^
-        firstRecordIdRoundId.hashCode;
+        lastRecordIdRoundId.hashCode;
   }
 }

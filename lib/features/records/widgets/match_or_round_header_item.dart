@@ -11,6 +11,7 @@ class MatchOrRoundHeaderItem extends StatelessWidget {
   final bool isRecord;
   final String timeStart;
   final String? timeEnd;
+  final double? duration;
   final List<String> players;
   final String game;
   final String outcome;
@@ -22,6 +23,7 @@ class MatchOrRoundHeaderItem extends StatelessWidget {
       this.isRecord = false,
       required this.timeStart,
       this.timeEnd,
+      required this.duration,
       required this.game,
       required this.players,
       required this.outcome,
@@ -29,13 +31,11 @@ class MatchOrRoundHeaderItem extends StatelessWidget {
       required this.onWatchPressed});
 
   String getGameTime() {
-    return "${timeStart.time} - ${timeEnd?.time ?? "Live"}";
+    return "${timeStart.time} - ${timeEnd != null && timeStart.date != timeEnd!.date ? "${timeEnd!.date} " : ""}${timeEnd?.time ?? "Live"}";
   }
 
   String getGameDuration() {
-    return timeEnd != null
-        ? ((timeEnd!.toInt - timeStart.toInt) ~/ 1000).toDurationString()
-        : "";
+    return duration?.toInt().toDurationString() ?? "";
   }
 
   @override

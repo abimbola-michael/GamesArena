@@ -6,7 +6,7 @@ import '../models/ludo.dart';
 import '../../../../../shared/utils/utils.dart';
 
 class LudoTileWidget extends StatelessWidget {
-  final LudoTile ludoTile;
+  final LudoTile? ludoTile;
   final LudoColor color;
   final List<LudoColor> colors;
   final int pos;
@@ -39,7 +39,7 @@ class LudoTileWidget extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border.all(
                 color: darkMode ? Colors.white : Colors.black, width: 1),
-            color: highLight
+            color: ludoTile != null && highLight
                 ? Colors.purple
                 : useColor(pos)
                     ? convertToColor(color)
@@ -55,12 +55,12 @@ class LudoTileWidget extends StatelessWidget {
                   color: darkMode ? Colors.white : Colors.black,
                 )
               ],
-              if (ludoTile.ludos.isNotEmpty) ...[
+              if ((ludoTile?.ludos ?? []).isNotEmpty) ...[
                 LudoDisc(
                   size: size.percentValue(60),
                   color:
-                      convertToColor(colors[ludoTile.ludos.first.houseIndex]),
-                  ludosSize: ludoTile.ludos.length,
+                      convertToColor(colors[ludoTile!.ludos.first.houseIndex]),
+                  ludosSize: ludoTile!.ludos.length,
                 ),
               ],
             ],

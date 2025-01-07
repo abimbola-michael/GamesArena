@@ -66,7 +66,11 @@ class _FindOrInvitePlayersPageState
     loading = true;
     setState(() {});
 
+    final dialCode1 = await getDialCode();
+    print("dialCode1 = $dialCode1");
+
     String? dialCode = await getCurrentCountryDialingCode();
+    print("dialCode = $dialCode");
     //final usersBox = Hive.box<String>("users");
     final phoneContactsBox = Hive.box<String>("contacts");
     //phoneContactsBox.clear();
@@ -89,7 +93,11 @@ class _FindOrInvitePlayersPageState
       final contact = contacts[i];
       for (var phone in contact.phones) {
         final phoneNumber = phone.number.toValidNumber(dialCode);
-        if (phoneNumber == null || contact.displayName.isEmpty) continue;
+        if (phoneNumber == null ||
+            contact.displayName.isEmpty ||
+            phone.number == contact.displayName) {
+          continue;
+        }
         final prevContactJson = phoneContactsBox.get(phoneNumber);
         final time = timeNow;
         //ContactStatus contactStatus = ContactStatus.unadded;
@@ -189,11 +197,11 @@ class _FindOrInvitePlayersPageState
                           child: CircularProgressIndicator()),
                     IconButton(
                       onPressed: startSearch,
-                      icon: const Icon(EvaIcons.search),
+                      icon: Icon(EvaIcons.search, color: tint),
                     ),
                     IconButton(
                       onPressed: () => shareTextInvite(match: match),
-                      icon: const Icon(EvaIcons.share_outline),
+                      icon: Icon(EvaIcons.share_outline, color: tint),
                     ),
                   ],
                 ),

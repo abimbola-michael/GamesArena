@@ -19,11 +19,17 @@ class SubscriptionUtils {
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   StreamController<SubscriptionStatus>? _subscriptionStatusController;
   Stream<SubscriptionStatus>? subscriptionStatusStream;
-  SubscriptionUtils([List<SubscriptionPlan> plans = SubscriptionPlan.values]) {
-    init(plans);
+  SubscriptionUtils(
+      [List<SubscriptionPlan> plans = SubscriptionPlan.values,
+      void Function(List<ProductDetails> productDetails)?
+          onGetProductDetails]) {
+    init(plans, onGetProductDetails);
   }
 
-  void init([List<SubscriptionPlan> plans = SubscriptionPlan.values]) {
+  void init(
+      [List<SubscriptionPlan> plans = SubscriptionPlan.values,
+      void Function(List<ProductDetails> productDetails)?
+          onGetProductDetails]) {
     if (!isAndroidAndIos) return;
     // plans.remove(SubscriptionPlan.free);
     _subscriptionPlans = plans;
@@ -35,7 +41,7 @@ class SubscriptionUtils {
     _subscription = purchaseUpdated.listen((purchases) {
       _handlePurchaseUpdates(purchases);
     });
-    _initializePurchases();
+    _initializeProducts(onGetProductDetails);
   }
 
   void dispose() {
@@ -53,7 +59,9 @@ class SubscriptionUtils {
     return _buyProduct(product);
   }
 
-  Future<void> _initializePurchases() async {
+  Future<void> _initializeProducts(
+      void Function(List<ProductDetails> productDetails)?
+          onGetProductDetails) async {
     _available = await _inAppPurchase.isAvailable();
     if (!_available) {
       // Handle store not available
@@ -69,9 +77,7 @@ class SubscriptionUtils {
       return;
     }
     _products = response.productDetails;
-
-    // setState(() {
-    // });
+    if (onGetProductDetails != null) onGetProductDetails(_products);
   }
 
   void _handlePurchaseUpdates(List<PurchaseDetails> purchaseDetailsList) {

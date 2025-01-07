@@ -47,7 +47,7 @@ class _NewOfflineGamePageState extends State<NewOfflineGamePage> {
   }
 
   void getGame() {
-    if (allPuzzleGames.contains(game) || game.endsWith("Quiz")) {
+    if (allPuzzleGames.contains(game) || game.isQuiz) {
       playersSize = 1;
     }
 
@@ -73,15 +73,13 @@ class _NewOfflineGamePageState extends State<NewOfflineGamePage> {
             phone: "",
             time: "",
             last_seen: "",
-            token: ""));
+            tokens: []));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const AppAppBar(
-        title: "New Game",
-      ),
+      appBar: const AppAppBar(title: "New Game"),
       body: Center(
         child: SingleChildScrollView(
           child: ConstrainedBox(
@@ -95,6 +93,7 @@ class _NewOfflineGamePageState extends State<NewOfflineGamePage> {
                     "Offline $game game",
                     style: const TextStyle(
                         fontSize: 20, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
                   ),
                 ),
                 if (game == "Ludo" || game == "Whot") ...[
@@ -171,7 +170,6 @@ class _NewOfflineGamePageState extends State<NewOfflineGamePage> {
                   Navigator.of(context).pop();
                 },
                 bgColor: Colors.red,
-                color: tint,
               ),
             ),
             // const SizedBox(

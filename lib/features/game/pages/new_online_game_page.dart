@@ -34,6 +34,7 @@ class NewOnlineGamePage extends StatefulWidget {
   final List<Player> players;
   final String indices;
   final Match? match;
+  final bool isBottomSheet;
 
   const NewOnlineGamePage({
     super.key,
@@ -45,6 +46,7 @@ class NewOnlineGamePage extends StatefulWidget {
     required this.game,
     required this.creatorId,
     required this.creatorName,
+    this.isBottomSheet = false,
     this.match,
   });
 
@@ -73,6 +75,7 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
   late StreamSubscription<PlayerState> audioPlayerStateSub;
   // String comfirmationType = "";
   Match? match;
+  bool addedAllPlayers = false;
 
   @override
   void initState() {
@@ -146,11 +149,15 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
   }
 
   void cancel() async {
-    await cancelMatch(gameId, matchId, players);
+    await playingSub?.cancel();
+    cancelMatch(gameId, matchId, match, players);
+    context.pop();
   }
 
   void leave() async {
+    playingSub?.cancel();
     await leaveMatch(gameId, matchId, match, players);
+    context.pop();
   }
 
   void join() async {
@@ -181,7 +188,7 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
     for (int i = 0; i < users.length; i++) {
       final user = users[i];
       final player = players.firstWhereNullable((t) => t.id == user?.user_id);
-      user?.checked = player?.action != "";
+      user?.checked = (player?.action ?? "") != "";
     }
 
     if (playersRequested == 0 && players.length > 1) {
@@ -231,12 +238,15 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
           players.indexWhere((element) => element.id == myId) == -1) {
         context.pop();
         return;
+      } else if (addedAllPlayers &&
+          players.length == 1 &&
+          players.first.id == myId) {
+        leave();
       }
-      // else if (players.length == 1 && players.first.id == myId) {
-      //   leave();
-      //   context.pop();
-      // }
       gotoGameIfAllPlayersReady();
+      if (match?.players != null && players.length == match!.players!.length) {
+        addedAllPlayers = true;
+      }
 
       if (!mounted) return;
       setState(() {});
@@ -304,38 +314,17 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
   }
 
   void goBack() async {
-    // if (comfirmationType.isEmpty) {
-    //   comfirmationType = "cancel";
-    // } else {
-    //   comfirmationType = "leave";
-    // }
-    // setState(() {});
-
     final comfirmationType = creatorIsMe ? "cancel" : "leave";
+    final comfirm = await context.showComfirmationDialog(
+        title: "${comfirmationType.capitalize} match",
+        message: "Are you sure you want to $comfirmationType game?");
+    if (comfirm == null) return;
 
-    await showDialog(
-        context: context,
-        builder: (context) {
-          return ComfirmationDialog(
-            title: "Are you sure you want to $comfirmationType game?",
-            message: getMoreInfoOnComfirmation(comfirmationType),
-            onPressed: (positive) {
-              if (positive) {
-                if (comfirmationType == "cancel") {
-                  cancel();
-                } else if (comfirmationType == "leave") {
-                  leave();
-                }
-              }
-              if (!mounted) return;
-              // setState(() {
-              //   comfirmationType = "";
-              // });
-            },
-          );
-        });
-
-    context.pop();
+    if (comfirmationType == "cancel") {
+      cancel();
+    } else if (comfirmationType == "leave") {
+      leave();
+    }
   }
 
   String getMoreInfoOnComfirmation(String comfirmationType) {
@@ -361,10 +350,9 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
         goBack();
       },
       child: Scaffold(
-        appBar: AppAppBar(
-          title: "New Game",
-          onBackPressed: goBack,
-        ),
+        appBar: widget.isBottomSheet
+            ? null
+            : AppAppBar(title: "New Game", onBackPressed: goBack),
         body: players.isEmpty || users.isEmpty
             ? const Center(
                 child: CircularProgressIndicator(),
@@ -454,10 +442,7 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
                               itemBuilder: (context, index) {
                                 final user = users[index];
                                 return UserItem(
-                                  user: user,
-                                  type: "",
-                                  onPressed: () {},
-                                );
+                                    showCheck: false, user: user, type: "");
                               }),
                         ),
                       ],
@@ -489,9 +474,7 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
                 Expanded(
                   child: AppButton(
                     title: "Join",
-                    onPressed: () {
-                      join();
-                    },
+                    onPressed: join,
                   ),
                 ),
               ],

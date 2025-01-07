@@ -1,5 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:gamesarena/core/firebase/extensions/firebase_extensions.dart';
 import 'package:gamesarena/core/firebase/firestore_methods.dart';
+import 'package:gamesarena/features/user/services.dart';
+import 'package:gamesarena/main.dart';
+import 'package:gamesarena/shared/utils/utils.dart';
 
 import '../user/models/username.dart';
 
@@ -11,19 +16,52 @@ Future<bool> usernameExists(String username) async {
   return name != null;
 }
 
-Future createUser(Map<String, dynamic> userMap) async {
-  final currentuserId = FirebaseAuth.instance.currentUser?.uid ?? "";
+Future createOrUpdateUser(Map<String, dynamic> userMap) async {
+  String currentuserId = FirebaseAuth.instance.currentUser?.uid ?? "";
+
+  final username = userMap["username"] as String?;
+  final userId = userMap["user_id"] as String?;
+
+  if (currentuserId.isEmpty && userId != null) {
+    currentuserId = userId;
+  }
   if (currentuserId.isEmpty) return;
 
-  final username = userMap["username"];
-
-  if (username != null) {
+  if (username != null && username.isNotEmpty) {
     await fm.setValue(["usernames", username], value: {"username": username});
   }
-  if (userMap["user_id"] != null && userMap["user_id"].isEmpty) {
-    userMap["user_id"] = currentuserId;
+
+  await fm.setValue(["users", currentuserId],
+      value: userMap.removeNull(), merge: true);
+}
+
+Future deleteUser() async {
+  final time = timeNow;
+  return fm.updateValue([
+    "users",
+    myId
+  ], value: {
+    "tokens": [],
+    "time_deleted": time,
+    "time_modified": time,
+    "last_seen": time
+  });
+}
+
+Future logoutUser() async {
+  final token = sharedPref.getString("token");
+  final user = await getUser(myId);
+  final tokens = user?.tokens ?? [];
+  if (token != null && tokens.contains(token)) {
+    tokens.remove(token);
   }
-  await fm.setValue(["users", currentuserId], value: userMap);
+  if (user == null) return;
+
+  final time = timeNow;
+
+  await fm.updateValue(["users", myId],
+      value: {"tokens": tokens, "time_modified": time, "last_seen": time});
+  sharedPref.remove("token");
 }
 
 String getCurrentUserId() {

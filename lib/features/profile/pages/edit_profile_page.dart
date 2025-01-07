@@ -15,6 +15,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../game/services.dart';
 import '../../onboarding/pages/auth_page.dart';
+import '../../onboarding/services.dart';
 
 class EditProfilePage extends StatefulWidget {
   final String? groupId;
@@ -144,21 +145,34 @@ class _EditProfilePageState extends State<EditProfilePage> {
     passwordComfirmed = null;
     setState(() {});
     if (type == "email" || type == "password") {
-      logOut();
+      logout();
     } else {
       if (!mounted) return;
       Navigator.of(context).pop(text);
     }
   }
 
-  void logOut() {
-    am.logOut().then((value) {
-      Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: ((context) => const AuthPage())),
-          (route) => false);
-    }).onError((error, stackTrace) {
+  Future logout() async {
+    final comfirm = await context.showComfirmationDialog(
+        title: "Logout", message: "Are you sure you want to logout?");
+    if (comfirm == null) return;
+
+    try {
+      showLoading(message: "Logging out...");
+
+      await logoutUser();
+      await am.logOut();
+      gotoStartPage();
+    } catch (e) {
       showErrorToast("Unable to logout");
-    });
+    }
+  }
+
+  void gotoStartPage() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: ((context) => const AuthPage())),
+      (Route<dynamic> route) => false, // Remove all routes
+    );
   }
 
   @override

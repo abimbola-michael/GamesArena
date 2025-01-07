@@ -319,6 +319,8 @@ class FirestoreMethods {
       bool isSubcollection = false}) async* {
     //  List<T> values = [];
 
+    print("path = $path");
+
     try {
       if (path.length.isOdd) {
         final ref = isSubcollection
@@ -346,10 +348,8 @@ class FirestoreMethods {
       final ref = isSubcollection
           ? getGroupCollectionRef(path)
               .getQuery(queries, where, order, start, end, limit)
-          : getCollectionRef(path);
-
-      // final snapshot = await ref.get();
-      // return snapshot.size;
+          : getCollectionRef(path)
+              .getQuery(queries, where, order, start, end, limit);
       return (await ref.count().get()).count ?? 0;
     } on FirebaseException catch (e) {
       return 0;

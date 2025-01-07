@@ -7,12 +7,14 @@ import 'package:gamesarena/core/firebase/extensions/firestore_extensions.dart';
 import 'package:gamesarena/core/firebase/firebase_notification.dart';
 import 'package:gamesarena/features/user/services.dart';
 import 'package:gamesarena/shared/services.dart';
+import 'package:gamesarena/shared/views/empty_listview.dart';
 import 'package:gamesarena/shared/widgets/action_button.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/features/records/pages/game_records_page.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/adapters.dart';
 
+import '../../../main.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../game/services.dart';
@@ -36,12 +38,12 @@ class _MatchesPageState extends ConsumerState<MatchesPage> {
   //late Stream<List<GameList>> gameListStream;
   StreamSubscription? gameListsSub;
   Map<String, StreamSubscription> matchesSubs = {};
-  FirebaseNotification fn = FirebaseNotification();
+  Map<String, bool> gamelistsAddedMap = {};
   int matchesLimit = 10;
+  List<String> gameIds = [];
   @override
   void initState() {
     super.initState();
-    //gameListStream = getGameLists();
     readGameListsAndMatches();
   }
 
@@ -63,233 +65,205 @@ class _MatchesPageState extends ConsumerState<MatchesPage> {
     final matches =
         matchesBox.values.map((map) => Match.fromJson(map)).toList();
 
-    gameLists.sortList((gamelist) => gamelist.time, true);
+    gameLists.sortList((gamelist) => gamelist.time_modified, true);
     matches.sortList((match) => match.time_modified, true);
 
-    var lastGamelistTime = gameLists.firstOrNull?.time;
-    // var lastMatchTime = matches.firstOrNull?.time_created;
-    //List<String> gameListIds = gameLists.map((e) => e.game_id).toList();
-    List<GameList> addedGameLists = gameLists.sublist(0);
+    Future getGameListMatchesAndDetails(List<GameList> addedGameLists) async {
+      final gameListsBox = Hive.box<String>("gamelists");
+      final matchesBox = Hive.box<String>("matches");
 
-    gameListsSub = getGameListsChange(time: lastGamelistTime)
-        .listen((gameListsChange) async {
-      for (int i = 0; i < gameListsChange.length; i++) {
-        final change = gameListsChange[i];
-        final gameList = change.value;
-        if (gameList.time_end == null) {
+      final gameLists =
+          gameListsBox.values.map((map) => GameList.fromJson(map)).toList();
+      final matches =
+          matchesBox.values.map((map) => Match.fromJson(map)).toList();
+
+      gameLists.sortList((gamelist) => gamelist.time_modified, true);
+      matches.sortList((match) => match.time_modified, true);
+
+      for (int i = 0; i < addedGameLists.length; i++) {
+        var gameList = addedGameLists[i];
+
+        if (gameList.time_deleted != null &&
+            gameListsBox.get(gameList.game_id) != null) {
+          unlistenForMatches(gameList.game_id);
+          // gameLists
+          //     .removeWhere((element) => element.game_id == gameList.game_id);
+          gameListsBox.delete(gameList.game_id);
           continue;
         }
 
-        if (change.added) {
-          addedGameLists.add(gameList);
-          gameLists.add(gameList);
-          fn.subscribeToTopic(gameList.game_id);
-          gameListsBox.put(gameList.game_id, gameList.toJson());
-        } else if (change.modified) {
-          final index = gameLists
-              .indexWhere((element) => element.game_id == gameList.game_id);
-          if (index != -1) {
-            gameLists[index] = gameList;
+        if (gamelistsAddedMap[gameList.game_id] == null) {
+          gamelistsAddedMap[gameList.game_id] = true;
+
+          final gameMatches = matches
+              .where((match) => match.game_id == gameList.game_id)
+              .toList();
+
+          if (gameList.time_end != null &&
+              gameMatches.firstOrNull?.time_modified != null &&
+              gameMatches.firstOrNull!.time_modified!.toInt >=
+                  gameList.time_end!.toInt) {
+            continue;
           }
-          gameListsBox.put(gameList.game_id, gameList.toJson());
+
+          gameList.game ??= await getGame(gameList.game_id);
+
+          final newMatches = await getMatches(gameList.game_id,
+              time: gameMatches.firstOrNull?.time_modified ??
+                  gameList.time_seen ??
+                  gameList.time_start ??
+                  gameList.time_created,
+              timeEnd: gameList.time_end);
+
+          for (int i = 0; i < newMatches.length; i++) {
+            final match = newMatches[i];
+            final index = gameMatches
+                .indexWhere((element) => element.match_id == match.match_id);
+            if (index != -1) {
+              gameMatches[index] = match;
+            } else {
+              gameMatches.add(match);
+              if (matchesBox.get(match.match_id) == null &&
+                  match.creator_id != myId) {
+                gameList.unseen = (gameList.unseen ?? 0) + 1;
+              }
+            }
+
+            matchesBox.put(match.match_id, match.toJson());
+          }
+          gameMatches.sortList((match) => match.time_modified, true);
+
+          listenForMatches(gameList.game_id,
+              timeStart: gameMatches.firstOrNull?.time_modified ??
+                  gameList.time_seen ??
+                  gameList.time_start ??
+                  gameList.time_created,
+              timeEnd: gameList.time_end);
+
+          gameMatches.sortList((match) => match.time_created, true);
+
+          if (gameMatches.length < matchesLimit) {
+            final previousMatches = await getPreviousMatches(gameList.game_id,
+                time: gameMatches.lastOrNull?.time_created ??
+                    gameList.time_seen ??
+                    gameList.time_start,
+                limit: matchesLimit - gameMatches.length);
+            for (int i = 0; i < previousMatches.length; i++) {
+              final match = previousMatches[i];
+              matchesBox.put(match.match_id, match.toJson());
+            }
+          }
+          if (gameMatches.isNotEmpty) {
+            gameList.match = gameMatches.firstOrNull;
+          }
         } else {
           final index = gameLists
               .indexWhere((element) => element.game_id == gameList.game_id);
+
           if (index != -1) {
-            gameLists.removeAt(index);
+            final prevGameList = gameLists[index];
+            gameList = gameList.copyWith(
+                game: prevGameList.game,
+                match: prevGameList.match,
+                unseen: prevGameList.unseen);
+            // gameLists[index] = gameList;
+          } else {
+            //gameLists.insert(0, gameList);
           }
-          fn.unsubscribeFromTopic(gameList.game_id);
-          gameListsBox.delete(gameList.game_id);
-        }
-      }
-
-      //adding matches
-
-      for (int i = 0; i < addedGameLists.length; i++) {
-        final gameList = addedGameLists[i];
-
-        gameList.game ??= await getGame(gameList.game_id);
-
-        final gameMatches = matches
-            .where((match) => match.game_id == gameList.game_id)
-            .toList();
-
-        final newMatches = await getMatches(gameList.game_id,
-            time: gameMatches.firstOrNull?.time_modified ?? gameList.lastSeen);
-
-        for (int i = 0; i < newMatches.length; i++) {
-          final match = newMatches[i];
-          if (matchesBox.get(match.match_id) == null) {
-            gameList.unseen =
-                match.creator_id == myId ? 0 : (gameList.unseen ?? 0) + 1;
+          if (gameList.time_end != null) {
+            unlistenForMatches(gameList.game_id);
           }
-          matchesBox.put(match.match_id, match.toJson());
-          gameMatches.add(match);
-        }
-        gameMatches.sortList((match) => match.time_created, true);
-
-        if (gameMatches.length < matchesLimit) {
-          final previousMatches = await getPreviousMatches(gameList.game_id,
-              time: gameMatches.firstOrNull?.time_created,
-              limit: matchesLimit - gameMatches.length);
-          for (int i = 0; i < previousMatches.length; i++) {
-            final match = previousMatches[i];
-            matchesBox.put(match.match_id, match.toJson());
-          }
-        }
-        if (gameMatches.isNotEmpty) {
-          gameList.match = gameMatches.firstOrNull;
         }
 
         gameListsBox.put(gameList.game_id, gameList.toJson());
       }
-      addedGameLists.clear();
+    }
+
+    var lastGamelistTime = gameLists.firstOrNull?.time_modified;
+
+    //List<GameList> addedGameLists = gameLists.sublist(0);
+    if (myId.isEmpty) return;
+
+    await getGameListMatchesAndDetails(gameLists);
+
+    final newGameLists = await getGameLists(time: lastGamelistTime);
+    await getGameListMatchesAndDetails(newGameLists);
+
+    gameLists.sortList((gamelist) => gamelist.time_modified, true);
+
+    lastGamelistTime = gameLists.firstOrNull?.time_modified;
+
+    gameListsSub = getGameListsChange(time: lastGamelistTime)
+        .listen((gameListsChange) async {
+      List<GameList> gottenGameLists = [];
+      for (int i = 0; i < gameListsChange.length; i++) {
+        final change = gameListsChange[i];
+        final gameList = change.value;
+
+        if (change.removed) {
+          if (gameListsBox.get(gameList.game_id) != null) {
+            unlistenForMatches(gameList.game_id);
+            // gameLists
+            //     .removeWhere((element) => element.game_id == gameList.game_id);
+            gameListsBox.delete(gameList.game_id);
+          }
+
+          continue;
+        }
+        gottenGameLists.add(gameList);
+      }
+      //adding matches
+      getGameListMatchesAndDetails(gottenGameLists);
     });
-
-    // print(
-    //     "gameLists = $gameLists, matches = $matches, lastGamelistTime = $lastGamelistTime");
-
-    // bool isInitial = true;
-
-    // gameListsSub =
-    //     getGameListsChange(time: lastGamelistTime).listen((gamelistsChange) {
-    //   List<GameList> addedGameLists = [];
-    //   for (int i = 0; i < gamelistsChange.length; i++) {
-    //     final change = gamelistsChange[i];
-    //     final gameList = change.value;
-    //     final prevGamelistValue = gameListsBox.get(gameList.game_id);
-    //     final prevGamelist = prevGamelistValue == null
-    //         ? null
-    //         : GameList.fromJson(prevGamelistValue);
-
-    //     if (gameList.left == true || change.removed) {
-    //       if (!kIsWeb && Platform.isWindows) {
-    //         matchesSubs[gameList.game_id]?.cancel();
-    //       }
-    //       fn.unsubscribeFromTopic(gameList.game_id);
-    //       if (change.removed) {
-    //         final gameMatches = matches
-    //             .where((match) => match.game_id == gameList.game_id)
-    //             .toList();
-    //         for (int i = 0; i < gameMatches.length; i++) {
-    //           final match = gameMatches[i];
-    //           matchesBox.delete(match.match_id);
-    //         }
-    //         gameListsBox.delete(gameList.game_id);
-    //         continue;
-    //       }
-    //     } else {
-    //       fn.subscribeToTopic(gameList.game_id);
-    //     }
-    //     if (prevGamelist == null) {
-    //       gameLists.add(gameList);
-    //       gameListsBox.put(gameList.game_id, gameList.toJson());
-    //       addedGameLists.add(gameList);
-    //       modifiedBox.put("gamelists", gameList.time);
-    //     } else {
-    //       if (!change.removed && prevGamelist.left != gameList.left) {
-    //         prevGamelist.left = gameList.left;
-    //         gameListsBox.put(gameList.game_id, prevGamelist.toJson());
-    //       }
-    //     }
-    //   }
-    //   readGameAndMatches(isInitial ? gameLists : addedGameLists);
-
-    //   if (isInitial) isInitial = false;
-    // });
   }
 
-  // void readGameAndMatches(List<GameList> gameLists) async {
-  //   for (int i = 0; i < gameLists.length; i++) {
-  //     final gameList = gameLists[i];
-  //     if (gameList.left == true) continue;
-  //     if (!kIsWeb && Platform.isWindows) {
-  //       final matchesSub = getMatchesChange(gameList.game_id,
-  //               time: gameList.match?.time_modified ??
-  //                   gameList.lastSeen ??
-  //                   gameList.time)
-  //           .listen(
-  //         (changes) {
-  //           final matches = changes.map((change) => change.value).toList();
-  //           storeMatches(matches, gameList);
-  //         },
-  //       );
-  //       matchesSubs[gameList.game_id] = matchesSub;
-  //     } else {
-  //       final matches = await getMatches(gameList.game_id,
-  //           time: gameList.match?.time_modified ??
-  //               gameList.lastSeen ??
-  //               gameList.time);
-  //       storeMatches(matches, gameList);
-  //     }
-  //   }
-  // }
+  void listenForMatches(String gameId, {String? timeStart, String? timeEnd}) {
+    // if (isAndroidAndIos) {
+    //   firebaseNotification.subscribeToTopic(gameId);
+    //   return;
+    // }
+    if (matchesSubs[gameId] != null) return;
+    final gameListsBox = Hive.box<String>("gamelists");
+    final matchesBox = Hive.box<String>("matches");
 
-  // void storeMatches(List<Match> matches, GameList gameList) async {
-  //   final matchesBox = Hive.box<String>("matches");
-  //   final gameListsBox = Hive.box<String>("gamelists");
-  //   for (int i = 0; i < matches.length; i++) {
-  //     final match = matches[i];
-  //     if (matchesBox.get(match.match_id) == null) {
-  //       gameList.unseen =
-  //           match.creator_id == myId ? 0 : (gameList.unseen ?? 0) + 1;
-  //     }
-  //     matchesBox.put(match.match_id, match.toJson());
-  //   }
-  //   if (gameList.game?.firstMatchTime == null) {
-  //     gameList.game = await getGame(gameList.game_id);
-  //   }
+    final gameListJson = gameListsBox.get(gameId);
+    if (gameListJson == null) return;
+    final gameList = GameList.fromJson(gameListJson);
 
-  //   matches.sortList((match) => match.time_modified, false);
-  //   final lastMatch = matches.lastOrNull;
-  //   gameList.match = lastMatch;
+    final sub = getMatchesChange(gameId).listen((matchesChanges) {
+      for (int i = 0; i < matchesChanges.length; i++) {
+        final matchesChange = matchesChanges[i];
+        final match = matchesChange.value;
 
-  //   bool update = false;
+        if (matchesChange.removed) {
+          matchesBox.delete(match.match_id);
+        } else {
+          if (matchesBox.get(match.match_id) == null) {
+            gameList.unseen =
+                match.creator_id == myId ? 0 : (gameList.unseen ?? 0) + 1;
+            gameList.match = match;
+            gameListsBox.put(gameList.game_id, gameList.toJson());
+          }
+          matchesBox.put(match.match_id, match.toJson());
+        }
+      }
+    });
+    matchesSubs[gameId] = sub;
+    // if (gameIds.length == 10 || isLast) {
+    //   final sub = getAllMatchesChange(gameIds)
+    //   gameIds.clear();
+    //   return;
+    // }
+    // gameIds.add(gameId);
+  }
 
-  //   if (gameList.game != null &&
-  //       gameList.game!.groupName == null &&
-  //       gameList.game!.players != null &&
-  //       gameList.game!.users == null) {
-  //     final players = gameList.game!.players!;
-  //     List<User> users = await playersToUsers(players);
-
-  //     //players.remove(myId);
-  //     // List<String> usernames = [];
-  //     // List<String> profilePhotos = [];
-  //     // List<User> users = [];
-
-  //     // for (int i = 0; i < players.length; i++) {
-  //     //   final player = players[i];
-  //     //   if (player == myId) continue;
-  //     //   final userBox = Hive.box<String>("users");
-  //     //   final userValue = userBox.get(player);
-  //     //   User? user = userValue == null ? null : User.fromJson(userValue);
-  //     //   user ??= await getUser(player);
-  //     //   if (user != null) {
-  //     //     users.add(user);
-  //     //     usernames.add(user.username);
-  //     //     profilePhotos.add(user.profile_photo ?? "");
-  //     //     userBox.put(player, user.toJson());
-  //     //   }
-  //     // }
-  //     gameList.game!.users = users;
-  //     // gameList.game!.groupName = usernames.join(",");
-  //     // gameList.game!.profilePhoto = profilePhotos.join(",");
-  //     update = true;
-  //   }
-  //   if (gameList.match != null &&
-  //       gameList.match!.users == null &&
-  //       gameList.match!.players != null) {
-  //     List<User> users =
-  //         await playersToUsers(gameList.match!.players!, withHiveCache: true);
-  //     gameList.match!.users = users;
-  //     update = true;
-  //   }
-  //   if (update) {
-  //     gameListsBox.put(gameList.game_id, gameList.toJson());
-  //   }
-  //   print("matchesToStore = $matches, gameList = $gameList");
-  // }
+  void unlistenForMatches(String gameId) {
+    // if (isAndroidAndIos) {
+    //   firebaseNotification.unsubscribeFromTopic(gameId);
+    //   return;
+    // }
+    matchesSubs[gameId]?.cancel();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -320,37 +294,43 @@ class _MatchesPageState extends ConsumerState<MatchesPage> {
         builder: (context, value, child) {
           final gameLists = value.values
               .map((e) => GameList.fromJson(e))
-              .where((gameList) => (gameList.game?.users != null
-                      ? getOtherPlayersUsernames(gameList.game!.users!)
-                          .toLowerCase()
-                      : gameList.game?.groupName != null
-                          ? gameList.game!.groupName!.toLowerCase()
+              .where((gameList) => (gameList.game?.groupName != null
+                      ? gameList.game!.groupName!.toLowerCase()
+                      : gameList.game?.players != null
+                          ? getOtherPlayersUsernames(
+                                  playersToUsersLocal(gameList.game!.players!))
+                              .toLowerCase()
                           : "")
-                  .contains(searchString))
+                  .contains(searchString.toLowerCase()))
               .toList();
+
           if (gameLists.isEmpty) {
-            return SizedBox(
-              width: double.infinity,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text("No matches"),
-                  AppButton(
-                    title: "Play Games",
-                    onPressed: () {
-                      widget.playGameCallback();
-                    },
-                    wrapped: true,
-                  )
-                ],
-              ),
-            );
+            return const EmptyListView(message: "No match");
           }
 
+          // if (gameLists.isEmpty) {
+          //   return SizedBox(
+          //     width: double.infinity,
+          //     child: Column(
+          //       mainAxisAlignment: MainAxisAlignment.center,
+          //       children: [
+          //         const Text("No matches"),
+          //         AppButton(
+          //           title: "Play Games",
+          //           onPressed: () {
+          //             widget.playGameCallback();
+          //           },
+          //           wrapped: true,
+          //         )
+          //       ],
+          //     ),
+          //   );
+          // }
+
           gameLists.sortList(
-              (gameList) => gameList.match?.time_created ?? gameList.time,
-              false);
-          // print("sstoredGamelists = $gameLists");
+              (gameList) =>
+                  gameList.match?.time_created ?? gameList.time_created,
+              true);
           return ListView.builder(
               itemCount: gameLists.length,
               itemBuilder: (context, index) {

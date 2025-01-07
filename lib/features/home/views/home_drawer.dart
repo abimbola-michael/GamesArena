@@ -12,8 +12,10 @@ import '../../../shared/widgets/action_button.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../about/pages/about_game_page.dart';
 import '../../app_info/pages/app_info_page.dart';
+import '../../game/widgets/profile_photo.dart';
 import '../../profile/pages/profile_page.dart';
 import '../../subscription/pages/subscription_page.dart';
+import '../../user/services.dart';
 import '../widgets/drawer_tile.dart';
 
 class HomeDrawer extends ConsumerStatefulWidget {
@@ -25,6 +27,24 @@ class HomeDrawer extends ConsumerStatefulWidget {
 }
 
 class _HomeDrawerState extends ConsumerState<HomeDrawer> {
+  String name = "";
+  String profilePhoto = "";
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    readUser();
+  }
+
+  void readUser() async {
+    if (myId.isEmpty) return;
+    final user = await getUser(myId);
+    name = user?.username ?? "";
+    profilePhoto = user?.profile_photo ?? "";
+    setState(() {});
+  }
+
   void gotoLoginPage() {
     //context.pop();
     context.pushTo(const AuthPage());
@@ -78,50 +98,45 @@ class _HomeDrawerState extends ConsumerState<HomeDrawer> {
                           ? Center(
                               child: AppButton(
                                 title: "Login",
-                                onPressed: () {
-                                  gotoLoginPage();
-                                },
+                                onPressed: gotoLoginPage,
                                 wrapped: true,
                               ),
                             )
-                          : Column(
-                              children: [
-                                CircleAvatar(
-                                  radius: 40,
-                                  backgroundColor: lightestTint,
-                                  child: Text(
-                                    widget.name.firstChar ?? "",
-                                    style: const TextStyle(
-                                        fontSize: 30, color: Colors.blue),
+                          : GestureDetector(
+                              onTap: gotoProfilePage,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ProfilePhoto(
+                                      profilePhoto: profilePhoto,
+                                      name: name,
+                                      size: 80),
+                                  const SizedBox(
+                                    height: 8,
                                   ),
-                                ),
-                                const SizedBox(
-                                  height: 8,
-                                ),
-                                Text(
-                                  widget.name,
-                                  style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                              ],
+                                  Text(
+                                    name,
+                                    style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
                             )),
-                  if (myId != "") ...[
+                  if (myId != "")
                     DrawerTile(title: "Profile", onPressed: gotoProfilePage),
-                    DrawerTile(title: "Settings", onPressed: gotoSettingPage),
-                    DrawerTile(
-                        title: "Subscription", onPressed: gotoSubscriptionPage),
-                    DrawerTile(
-                        title: "Terms and Conditions",
-                        onPressed: () =>
-                            gotoAppInfoPage("Terms and Conditions")),
-                    DrawerTile(
-                        title: "Privacy Policies",
-                        onPressed: () => gotoAppInfoPage("Privacy Policies")),
-                    DrawerTile(
-                        title: "About Us",
-                        onPressed: () => gotoAppInfoPage("About Us")),
-                  ],
+                  DrawerTile(title: "Settings", onPressed: gotoSettingPage),
+                  DrawerTile(
+                      title: "Subscription", onPressed: gotoSubscriptionPage),
+                  DrawerTile(
+                      title: "Terms and Conditions",
+                      onPressed: () => gotoAppInfoPage("Terms and Conditions")),
+                  DrawerTile(
+                      title: "Privacy Policies",
+                      onPressed: () => gotoAppInfoPage("Privacy Policies")),
+                  DrawerTile(
+                      title: "About Us",
+                      onPressed: () => gotoAppInfoPage("About Us")),
                 ],
               ),
             ),

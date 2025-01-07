@@ -26,6 +26,7 @@ import '../../../shared/utils/utils.dart';
 import '../../game/widgets/profile_photo.dart';
 import '../../group/services.dart';
 import '../../onboarding/pages/auth_page.dart';
+import '../../onboarding/services.dart';
 import '../../settings/pages/settings_and_more_page.dart';
 import '../../user/models/user_game.dart';
 import '../../user/services.dart';
@@ -35,7 +36,9 @@ class ProfilePage extends StatefulWidget {
   final String id;
   final String? profilePhoto;
   final String? name;
-  final List<UserGame>? userGames;
+  final List<String>? games;
+
+  // final List<UserGame>? games;
   final bool isGroup;
   final bool canEditGroup;
   const ProfilePage(
@@ -43,7 +46,7 @@ class ProfilePage extends StatefulWidget {
       required this.id,
       this.name,
       this.profilePhoto,
-      this.userGames,
+      this.games,
       this.isGroup = false,
       this.canEditGroup = false});
 
@@ -52,7 +55,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  List<UserGame> userGames = [];
+  List<String> games = [];
   String name = "", email = "", phone = "", profilePhoto = "";
   String id = "";
   AuthMethods am = AuthMethods();
@@ -79,8 +82,8 @@ class _ProfilePageState extends State<ProfilePage> {
     if (widget.name != null) {
       name = widget.name!;
     }
-    if (widget.userGames != null) {
-      userGames = widget.userGames!;
+    if (widget.games != null) {
+      games = widget.games!;
     }
     if (!widget.isGroup) {
       readUser();
@@ -144,26 +147,26 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  void logOut() {
-    am.logOut().then((value) {
-      Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: ((context) => const AuthPage())),
-          (route) => false);
-    }).onError((error, stackTrace) {
-      showErrorToast("Unable to logout");
-    });
+  Future logout() async {
+    final comfirm = await context.showComfirmationDialog(
+        title: "Logout", message: "Are you sure you want to logout?");
+    if (comfirm == null) return;
+
+    try {
+      showLoading(message: "Logging out...");
+      await logoutUser();
+      await am.logOut();
+      gotoStartPage();
+    } catch (e) {
+      print("logoutError = $e");
+      showErrorToast("Unable to logout ");
+    }
   }
 
-  void deleteAccount() {
-    am.deleteAccount().then((value) {
-      deleteUser().then((value) {
-        Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: ((context) => const AuthPage())),
-            (route) => false);
-      });
-    }).onError((error, stackTrace) {
-      showErrorToast("Unable to delete account");
-    });
+  void gotoStartPage() {
+    Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: ((context) => const AuthPage())),
+        (route) => false);
   }
 
   void readUser() async {
@@ -173,8 +176,9 @@ class _ProfilePageState extends State<ProfilePage> {
       email = user.email;
       phone = user.phone;
       profilePhoto = user.profile_photo ?? "";
-      userGames = user.user_games ?? [];
+      games = user.games ?? [];
     }
+    print("user = $user");
     setState(() {});
   }
 
@@ -192,15 +196,17 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void gotoUserGamesSeletionPage() async {
-    final newUserGames = await context.pushTo(UserGamesSelectionPage(
-        gameId: widget.isGroup ? widget.id : null, userGames: userGames));
-    if (newUserGames != null) {
-      userGames = newUserGames;
+    final newGames = await context.pushTo(UserGamesSelectionPage(
+        gameId: widget.isGroup ? widget.id : null, games: games));
+    if (newGames != null) {
+      games = newGames;
     }
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    print("games = ${games}");
     return Scaffold(
       key: scaffoldStateKey,
       // extendBodyBehindAppBar: true,
@@ -280,8 +286,8 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
 
             ProfileOptionItem(
-              title: "My games",
-              value: getUserGamesString(userGames),
+              title: "Games",
+              value: getGamesString(games),
               editable: widget.id == myId || widget.canEditGroup,
               onEdit: gotoUserGamesSeletionPage,
             ),
@@ -292,12 +298,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ? null
           : AppButton(
               title: "Logout",
-              onPressed: () async {
-                final result = await context.showComfirmationDialog(
-                    title: "Are you sure you want to logout");
-                if (result == null) return;
-                logOut();
-              },
+              onPressed: logout,
               bgColor: Colors.red,
               color: Colors.white,
             ),

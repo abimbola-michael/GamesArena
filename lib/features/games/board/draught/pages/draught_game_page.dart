@@ -6,7 +6,6 @@ import 'package:gamesarena/enums/emums.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../../shared/widgets/custom_grid_builder.dart';
 import '../../../../game/models/game_action.dart';
 import '../../../../game/pages/base_game_page.dart';
 
@@ -64,13 +63,10 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     size = minSize / 8;
-    // wonDraughtSize = padding / 11;
-    // wonDraughtsPadding = padding - size - 20;
-    // messagePadding = wonDraughtsPadding - 30;
   }
 
   void initDraughtGrids() {
-    //getCurrentPlayer();
+    setInitialCount(0);
     clearPattern();
     selectedDraughtTile = null;
 
@@ -105,6 +101,7 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
       return DraughtTile(x, y, "$index", draught);
     });
     showPossiblePlayPositions();
+    setState(() {});
   }
 
   Future updateDetails(int pos) async {
@@ -1321,7 +1318,6 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
   }
   @override
   void onStart() {
-    setInitialCount(0);
     initDraughtGrids();
   }
 
@@ -1407,11 +1403,11 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
                 final coordinates = convertToGrid(index, gridSize);
                 final x = coordinates[0];
                 final y = coordinates[1];
-                final draughtTile = draughtTiles[index];
+                final draughtTile = draughtTiles.get(index);
                 return DraughtTileWidget(
                     blink: hintPositions.containsKey(index),
                     gameId: gameId,
-                    key: Key(draughtTile.id),
+                    key: Key(draughtTile?.id ?? "$index"),
                     myPlayer: myPlayer,
                     x: x,
                     y: y,

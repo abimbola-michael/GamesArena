@@ -36,13 +36,16 @@ class PausedGameView extends StatefulWidget {
   final int playersSize;
   final bool finishedRound;
   final bool startingRound;
+  final int availablePlayersCount;
 
   final VoidCallback onWatch;
   final VoidCallback onRewatch;
   final VoidCallback onStart;
   final VoidCallback onRestart;
+  final VoidCallback onContinue;
   final void Function(String game) onChange;
-  final void Function(bool end) onLeave;
+  final VoidCallback onLeave;
+  final VoidCallback onClose;
   final VoidCallback onConcede;
   final VoidCallback onNext;
   final VoidCallback onPrevious;
@@ -91,10 +94,13 @@ class PausedGameView extends StatefulWidget {
     required this.playersSize,
     required this.finishedRound,
     required this.startingRound,
+    required this.availablePlayersCount,
     required this.onStart,
     required this.onRestart,
+    required this.onContinue,
     required this.onChange,
     required this.onLeave,
+    required this.onClose,
     required this.onConcede,
     required this.onNext,
     required this.onPrevious,
@@ -134,26 +140,26 @@ class _PausedGameViewState extends State<PausedGameView> {
 
   bool aboutGameMode = false;
   bool readHint = false;
-  // String comfirmationType = "";
   GameInfo? gameInfo;
-  //String? callMode;
+  ConcedeOrLeft? concedeOrLeft;
 
   @override
   void initState() {
     super.initState();
     aboutGameMode = widget.readAboutGame;
-    if (widget.game.endsWith("Quiz")) {
+    if (widget.game.isQuiz) {
       gameInfo = quizGameInfo();
     } else {
       gameInfo = gamesInfo[widget.game];
     }
-    // watchMode = widget.isWatch;
   }
 
   bool get amAPlayer =>
       widget.players?.indexWhere((player) => player.id == myId) != -1;
 
   bool get showPlayGameActions =>
+      widget.availablePlayersCount >= widget.playersSize &&
+      (concedeOrLeft == null || widget.finishedRound) &&
       widget.isLastPage &&
       (widget.gameId.isEmpty || (amAPlayer && widget.match?.time_end == null));
 
@@ -215,13 +221,15 @@ class _PausedGameViewState extends State<PausedGameView> {
                     case "rewatch":
                       widget.onRewatch();
                       break;
-                    case "end":
+                    case "close":
+                      widget.onClose();
                     case "leave":
-                      widget.onLeave(comfirmationType == "end");
+                      widget.onLeave();
                       break;
                     case "change":
                       final game = await context.pushTo(
                         GamesPage(
+                            gameId: widget.gameId,
                             currentGame: widget.game,
                             playersSize: widget.playersSize,
                             isCallback: true),
@@ -250,7 +258,8 @@ class _PausedGameViewState extends State<PausedGameView> {
   @override
   Widget build(BuildContext context) {
     //widget.callMode = widget.widget.callMode;
-    final concedeOrLeft = getConcedeOrLeft(widget.pauseIndex);
+    concedeOrLeft = getConcedeOrLeft(widget.pauseIndex);
+    final myPlayer = getMyPlayer(widget.players!);
 
     return Container(
       height: double.infinity,
@@ -388,22 +397,6 @@ class _PausedGameViewState extends State<PausedGameView> {
                               )
                             ],
                           )
-                        // : changeGameMode
-                        //     ? GamesPage(
-                        //         currentGame: widget.game,
-                        //         isChangeGame: true,
-                        //         onBackPressed: () {
-                        //           setState(() {
-                        //             changeGameMode = false;
-                        //           });
-                        //         },
-                        //         gameCallback: (game) {
-                        //           widget.onChange(game);
-                        //           setState(() {
-                        //             changeGameMode = false;
-                        //           });
-                        //         },
-                        //       )
                         : Column(
                             children: [
                               Expanded(
@@ -424,7 +417,13 @@ class _PausedGameViewState extends State<PausedGameView> {
                                           ),
                                           Text(
                                             widget.finishedRound
-                                                ? "${getMatchOutcomeMessageFromWinners(widget.winners, widget.players?.map((e) => e.id).toList() ?? [], users: widget.users)}\n${(widget.reason ?? "").isNotEmpty ? "(${widget.reason})" : ""}"
+                                                ? getMatchOutcomeMessageFromWinners(
+                                                    widget.winners,
+                                                    widget.players
+                                                            ?.map((e) => e.id)
+                                                            .toList() ??
+                                                        [],
+                                                    users: widget.users)
                                                 : widget.startingRound
                                                     ? "New Round"
                                                     : "Ongoing Round",
@@ -432,11 +431,22 @@ class _PausedGameViewState extends State<PausedGameView> {
                                               fontSize: 20,
                                               color: Colors.white,
                                               fontWeight: FontWeight.bold,
+                                              height: 1,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
 
-                                          if (widget.finishedRound)
+                                          if ((widget.reason ?? "").isNotEmpty)
+                                            Text(
+                                              "Reason: ${widget.reason!}",
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.white,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          if (widget.finishedRound) ...[
+                                            const SizedBox(height: 4),
                                             Text(
                                               "So far ${getMatchOutcomeMessageFromScores(widget.playersScores, widget.players?.map((e) => e.id).toList() ?? [], users: widget.users)}",
                                               style: const TextStyle(
@@ -445,7 +455,9 @@ class _PausedGameViewState extends State<PausedGameView> {
                                                 fontWeight: FontWeight.w600,
                                               ),
                                               textAlign: TextAlign.center,
-                                            ),
+                                            )
+                                          ],
+                                          const SizedBox(height: 4),
 
                                           Text(
                                             widget.finishedRound
@@ -461,9 +473,7 @@ class _PausedGameViewState extends State<PausedGameView> {
                                             textAlign: TextAlign.center,
                                           ),
 
-                                          const SizedBox(
-                                            height: 20,
-                                          ),
+                                          const SizedBox(height: 20),
                                           SizedBox(
                                             child: Row(
                                               mainAxisAlignment:
@@ -500,8 +510,36 @@ class _PausedGameViewState extends State<PausedGameView> {
                                                                       .length
                                                           ? widget.players![i]
                                                           : null;
+                                                  final action = widget
+                                                          .gameId.isEmpty
+                                                      ? widget.pauseIndex == i
+                                                          ? "pause"
+                                                          : ""
+                                                      : player?.action ?? "";
                                                   final concedeOrLeft =
                                                       getConcedeOrLeft(i);
+                                                  final concedeOrLeftMessage =
+                                                      concedeOrLeft != null
+                                                          ? getConcedeOrLeftMessage(
+                                                              concedeOrLeft)
+                                                          : "";
+                                                  final winnerMessage = widget
+                                                              .winners
+                                                              ?.contains(i) ??
+                                                          false
+                                                      ? "Winner"
+                                                      : "";
+                                                  final changeGameMessage = player
+                                                                  ?.game !=
+                                                              null &&
+                                                          player!.game !=
+                                                              widget.game
+                                                      ? "Changed to ${player.game}"
+                                                      : "";
+                                                  final winnerOrConcedeOrLeftMessage =
+                                                      winnerMessage.isNotEmpty
+                                                          ? winnerMessage
+                                                          : concedeOrLeftMessage;
                                                   return Expanded(
                                                     child: GameScoreItem(
                                                       username:
@@ -511,26 +549,19 @@ class _PausedGameViewState extends State<PausedGameView> {
                                                           user?.profile_photo,
                                                       score: widget
                                                           .playersScores[i],
-                                                      action: concedeOrLeft !=
-                                                              null
-                                                          ? getConcedeOrLeftMessage(
-                                                              concedeOrLeft)
-                                                          : widget.gameId
-                                                                      .isEmpty &&
-                                                                  widget.pauseIndex ==
-                                                                      i
-                                                              ? "Paused"
-                                                              : player == null ||
-                                                                      player.game ==
-                                                                          null
-                                                                  ? ""
-                                                                  : player.game !=
-                                                                          widget
-                                                                              .game
-                                                                      ? "Changed to ${player.game}"
-                                                                      : (player
-                                                                              .action ??
-                                                                          ""),
+                                                      action: widget.isLastPage
+                                                          ? changeGameMessage
+                                                                  .isNotEmpty
+                                                              ? changeGameMessage
+                                                              : action.isEmpty ||
+                                                                      action ==
+                                                                          "pause"
+                                                                  ? winnerOrConcedeOrLeftMessage
+                                                                          .isNotEmpty
+                                                                      ? winnerOrConcedeOrLeftMessage
+                                                                      : action
+                                                                  : action
+                                                          : winnerOrConcedeOrLeftMessage,
                                                       callMode:
                                                           player?.callMode,
                                                     ),
@@ -542,12 +573,7 @@ class _PausedGameViewState extends State<PausedGameView> {
                                           if (widget.isWatch) ...[
                                             AppButton(
                                               title: "Watch",
-                                              onPressed: () {
-                                                widget.onWatch();
-                                                // setState(() {
-                                                //   watchMode = true;
-                                                // });
-                                              },
+                                              onPressed: widget.onWatch,
                                               width: 150,
                                             ),
                                             if (widget.isWatching)
@@ -569,42 +595,52 @@ class _PausedGameViewState extends State<PausedGameView> {
                                               width: 150,
                                             ),
                                           ],
-                                          if (showPlayGameActions)
+                                          if (showPlayGameActions &&
+                                              !widget.finishedRound)
                                             AppButton(
-                                              title: widget.finishedRound
-                                                  ? "Continue"
-                                                  : concedeOrLeft == null &&
+                                              title: concedeOrLeft == null &&
                                                           widget.match !=
                                                               null &&
                                                           widget.players !=
                                                               null &&
-                                                          getMyPlayer(widget
-                                                                      .players!)
-                                                                  ?.action !=
-                                                              "pause"
-                                                      ? "Pause"
-                                                      : widget.startingRound
-                                                          ? "Start"
-                                                          : "Resume",
+                                                          myPlayer?.action ==
+                                                              "pause" ||
+                                                      (myPlayer?.action ??
+                                                              "") ==
+                                                          ""
+                                                  ? widget.startingRound
+                                                      ? "Start"
+                                                      : "Resume"
+                                                  : "Pause",
+                                              //     myPlayer?.action !=
+                                              //         "pause" &&
+                                              //     myPlayer?.action != ""
+                                              // ? "Pause"
+                                              // : widget.startingRound
+                                              //     ? "Start"
+                                              //     : "Resume",
                                               onPressed: widget.onStart,
                                               width: 150,
                                             ),
 
                                           if (showPlayGameActions &&
-                                              widget.finishedRound &&
-                                              !itsAllZerosScores()) ...[
+                                              widget.finishedRound) ...[
                                             AppButton(
-                                              title: "Restart",
-                                              onPressed: () {
-                                                showComfirmationDialog(
-                                                    "restart");
-                                              },
+                                              title: "Continue",
+                                              onPressed: widget.onContinue,
                                               width: 150,
                                             ),
+                                            if (!itsAllZerosScores())
+                                              AppButton(
+                                                title: "Restart",
+                                                onPressed: () {
+                                                  showComfirmationDialog(
+                                                      "restart");
+                                                },
+                                                width: 150,
+                                              ),
                                           ],
-                                          // if (widget.finishedRound || widget.startingRound) ...[
 
-                                          // ],
                                           if (showPlayGameActions)
                                             AppButton(
                                               title: "Change",
@@ -614,32 +650,48 @@ class _PausedGameViewState extends State<PausedGameView> {
                                               },
                                               width: 150,
                                             ),
+                                          //widget.hasPlayedForAMinute &&
 
-                                          if (showPlayGameActions &&
-                                              widget.hasPlayedForAMinute &&
-                                              !widget.finishedRound &&
-                                              concedeOrLeft == null)
-                                            AppButton(
-                                              title: "Concede",
-                                              onPressed: () {
-                                                showComfirmationDialog(
-                                                    "concede");
-                                              },
-                                              width: 150,
-                                              bgColor: Colors.yellow,
-                                              color: Colors.black,
-                                            ),
-                                          if (concedeOrLeft == null ||
-                                              concedeOrLeft.action == "concede")
-                                            AppButton(
-                                              title: "Leave",
-                                              onPressed: () {
-                                                showLeaveComirmationDialog();
-                                              },
-                                              width: 150,
-                                              bgColor: Colors.red,
-                                            ),
+                                          if (!widget.isWatch &&
+                                              showPlayGameActions &&
+                                              !widget.startingRound &&
+                                              !widget.finishedRound) ...[
+                                            if (concedeOrLeft == null)
+                                              AppButton(
+                                                title: "Concede",
+                                                onPressed: () {
+                                                  showComfirmationDialog(
+                                                      "concede");
+                                                },
+                                                width: 150,
+                                                bgColor: Colors.yellow,
+                                                color: Colors.black,
+                                              ),
+                                            if ((concedeOrLeft == null ||
+                                                concedeOrLeft!.action ==
+                                                    "concede"))
+                                              AppButton(
+                                                title: "Leave",
+                                                onPressed: () {
+                                                  showComfirmationDialog(
+                                                      "leave");
+                                                },
+                                                width: 150,
+                                                bgColor: Colors.red,
+                                              ),
+                                          ],
 
+                                          // if (widget.isWatch ||
+                                          //     (widget.gameId.isEmpty &&
+                                          //         widget.playersSize > 2))
+                                          AppButton(
+                                            title: "Close",
+                                            onPressed: () {
+                                              showComfirmationDialog("close");
+                                            },
+                                            width: 150,
+                                            bgColor: Colors.red,
+                                          ),
                                           Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [

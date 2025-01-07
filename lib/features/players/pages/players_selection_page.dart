@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gamesarena/features/game/utils.dart';
 import 'package:gamesarena/features/records/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/features/records/pages/game_records_page.dart';
@@ -13,11 +14,12 @@ import '../../../shared/views/loading_overlay.dart';
 import '../../../shared/widgets/app_appbar.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_search_bar.dart';
+import '../../contact/pages/findorinvite_player_page.dart';
 import '../../game/models/player.dart';
 import '../../game/services.dart';
+import '../../records/widgets/player_item.dart';
 import '../../user/services.dart';
 import '../../user/widgets/user_item.dart';
-import '../../user/widgets/user_list_item.dart';
 import '../../../shared/models/models.dart';
 import '../../../shared/widgets/action_button.dart';
 import '../../../theme/colors.dart';
@@ -66,10 +68,11 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
     minPlayers = 2;
     if (type == "group") {
       maxPlayers = 100;
-    } else if (game == "Ludo" ||
+    } else if (game == null ||
+        game == "Ludo" ||
         game == "Whot" ||
-        allPuzzleGames.contains(game) ||
-        allQuizGames.contains(game)) {
+        game!.isPuzzle ||
+        game!.isQuiz) {
       maxPlayers = 4;
     } else {
       maxPlayers = 2;
@@ -89,7 +92,7 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
       final player = players[i];
       final user = await getUser(player.id);
       if (user != null) {
-        users.add(user);
+        users.add(user.copyWith());
       }
     }
     return users;
@@ -119,16 +122,15 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
       } else {
         final playersBox = Hive.box<String>("players");
 
-        if (players.isEmpty) {
-          players = playersBox.values.map((e) => Player.fromJson(e)).toList();
-          players.sortList((player) => player.time, true);
-        }
-
         if (isMore) {
           foundPlayers = await getMyPlayers(endTime: players.lastOrNull?.time);
           players.addAll(foundPlayers);
           if (foundPlayers.length < 10) reachedEnd = true;
         } else {
+          //if (players.isEmpty) {
+          players = playersBox.values.map((e) => Player.fromJson(e)).toList();
+          players.sortList((player) => player.time, true);
+          // }
           foundPlayers =
               await getMyPlayers(startTime: players.firstOrNull?.time);
           players.insertAll(0, foundPlayers);
@@ -179,14 +181,25 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
 
   void searchForUser() async {
     String value = searchController.text.toLowerCase();
+    if (value.isEmpty) {
+      return;
+    }
     String type = "";
     if (value.isValidEmail()) {
       type = "email";
     } else if (value.isOnlyNumber()) {
       type = "phone";
+      value = value.toValidNumber() ?? "";
+      if (value.isEmpty) return;
     } else {
       type = "username";
     }
+    if (type.isEmpty) {
+      showErrorToast("Invalid username, email or phone");
+
+      return;
+    }
+
     final searchedUsers = await searchUser(type, value);
     if (searchedUsers.isNotEmpty) {
       for (int i = 0; i < searchedUsers.length; i++) {
@@ -267,25 +280,34 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
   void executeAction() async {
     if (selectedUsers.length < minPlayers) {
       showErrorToast(
-          "There should be at least $minPlayers players in a ${type == "group" ? "group" : "$game game"}");
+          "There should be at least $minPlayers players in a ${game != null ? "$game " : ""}game");
       return;
     } else if (selectedUsers.length > maxPlayers) {
       showErrorToast(
-          "There can only be $maxPlayers number of players in a ${type == "group" ? "group" : "$game game"}");
+          "There can only be $maxPlayers number of players in a ${game != null ? "$game " : ""}game");
       return;
     }
     if (type == "group" && widget.gameId == null) {
       final finish = await (Navigator.of(context).push(MaterialPageRoute(
           builder: (context) => NewGroupPage(users: selectedUsers)))) as bool?;
       if (finish != null) {
-        if (!context.mounted) return;
+        if (!mounted) return;
         Navigator.pop(context);
       }
     } else {
-      final isPlaying = await checkIfAnyPlayerIsPlayingMatch();
-      if (isPlaying || !context.mounted) return;
+      // final isPlaying = await checkIfAnyPlayerIsPlayingMatch();
+      // if (isPlaying || !mounted) return;
+      if (!mounted) return;
       Navigator.pop(context, selectedUsers.map((e) => e.user_id).toList());
     }
+  }
+
+  void gotoNewGroup() {
+    context.pushReplacement(const PlayersSelectionPage(type: "group"));
+  }
+
+  void gotoInviteContact() {
+    context.pushTo(const FindOrInvitePlayersPage());
   }
 
   @override
@@ -322,7 +344,7 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
                     ? widget.groupName != null
                         ? widget.groupName!
                         : "New Group"
-                    : "$game game",
+                    : "${game ?? "New"} game",
                 subtitle: type == "group"
                     ? "Add Players"
                     : "Select Player${maxPlayers == 2 ? "" : "s"}${widget.groupName != null ? " from ${widget.groupName}" : ""}",
@@ -330,12 +352,41 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      onPressed: () {
-                        startSearch();
-                      },
-                      icon: const Icon(EvaIcons.search),
-                      color: tint,
-                    ),
+                        onPressed: startSearch,
+                        icon: const Icon(EvaIcons.search),
+                        color: tint),
+                    if (isAndroidAndIos)
+                      IconButton(
+                        onPressed: gotoInviteContact,
+                        icon: const Icon(EvaIcons.person_add_outline),
+                        color: tint,
+                      ),
+                    if (type != "group")
+                      IconButton(
+                        onPressed: gotoNewGroup,
+                        icon: SizedBox(
+                          height: 30,
+                          width: 30,
+                          child: Stack(
+                            // alignment: Alignment.topRight,
+                            children: [
+                              const Positioned(
+                                  left: 0,
+                                  bottom: 0,
+                                  child: Icon(OctIcons.people, size: 24)),
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: Text("+",
+                                    style: context.bodySmall?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16)),
+                              )
+                            ],
+                          ),
+                        ),
+                        color: tint,
+                      ),
                   ],
                 ),
               )) as PreferredSizeWidget?,
@@ -345,59 +396,12 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Padding(
-                //   padding: const EdgeInsets.symmetric(horizontal: 16),
-                //   child: Row(
-                //     children: [
-                //       Expanded(
-                //         child: SizedBox(
-                //           height: 45,
-                //           child: TextField(
-                //             controller: searchController,
-                //             onChanged: (text) {
-                //               searchString = text;
-                //               searchRecords();
-                //             },
-                //             keyboardType: TextInputType.text,
-                //             style: context.bodyMedium?.copyWith(),
-                //             decoration: InputDecoration(
-                //                 hintStyle: context.bodyMedium
-                //                     ?.copyWith(color: lighterTint),
-                //                 contentPadding: const EdgeInsets.symmetric(
-                //                     horizontal: 20, vertical: 10),
-                //                 border: OutlineInputBorder(
-                //                     borderRadius: BorderRadius.circular(30),
-                //                     borderSide: BorderSide(color: lightTint)),
-                //                 hintText: "Enter username, email or phone"),
-                //           ),
-                //         ),
-                //       ),
-                //       const SizedBox(width: 8),
-                //       GestureDetector(
-                //         onTap: () {
-                //           searchForUser();
-                //         },
-                //         child: Container(
-                //           decoration: BoxDecoration(
-                //             color: primaryColor,
-                //             borderRadius: BorderRadius.circular(30),
-                //           ),
-                //           alignment: Alignment.center,
-                //           height: 50,
-                //           width: 50,
-                //           child: const Icon(
-                //             EvaIcons.search,
-                //             color: Colors.white,
-                //           ),
-                //         ),
-                //       )
-                //     ],
-                //   ),
-                // ),
                 Padding(
                   padding: const EdgeInsets.all(8),
-                  child: Text("Players: ${selectedUsers.length} / $maxPlayers",
-                      style: context.bodyMedium),
+                  child: Text(
+                    "Players: ${selectedUsers.length} / $maxPlayers",
+                    style: context.bodyMedium,
+                  ),
                 ),
                 if (selectedUsers.isNotEmpty) ...[
                   SizedBox(
@@ -443,7 +447,7 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
                         if (loading && index == users.length) {
                           return const CircularProgressIndicator();
                         }
-                        return UserListItem(
+                        return PlayerItem(
                           key: Key(user.user_id),
                           user: user,
                           onPressed: () async {
@@ -484,6 +488,47 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
                             setState(() {});
                           },
                         );
+                        // return UserListItem(
+                        //   key: Key(user.user_id),
+                        //   user: user,
+                        //   onPressed: () async {
+                        //     FocusScope.of(context).unfocus();
+                        //     if (type == "oneonone") {
+                        //       Navigator.of(context)
+                        //           .pushReplacement(MaterialPageRoute(
+                        //               builder: (context) => GameRecordsPage(
+                        //                     id: user.user_id,
+                        //                     type: "",
+                        //                     game_id: "",
+                        //                   )));
+                        //     } else {
+                        //       final selIndex = selectedUsers.isEmpty
+                        //           ? -1
+                        //           : selectedUsers.indexWhere((element) =>
+                        //               user.user_id == element.user_id);
+                        //       if (selIndex == -1) {
+                        //         if (widget.gameId != null &&
+                        //             widget.type == "group" &&
+                        //             (await isAPlayerInGroup(user.user_id))) {
+                        //           showErrorToast(
+                        //               "${user.username} is already a player in the group");
+                        //           return;
+                        //         }
+                        //         if (selectedUsers.length == maxPlayers) {
+                        //           showErrorToast(
+                        //               "There can only be $maxPlayers number of Players in $game game");
+                        //           return;
+                        //         }
+                        //         selectedUsers.add(user);
+                        //         user.checked = true;
+                        //       } else {
+                        //         selectedUsers.removeAt(selIndex);
+                        //         user.checked = false;
+                        //       }
+                        //     }
+                        //     setState(() {});
+                        //   },
+                        // );
                       }),
                 ),
               ],
@@ -493,7 +538,7 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
         bottomNavigationBar: loading
             ? null
             : AppButton(
-                title: type == "group" ? "Next" : "Play",
+                title: type == "group" || game == null ? "Next" : "Play",
                 onPressed: executeAction),
       ),
     );

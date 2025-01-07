@@ -10,7 +10,7 @@ Color tileDarkColor = const Color(0xFFB58863);
 //Color tileColor = Colors.brown;
 
 class DraughtTileWidget extends StatelessWidget {
-  final DraughtTile draughtTile;
+  final DraughtTile? draughtTile;
   final int x, y;
   final VoidCallback onPressed;
   final bool highLight;
@@ -39,21 +39,21 @@ class DraughtTileWidget extends StatelessWidget {
           width: double.infinity,
           height: double.infinity,
           alignment: Alignment.center,
-          color: highLight
+          color: draughtTile != null && highLight
               ? Colors.purple
               : (x + y).isOdd
                   ? tileDarkColor
                   : tileLightColor,
-          child: draughtTile.draught == null
+          child: draughtTile?.draught == null
               ? null
               : RotatedBox(
                   quarterTurns:
-                      (gameId.isEmpty && draughtTile.draught!.player == 0) ||
+                      (gameId.isEmpty && draughtTile!.draught!.player == 0) ||
                               (gameId.isNotEmpty && myPlayer == 0)
                           ? 2
                           : 0,
                   child: DraughtWidget(
-                      draught: draughtTile.draught!, size: size / 2),
+                      draught: draughtTile!.draught!, size: size / 2),
                 ),
         ));
   }

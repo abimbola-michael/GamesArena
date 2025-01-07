@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -80,7 +81,12 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   abstract int? maxPlayerTime;
   abstract int? maxGameTime;
 
+  int availablePlayersCount = 0;
+
+  final Connectivity _connectivity = Connectivity();
+
   bool isVisible = true;
+  bool isConnectedToInternet = true;
 
   //watch
 
@@ -99,11 +105,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   int? newDetailIndex;
   int? newMoreDetailIndex;
 
-  // int nextDetailIndex = 0;
-  // int nextMoreDetailIndex = 0;
-
   double? newDuration;
-  double endDuration = 0;
+  double endDuration = 0.0;
 
   int nextwatchPosition = 0;
 
@@ -112,13 +115,12 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   int watchDetailsLimit = 3;
   int durationSkipLimit = 10;
-  //int watchInterval = 0;
-  //int maxWatchInterval = 3;
+
   bool watching = false;
 
   //match
 
-  //int playerTime = 0;
+  int playerWaitingTime = 0;
   String gameName = "";
   int pauseIndex = 0;
   bool stopPlayerTime = false;
@@ -143,6 +145,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   bool calling = false;
 
   StreamSubscription? signalSub;
+  StreamSubscription? connectivitySub;
+
   bool isAudioOn = true,
       isVideoOn = true,
       isFrontCameraSelected = true,
@@ -161,6 +165,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   List<Map<String, dynamic>> gatheredGameDetails = [];
 
   List<Map<String, dynamic>> gameDetails = [];
+  List<Map<String, dynamic>> unsentGameDetails = [];
+
   // Map<int, Map<int, List<Map<String, dynamic>>?>> recordGameDetails = {};
 
   StreamSubscription? playersSub;
@@ -185,9 +191,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   //Time
   Timer? timer;
-  double duration = 0;
+  double duration = 0.0;
   int gameTime = 0;
-  //, gameTime2 = 0
 
   //Ads
   int adsCount = 0;
@@ -197,11 +202,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   InterstitialAd? _interstitialAd;
 
-  bool paused = true,
-      startedRound = false,
-      finishedRound = false,
-      checkout = false,
-      pausePlayerTime = false;
+  bool paused = true, startedRound = false, finishedRound = false;
 
   String currentPlayerId = "";
   int currentPlayer = 0;
@@ -270,6 +271,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   @override
   void dispose() {
+    connectivitySub?.cancel();
     pageController?.dispose();
     timerController.close();
     watchTimerController.close();
@@ -314,18 +316,17 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       indices = arguments["indices"];
       recordId = arguments["recordId"] ?? 0;
       roundId = arguments["roundId"] ?? 0;
-      //recordGameDetails = arguments["recordGameDetails"] ?? {};
-      //isWatch = arguments["isWatch"] ?? false;
+
       adsTime = arguments["adsTime"] ?? 0;
       pageIndex = arguments["pageIndex"] ?? 0;
       playersScores = arguments["playersScores"] ?? [];
       isTournament = arguments["isTournament"] ?? false;
     }
     isOnline = gameId.isEmpty;
-    isCard = gameName == "Whot";
-    isChessOrDraught = gameName == chessGame || gameName == draughtGame;
-    isPuzzle = allPuzzleGames.contains(gameName);
-    isQuiz = gameName.endsWith("Quiz");
+    isCard = gameName.isCard;
+    isChessOrDraught = gameName.isChessOrDraught;
+    isPuzzle = gameName.isPuzzle;
+    isQuiz = gameName.isQuiz;
 
     isMyTurn = currentPlayerId == myId;
 
@@ -341,11 +342,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     initPlayersCounts();
     initToasts();
     initPlayersTimes();
-    getCurrentPlayer();
     readPlayers();
     readDetails();
-    onStart();
-    if (gameId.isEmpty) onInit();
+    listenForInternetConnection();
+
     pauseIndex = gameId.isEmpty
         ? playersSize == 1
             ? 0
@@ -353,13 +353,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                 ? 1
                 : 2
         : myPlayer;
-    // if (maxGameTime != null) {
-    //   gameTime = maxGameTime!;
-    //   gameTime2 = maxGameTime!;
-    // } else {
-    //   gameTime = 0;
-    //   gameTime2 = 0;
-    // }
+
     gameTime = maxGameTime ?? 0;
 
     // if (isTournament) {
@@ -374,9 +368,40 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   bool get isMyMove =>
       !awaiting && gameId.isNotEmpty && currentPlayerId == myId;
 
+  void showPlayerMessage(int player, String message) {
+    playersMessages[player] = message;
+    setState(() {});
+  }
+
+  void showPlayersMessages(List<int> players, String message) {
+    for (int i = 0; i < players.length; i++) {
+      final player = players[i];
+      playersMessages[player] = message;
+    }
+    setState(() {});
+  }
+
+  void showPlayersMessagesExcept(List<int> exceptedPlayers, String message) {
+    final players = getActivePlayersIndices()
+        .where((player) => !exceptedPlayers.contains(player))
+        .toList();
+    for (int i = 0; i < players.length; i++) {
+      final player = players[i];
+      playersMessages[player] = message;
+    }
+    setState(() {});
+  }
+
+  void showActivePlayersMessages(String message, [int? exceptedPlayer]) {
+    final players = getActivePlayersIndices();
+    if (exceptedPlayer != null) {
+      players.remove(exceptedPlayer);
+    }
+    showPlayersMessages(players, message);
+  }
+
   void resetPlayerTime([int? maxTime]) {
     stopPlayerTime = false;
-    // playerTime = maxPlayerTime!;
     playersTimes[currentPlayer] = maxTime ?? maxPlayerTime ?? 30;
   }
 
@@ -388,7 +413,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   void startTimer() {
-    pausePlayerTime = false;
     paused = false;
     timer?.cancel();
     timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
@@ -399,10 +423,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       }
 
       duration = (duration + 0.1).toStringAsFixed(1).toDouble;
-
-      if (!finishedRound) {
-        endDuration = duration;
-      }
 
       if (duration != 0 && (duration * 10) % 10 != 0) return;
 
@@ -449,19 +469,21 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
       if (!stopPlayerTime) {
         if (playerTime <= 0) {
-          onPlayerTimeEnd();
+          if (gameId.isEmpty || currentPlayerId == myId) onPlayerTimeEnd();
           if (isPuzzle) {
             setGatheredDetails();
-          }
-          if (isChessOrDraught) {
+            resetPlayerTime();
+          } else if (isChessOrDraught) {
             updateWin(getNextPlayerIndex(currentPlayer));
           }
           setState(() {});
         } else {
-          playersTimes[currentPlayer]--;
+          playersTimes[currentPlayer] = playerTime - 1;
         }
       }
     });
+    if (!mounted) return;
+    setState(() {});
   }
 
   int get playerTime =>
@@ -498,7 +520,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
             watch();
           } else {
             if (paused) {
-              start(false, true);
+              start(false);
             } else {
               onSpaceBarPressed();
             }
@@ -534,9 +556,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   void getCurrentPlayer() {
     if (gameId != "") {
       final playerIds = players.map((e) => e.id).toList();
+      if (playerIds.isEmpty) return;
       currentPlayerId = isPuzzle || isQuiz ? myId : playerIds.last;
-      final currentPlayerIndex = playerIds.indexWhere(
-          (element) => isPuzzle ? element == myId : element == currentPlayerId);
+      final currentPlayerIndex = playerIds.indexWhere((element) =>
+          isPuzzle || isQuiz ? element == myId : element == currentPlayerId);
       currentPlayer = currentPlayerIndex;
     } else {
       currentPlayer = playersSize - 1;
@@ -712,8 +735,18 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   String getPlayerUsername({String? playerId, int playerIndex = 0}) {
-    final index = users?.indexWhere((e) => e?.user_id == playerId) ?? -1;
-    return index != -1 ? users![index]!.username : "Player ${playerIndex + 1}";
+    final index = users?.indexWhere((e) => playerId != null
+            ? e?.user_id == playerId
+            : players.isNotEmpty
+                ? e?.user_id == players[playerIndex].id
+                : false) ??
+        -1;
+
+    return index != -1
+        ? users![index]?.user_id == myId
+            ? "you"
+            : users![index]!.username
+        : "Player ${playerIndex + 1}";
   }
 
   int getPrevPlayerIndex([int? playerIndex]) {
@@ -791,77 +824,65 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                 : 1;
   }
 
-  // void getFirstPlayer() {
-  //   if (gameId != "") {
-  //     final playerIds = users!.map((e) => e!.user_id).toList();
-  //     currentPlayerId = playerIds.last;
-  //     final currentPlayerIndex =
-  //         playerIds.indexWhere((element) => element == currentPlayerId);
-  //     currentPlayer = currentPlayerIndex;
-  //   } else {
-  //     currentPlayer = playersSize - 1;
-  //   }
-  // }
-
-  void updateMyAction(String action) {
+  void updateMyAction(String action) async {
     final index = players.indexWhere((element) => element.id == myId);
-    if (index == -1) return;
-    players[index] = players[index].copyWith(action: action);
-    showToast("You $action${action.endsWith("e") ? "d" : "ed"}");
+    if (index == -1 || players[index].action == action) return;
+    await updatePlayerActionAndShowToast(gameId, action);
 
-    final outputAction = executeGameAction();
-    if ((!finishedRound) &&
-        (outputAction == "start" || outputAction == "restart")) {
-      getCurrentPlayer();
-      onInit();
-    }
-    print("outputAction = $outputAction, players = $players,");
+    players[index] = players[index].copyWith(action: action);
+    showToast(action.isEmpty
+        ? "You left"
+        : "You $action${action.endsWith("e") ? "d" : "ed"}");
+    executeGameAction();
+
     if (!mounted) return;
     setState(() {});
   }
 
-  void updateMyChangedGame(String game) {
+  void updateMyChangedGame(String game) async {
     final index = players.indexWhere((element) => element.id == myId);
-    if (index == -1) return;
+    if (index == -1 || players[index].game == game) return;
+    await updatePlayerActionAndShowToast(gameId, "pause", game);
     players[index] = players[index].copyWith(game: game, action: "pause");
     showToast("You changed game to $game");
     executeGameChange();
+    if (!mounted) return;
     setState(() {});
   }
 
   void updateMyCallMode({String? callMode}) async {
     final index = players.indexWhere((element) => element.id == myId);
-    if (index == -1) return;
-    final player = players[index];
-    player.callMode = callMode;
+    if (index == -1 || players[index].callMode == callMode) return;
+    // await updatePlayerActionAndShowToast(gameId, "pause", game);
     await executeCallAction(players[index]);
+
+    players[index] = players[index].copyWith(callMode: callMode);
+
+    if (!mounted) return;
     setState(() {});
   }
 
   void executeGameChange() {
     String newgame = getChangedGame(getAvailablePlayers());
     if (newgame.isEmpty || gameName == newgame) return;
-    //recordId++;
-
-    change(newgame, true);
+    change(newgame, false);
   }
 
   String executeGameAction() {
     String action = getAction(getAvailablePlayers());
     if (action == "pause") {
       if (!paused) {
-        pause(true);
+        pause(false);
       }
     } else if (action == "start") {
       if (paused) {
-        start(true);
+        start(false);
       }
     } else if (action == "restart") {
-      restart(true);
+      restart(false);
+    } else if (action == "continue") {
+      continueMatch(false);
     }
-    //  else if (action == "concede") {
-    //   concede(true);
-    // }
     return action;
   }
 
@@ -950,11 +971,25 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     setState(() {});
   }
 
+  void listenForInternetConnection() {
+    if (gameId.isEmpty) return;
+    connectivitySub = _connectivity.onConnectivityChanged.listen((results) {
+      isConnectedToInternet = results.contains(ConnectivityResult.mobile) ||
+          results.contains(ConnectivityResult.wifi);
+      setState(() {});
+
+      if (isConnectedToInternet && unsentGameDetails.isNotEmpty) {
+        sendUnsentDetails();
+      }
+    });
+  }
+
   Future readPlayers() async {
     if (match?.records?["$recordId"]?["rounds"]?["$roundId"] != null) {
-      final record = MatchRecord.fromMap(match!.records?["$recordId"]);
+      //final record = MatchRecord.fromMap(match!.records?["$recordId"]);
       MatchRound round = MatchRound.fromMap(
           match!.records?["$recordId"]["rounds"]["$roundId"]);
+
       if (players.isEmpty) {
         players = List.generate(
             round.players.length,
@@ -983,6 +1018,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
             (index) => Player(id: "$index", time: timeNow, order: index));
       }
     }
+    availablePlayersCount = gameId.isEmpty ? playersSize : players.length;
 
     if (gameId.isEmpty || match == null) return;
     players.sortList((player) => player.order, false);
@@ -993,14 +1029,13 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
     final index = players.indexWhere((element) => element.id == myId);
     myPlayer = index;
-    getCurrentPlayer();
 
     setState(() {});
     if (finishedRound) {
       return;
     }
     final lastTime = players
-        .sortedList((player) => player.time_modified, false)
+        .sortedList((player) => player.time_modified ?? "", false)
         .lastOrNull
         ?.time_modified;
 
@@ -1017,14 +1052,25 @@ abstract class BaseGamePageState<T extends BaseGamePage>
             players.indexWhere((element) => element.id == value.id);
         final userIndex =
             users!.indexWhere((element) => element?.user_id == value.id);
-        final username =
-            userIndex == -1 ? "" : users![userIndex]?.username ?? "";
+        final username = userIndex == -1
+            ? ""
+            : users![userIndex]?.user_id == myId
+                ? "you"
+                : users![userIndex]?.username ?? "";
+
+        print("playersChange = $playersChange");
+
+        if (playersChange.removed || value.matchId != matchId) {
+          leave(value.id, false);
+          print("leaving");
+
+          value.game = null;
+          value.matchId = "";
+        }
+
+        print("value = $value");
 
         if (playerIndex != -1) {
-          if (playersChange.removed) {
-            value.game = null;
-            value.matchId = null;
-          }
           final actionMessage = value.game != null && value.game != gameName
               ? "changed to ${value.game}"
               : players[playerIndex].action != value.action &&
@@ -1034,18 +1080,19 @@ abstract class BaseGamePageState<T extends BaseGamePage>
           if (actionMessage.isNotEmpty) {
             final title =
                 "$username ${value.game != gameName ? actionMessage : "$actionMessage${actionMessage.endsWith("e") ? "d" : "ed"}"}";
-            if (value.game != gameName
+            if (value.game != null && value.game != gameName
                 ? value.game != getMyPlayer(players)?.game
                 : value.action != "pause" &&
                     value.action != "concede" &&
                     value.action != "leave" &&
+                    value.action != "" &&
                     value.action != getMyPlayer(players)?.action) {
               final result = await context.showComfirmationDialog(
                   title: title,
                   message:
                       "Do you also want to ${value.game != gameName ? "change" : value.action!} game?");
               if (result == true) {
-                if (value.game != gameName) {
+                if (value.game != null && value.game != gameName) {
                   change(value.game!);
                 } else {
                   if (value.action == "pause") {
@@ -1057,8 +1104,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                       start();
                     }
                   } else if (value.action == "restart") {
-                    //recordId++;
                     restart();
+                  } else if (value.action == "continue") {
+                    continueMatch();
                   }
                 }
               }
@@ -1098,15 +1146,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         executeCallAction(value, playersChange.removed);
 
         setState(() {});
-
-        // if (players.isEmpty ||
-        //     players.indexWhere((element) => element.id == myId) == -1) {
-        //   context.pop();
-        //   return;
-        // } else if (players.length == 1 && players.first.id == myId) {
-        //   leave();
-        //   //context.pop();
-        // }
       }
     });
   }
@@ -1129,7 +1168,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
         detailIndex = 0;
         moreDetailIndex = -1;
-        start(true, true);
+        //start(true, true);
+        resetAllDetails();
       }
     }
 
@@ -1188,9 +1228,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
       seeking = false;
     } else if (newDuration != null) {
-      if (detailIndex == -1) {
-        detailIndex = 0;
-      }
       double newDuration = this.newDuration!;
       seeking = true;
       if (newDuration >= 0 && newDuration <= endDuration) {
@@ -1232,9 +1269,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
       seeking = false;
     } else {
-      if (detailIndex == -1) {
-        detailIndex = 0;
-      }
       seeking = false;
       if (detailIndex >= 0 && detailIndex < gameDetails.length) {
         final gameDetail = gameDetails[detailIndex];
@@ -1288,26 +1322,26 @@ abstract class BaseGamePageState<T extends BaseGamePage>
           setState(() {});
         }
         // final remaining = newDetailIndex - gameDetails.length - 1;
-        final newGameDetails = await getGameDetails(
+        final foundGameDetails = await getGameDetails(
             gameId, matchId, recordId, roundId,
             time: lastTime, index: newDetailIndex, players: playerIds);
-        gameDetails.addAll(newGameDetails);
+        gameDetails.addAll(foundGameDetails);
         seeking = false;
 
-        if (newGameDetails.isNotEmpty) readWatchDetails();
+        if (foundGameDetails.isNotEmpty) readWatchDetails();
       } else if (newDuration != null) {
         seeking = true;
         if (!loadingDetails) {
           loadingDetails = true;
           setState(() {});
         }
-        final newGameDetails = await getGameDetails(
+        final foundGameDetails = await getGameDetails(
             gameId, matchId, recordId, roundId,
             time: lastTime, duration: newDuration, players: playerIds);
-        gameDetails.addAll(newGameDetails);
+        gameDetails.addAll(foundGameDetails);
         seeking = false;
 
-        if (newGameDetails.isNotEmpty) readWatchDetails();
+        if (foundGameDetails.isNotEmpty) readWatchDetails();
       }
 
       if (detailIndex >= gameDetails.length - watchDetailsLimit &&
@@ -1318,12 +1352,12 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         }
         final lastTime = gameDetails.lastOrNull?["time"];
 
-        final newGameDetails = await getGameDetails(
+        final foundGameDetails = await getGameDetails(
             gameId, matchId, recordId, roundId,
             time: lastTime, limit: watchDetailsLimit, players: playerIds);
-        gameDetails.addAll(newGameDetails);
+        gameDetails.addAll(foundGameDetails);
 
-        if (newGameDetails.isNotEmpty) readWatchDetails();
+        if (foundGameDetails.isNotEmpty) readWatchDetails();
       }
       if (loadingDetails) {
         loadingDetails = false;
@@ -1344,8 +1378,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
     watchTimerController.sink.add(duration);
 
-    // print("duration = $duration");
-
     if (finishedRound && duration >= endDuration) {
       stopWatching();
     } else {
@@ -1359,49 +1391,57 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       detailsSub = null;
     }
 
-    final start =
+    final timeStart =
         match?.records?["$recordId"]?["rounds"]?["$roundId"]?["time_start"];
 
-    final end =
-        match?.records?["$recordId"]?["rounds"]?["$roundId"]?["time_end"];
-
-    int index = 0;
-    int endIndex = gameDetails.length;
+    // final timeEnd =
+    //     match?.records?["$recordId"]?["rounds"]?["$roundId"]?["time_end"];
 
     var lastTime = gameDetails.lastOrNull?["time"];
     final playerIds = players.map((player) => player.id).toList();
 
     if (gameId.isNotEmpty) {
-      if (start != null) {
+      if (timeStart != null) {
         loadingDetails = true;
         setState(() {});
 
-        final newGameDetails = await getGameDetails(
+        final foundGameDetails = await getGameDetails(
             gameId, matchId, recordId, roundId,
             time: lastTime,
             limit: isWatch && finishedRound ? watchDetailsLimit * 2 : null,
             players: playerIds);
 
         loadingDetails = false;
-        gameDetails.addAll(newGameDetails);
+        gameDetails.addAll(foundGameDetails);
 
-        if (newGameDetails.isEmpty) {
+        if (foundGameDetails.isEmpty) {
           if (isWatch) stopWatching();
         } else {
           if (!isWatch) {
-            if (index >= 0 && index < gameDetails.length) {
-              while (index < endIndex) {
-                final gameDetail = gameDetails[index];
-                updateGameDetails(gameDetail, readMoreDetails: true);
-                index++;
-              }
+            availablePlayersCount =
+                gameId.isEmpty ? playersSize : players.length;
+
+            reason = "";
+            message = "Play";
+            duration = 0;
+            gameTime = maxGameTime ?? 0;
+            playersTimes[currentPlayer] = maxPlayerTime ?? 30;
+
+            timerController.sink.add(gameTime);
+            getCurrentPlayer();
+            onStart();
+            for (int i = 0; i < foundGameDetails.length; i++) {
+              final gameDetail = foundGameDetails[i];
+              updateGameDetails(gameDetail, readMoreDetails: true);
             }
+            endDuration = gameDetails.lastOrNull?["duration"] ?? 0.0;
           }
         }
       }
 
+      setState(() {});
+
       if (finishedRound) {
-        setState(() {});
         return;
       }
 
@@ -1423,16 +1463,15 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   Future updateGameDetails(Map<String, dynamic> gameDetail,
       {bool readMoreDetails = false}) async {
     final playerId = gameDetail["id"];
-    final duration = gameDetail["duration"] as double?;
+    final duration = gameDetail["duration"];
     final playerTime = gameDetail["playerTime"] as int?;
     final playerIndex = getPlayerIndex(playerId);
-
     //currentPlayer = playerIndex;
 
     final action = gameDetail["action"];
 
     if (duration != null) {
-      this.duration = duration;
+      this.duration = (duration is int) ? duration.toDouble() : duration;
     }
 
     if (playerTime != null) {
@@ -1441,9 +1480,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
     if (action != null) {
       if (action == "concede") {
-        concede(playerId);
+        concede(playerId, false);
       } else if (action == "leave") {
-        leave(playerId, false, true);
+        leave(playerId, false);
       }
     } else {
       awaitingDetails = true;
@@ -1460,8 +1499,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   Future setActionDetails(String action) async {
+    if (gameDetails.isEmpty) return;
     await setGatheredDetails();
-    await setDetail({"action": action});
+    setDetail({"action": action});
   }
 
   Future<List<Map<String, dynamic>>> setDetails(
@@ -1470,26 +1510,33 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     for (int i = 0; i < details.length; i++) {
       final detail = details[i];
       final outputDetail =
-          await setDetail(detail, index: i, length: details.length);
+          getFullDetail(detail, index: i, length: details.length);
       outputDetails.add(outputDetail);
+      gatheredGameDetails.add(outputDetail);
     }
+    setGatheredDetails();
     return outputDetails;
   }
 
-  Future<Map<String, dynamic>> setDetail(Map<String, dynamic> detail,
-      {bool? add, int index = 0, int length = 1}) async {
+  Map<String, dynamic> getFullDetail(Map<String, dynamic> detail,
+      {int index = 0, int length = 1}) {
     detail["time"] = timeNow;
     detail["duration"] = (duration - ((length - index - 1) * (1 / length)))
         .toStringAsFixed(1)
         .toDouble;
     detail["id"] = gameId.isEmpty ? "$currentPlayer" : myId;
+    return detail.removeNull();
+  }
 
-    detail["playerTime"] = playersTimes[currentPlayer];
+  Future<Map<String, dynamic>> setDetail(Map<String, dynamic> detail,
+      {bool add = true}) async {
+    final outputDetail = getFullDetail(detail, index: 0, length: 1);
+    gatheredGameDetails.add(outputDetail);
 
-    gatheredGameDetails.add(detail.removeNull());
-    if (add ?? index == length - 1) {
-      await setGatheredDetails();
+    if (add) {
+      setGatheredDetails();
     }
+
     return detail;
   }
 
@@ -1511,6 +1558,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     }
 
     gatheredGameDetails.clear();
+
     return addDetails(detail);
   }
 
@@ -1525,9 +1573,26 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     gameDetails.add(detail);
 
     if (gameId.isNotEmpty) {
-      awaiting = true;
-      await setGameDetails(gameId, matchId, detail);
-      awaiting = false;
+      await sendUnsentDetails();
+      return setGameDetails(gameId, matchId, detail).catchError((e) {
+        unsentGameDetails.add(detail);
+      });
+      // awaiting = true;
+      // await setGameDetails(gameId, matchId, detail);
+      // awaiting = false;
+    }
+    return detail;
+  }
+
+  Future sendUnsentDetails() async {
+    while (unsentGameDetails.isNotEmpty) {
+      if (!isConnectedToInternet) return;
+      try {
+        await setGameDetails(gameId, matchId, unsentGameDetails.first);
+        unsentGameDetails.removeAt(0);
+      } catch (e) {
+        return;
+      }
     }
   }
 
@@ -1542,6 +1607,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     return true;
   }
 
+  bool get itsFirstToPlay {
+    return gameId.isEmpty || (myPlayer == playersSize - 1);
+  }
+
   bool itsMyTurnForMessage(int player) =>
       (currentPlayer == player && showMessage) ||
       getConcedeOrLeft(player) != null;
@@ -1549,19 +1618,22 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   bool itsMyTurnToPlay(bool isClick, [int? player]) {
     if (isClick) toggleLayoutPressed();
 
-    // if (seeking) return true;
+    if (seeking) return true;
 
     if (awaiting || !mounted || (finishedRound && isClick)) {
       return false;
     }
 
     if (isClick && gameId.isNotEmpty && currentPlayerId != myId) {
-      showPlayerToast(myPlayer, "Its ${getUsername(currentPlayerId)}'s turn");
+      showPlayerToast(myPlayer,
+          "Its ${getPlayerUsername(playerId: currentPlayerId)}'s turn");
+
       return false;
     }
-    if (player != null && currentPlayer != player) {
+    if (isClick && player != null && currentPlayer != player) {
       showPlayerToast(player,
           "Its ${getPlayerUsername(playerId: currentPlayerId, playerIndex: currentPlayer)}'s turn");
+
       return false;
     }
     return true;
@@ -1573,7 +1645,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     if (kIsWeb || !isAndroidAndIos || privateKey == null) {
       return;
     }
-
+    privateKey ??= await getPrivateKey();
     final mobileAdUnit = privateKey!.mobileAdUnit;
     InterstitialAd.load(
         adUnitId: mobileAdUnit,
@@ -1701,18 +1773,18 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     return "${itsMyTurnForMessage(index) ? "${message.isEmpty ? this.message.isNotEmpty ? this.message : "Play" : message} - " : message.isEmpty ? "" : "$message - "}${playersTimes[index].toDurationString(false)}";
   }
 
-  String getPlayerName(int player) {
-    return users == null || users!.isEmpty || player >= users!.length
-        ? "Player $player"
-        : users![player]?.username ?? "";
-  }
+  // String getPlayerName(int player) {
+  //   return users == null || users!.isEmpty || player >= users!.length
+  //       ? "Player ${player + 1}"
+  //       : users![player]?.username ?? "";
+  // }
 
   void updateWinForPlayerWithHighestCount() {
     final players = getHighestCountPlayer(playersCounts);
     if (players.length == 1) {
       updateWin(players.first,
           reason:
-              "${getPlayerName(players.first)} won with ${playersCounts[players.first]} points");
+              "${getPlayerUsername(playerIndex: players.first)} won with ${playersCounts[players.first]} points");
     } else {
       if (players.isEmpty) return;
       if (players.length == playersSize) {
@@ -1721,7 +1793,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       } else {
         updateTie(players,
             reason:
-                "${players.map((player) => getPlayerName(player)).join(" and ")} tied with ${playersCounts[players.first]} points");
+                "${players.map((player) => getPlayerUsername(playerIndex: player)).join(" and ")} tied with ${playersCounts[players.first]} points");
       }
     }
   }
@@ -1737,20 +1809,18 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       return updateDraw(reason: reason);
     }
 
-    updateMatchRound(players, true);
+    updateMatchRound(players);
 
     toastWinners(players, reason: reason);
-    pause();
   }
 
   void updateWin(int player, {String? reason}) {
     if (this.reason.isEmpty) {
       this.reason = reason ?? "";
     }
-    updateMatchRound([player], true);
+    updateMatchRound([player]);
 
     toastWinner(player, reason: reason);
-    pause();
   }
 
   void updateDraw({String? reason}) {
@@ -1760,7 +1830,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     updateMatchRound([]);
 
     toastDraw(reason: reason);
-    pause();
   }
 
   void toastDraw({String? reason}) {
@@ -1774,8 +1843,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   void toastWinner(int player, {String? reason}) {
-    String message =
-        "${users != null ? users![player]?.username ?? "" : "Player $player"} won";
+    String message = "${getPlayerUsername(playerIndex: player)} won";
     if (reason != null) {
       message += " with $reason";
     }
@@ -1794,7 +1862,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     String message = "";
     String name = "";
     if (users != null) {
-      final usernames = players.map((e) => users![e]!.username).toList();
+      final usernames =
+          players.map((e) => getPlayerUsername(playerIndex: e)).toList();
       name = usernames.toStringWithCommaandAnd((username) => username);
     } else {
       name = players.toStringWithCommaandAnd(
@@ -1823,26 +1892,20 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     return grids[0] + (grids[1] * gridSize);
   }
 
-  String getUsername(String userId) => users == null || users!.isEmpty
-      ? ""
-      : users
-              ?.firstWhereNullable(
-                  (element) => element != null && element.user_id == userId)
-              ?.username ??
-          "";
-
-  Future startOrRestart(bool start) async {
-    if (gameId != "" && matchId != "") {
-      await updateAction(context, players, users!, gameId, matchId,
-          start ? "start" : "restart", gameName);
-    }
-  }
+  // Future startOrRestart(bool start) async {
+  //   if (gameId != "" && matchId != "") {
+  //     await updateAction(context, players, users!, gameId, matchId,
+  //         start ? "start" : "restart", gameName);
+  //   }
+  // }
 
   void previous() {
+    if (isFirstPage) return;
     updateGameAction("previous");
   }
 
   void next() {
+    if (isLastPage) return;
     updateGameAction("next");
   }
 
@@ -1932,15 +1995,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     return values;
   }
 
-  // void getPreviousDetailFromNext() {
-  //   final values = getPreviousDetail(nextDetailIndex, nextMoreDetailIndex);
-  //   if (values.isEmpty) {
-  //     return;
-  //   }
-  //   detailIndex = values[0];
-  //   moreDetailIndex = values[1];
-  // }
-
   void getPreviousCurrent() {
     final values = getPreviousDetail();
     if (values.isEmpty) {
@@ -1948,6 +2002,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     }
     detailIndex = values[0];
     moreDetailIndex = values[1];
+    readWatchDetails();
   }
 
   void getNextCurrent() {
@@ -1957,16 +2012,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     }
     detailIndex = values[0];
     moreDetailIndex = values[1];
+    readWatchDetails();
   }
-
-  // void getNextDetailFromCurrent() {
-  //   final values = getNextDetail();
-  //   if (values.isEmpty) {
-  //     return;
-  //   }
-  //   nextDetailIndex = values[0];
-  //   nextMoreDetailIndex = values[1];
-  // }
 
   void nextDetail() {
     controlsVisiblityTimer = 0;
@@ -1978,6 +2025,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
     newDetailIndex = values[0];
     newMoreDetailIndex = values[1];
+
     readWatchDetails();
   }
 
@@ -2003,7 +2051,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     }
 
     newDuration = duration - durationSkipLimit;
-    // readWatchDetails();
+    readWatchDetails();
   }
 
   void forward() {
@@ -2016,7 +2064,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       return;
     }
     newDuration = duration + durationSkipLimit;
-    // readWatchDetails();
+    readWatchDetails();
   }
 
   void seek(double duration) {
@@ -2025,7 +2073,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       return;
     }
     newDuration = duration;
-    // readWatchDetails();
+    readWatchDetails();
   }
 
   void togglePlayPause() {
@@ -2049,30 +2097,28 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     detailIndex = 0;
     moreDetailIndex = -1;
 
-    // nextDetailIndex = 0;
-    // nextMoreDetailIndex = -1;
-
     newDuration = null;
     newDetailIndex = null;
     newMoreDetailIndex = null;
 
     controlsVisiblityTimer = 0;
-    seeking = true;
   }
 
   void stopWatching() {
     if (!isWatchMode || gameDetailsLength != gameDetails.length) return;
+
     resetWatchDetails();
     isWatchMode = false;
     watching = false;
     showWatchControls = false;
-    pause();
+    pause(false);
   }
 
   void watch() {
     if (!isWatchMode) {
       gameTime = maxGameTime ?? 0;
-      start(true, true);
+      //start(false, true);
+      resetAllDetails();
       resetWatchDetails();
 
       isWatchMode = true;
@@ -2100,187 +2146,267 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     );
   }
 
-  void pause([bool act = false]) async {
-    if (act || gameId == "" || isWatch) {
-      stopTimer();
-      onPause();
-      setState(() {});
-    } else {
-      if (gameId != "" && matchId != "") {
-        // await pauseGame(gameId, matchId, players, recordId, duration);
-        await updatePlayerAction(gameId, matchId, "pause");
-        updateMyAction("pause");
-      }
-    }
-  }
+  Future<dynamic> updatePlayerActionAndShowToast(
+    String gameId,
+    String action, [
+    String? game,
+  ]) async {
+    final myPlaying = players.firstWhere((element) => element.id == myId);
+    final myAction = myPlaying.action;
+    final myGame = myPlaying.game;
 
-  bool get isStartingRound =>
-      maxGameTime != null ? gameTime == maxGameTime : gameTime == 0;
+    if (myAction == action && myGame == game) return;
+    await updatePlayerAction(gameId, action, game);
 
-  void start([bool act = false, bool refresh = false]) async {
-    if (act || gameId == "" || isWatch) {
-      if (finishedRound && !refresh) {
-        updateGameAction("continue");
-        return;
-      }
+    if (this.users == null || this.users!.isEmpty) return;
+    final users = this.users!;
 
-      if (finishedRound || isStartingRound) {
-        getCurrentPlayer();
+    final otherPlayers = players
+        .where((element) =>
+            element.id != myId &&
+            (action != myAction
+                ? element.action != myAction
+                : element.game != myGame))
+        .toList();
 
-        reason = "";
-        message = "Play";
-        duration = 0;
-        gameTime = maxGameTime ?? 0;
-        playersTimes[currentPlayer] = maxPlayerTime ?? 30;
-        gatheredGameDetails.clear();
-        concedeOrLeftPlayers.clear();
-
-        isCheckoutMode = false;
-        timerController.sink.add(gameTime);
-
-        updateMatchRecord();
-        checkFirstime();
-        onStart();
-      } else {
-        onResume();
-      }
-
-      startTimer();
-      if (!mounted) return;
-
-      setState(() {});
-    } else {
-      if (gameId != "" && matchId != "") {
-        if (paused && getMyPlayer(players)?.action != "pause") {
-          pause();
-        } else {
-          await startOrRestart(true);
-          updateMyAction("start");
+    if (otherPlayers.isNotEmpty) {
+      List<User> waitingUsers = [];
+      for (int i = 0; i < otherPlayers.length; i++) {
+        final players = otherPlayers[i];
+        final user = users.isEmpty
+            ? null
+            : users.firstWhere(
+                (element) => element != null && element.user_id == players.id);
+        if (user != null) {
+          waitingUsers.add(user);
         }
       }
+      if (action.isEmpty && game == null) return;
+      showToast(
+          "Waiting for ${waitingUsers.toStringWithCommaandAnd((user) => user.username)} to also ${action != myAction ? action : "change to $game"}");
     }
   }
 
-  void restart([bool act = false]) async {
-    if (act || gameId == "" || isWatch) {
-      if (!finishedRound) {
-        updateMatchRound(null);
-      }
-      updateGameAction("restart");
-      return;
-    } else {
-      if (gameId != "" && matchId != "") {
-        startOrRestart(false);
-        updateMyAction("restart");
-      }
+  void resetAllDetails() {
+    availablePlayersCount = gameId.isEmpty ? playersSize : players.length;
+
+    reason = "";
+    message = "Play";
+    duration = 0;
+    gameTime = maxGameTime ?? 0;
+    playersTimes[currentPlayer] = maxPlayerTime ?? 30;
+    gatheredGameDetails.clear();
+    concedeOrLeftPlayers.clear();
+
+    isCheckoutMode = false;
+    timerController.sink.add(gameTime);
+
+    getCurrentPlayer();
+
+    if (startingRound &&
+        !finishedRound &&
+        (gameId.isEmpty ||
+            (myPlayer == playersSize - 1 &&
+                match?.records?["$recordId"]?["rounds"]?["$roundId"] ==
+                    null))) {
+      onInit();
+    }
+    onStart();
+  }
+
+  void checkout() {
+    setState(() {
+      isCheckoutMode = true;
+    });
+  }
+
+  void readAboutTheGame() {
+    if (readAboutGame) {
+      setState(() {
+        readAboutGame = false;
+      });
     }
   }
 
-  void change(String game, [bool act = false]) async {
-    if (act || gameId == "" || isWatch) {
-      if (!finishedRound) {
-        updateMatchRound(null);
+  void pause([bool isClick = true]) async {
+    if (isClick && gameId.isNotEmpty) {
+      updateMyAction("pause");
+      return;
+    }
+    stopTimer();
+    onPause();
+    setState(() {});
+  }
+
+  bool get startingRound =>
+      maxGameTime != null ? gameTime == maxGameTime : gameTime == 0;
+
+  void start([bool isClick = true]) async {
+    final myPlayer = getMyPlayer(players);
+    if (isClick && gameId.isNotEmpty) {
+      if (paused && myPlayer?.action == "start") {
+        pause();
+      } else {
+        updateMyAction("start");
       }
 
-      updateGameAction("change", game: game);
       return;
-    } else {
-      // await changeGame(game, gameId, matchId, players, recordId,
-      //     maxGameTime != null ? maxGameTime! - gameTime : gameTime);
-      await updatePlayerAction(gameId, matchId, "pause", game);
+    }
 
+    if (startingRound) {
+      updateMatchRecord();
+      resetAllDetails();
+    } else {
+      onResume();
+    }
+
+    startTimer();
+  }
+
+  void continueMatch([bool isClick = true]) async {
+    if (isClick && gameId.isNotEmpty) {
+      updateMyAction("continue");
+      return;
+    }
+    if (!finishedRound) {
+      updateMatchRound(null);
+    }
+    updateGameAction("continue");
+    stopListening();
+  }
+
+  void restart([bool isClick = true]) async {
+    if (isClick && gameId.isNotEmpty) {
+      updateMyAction("restart");
+      return;
+    }
+    if (!finishedRound) {
+      updateMatchRound(null);
+    }
+    updateGameAction("restart");
+    stopListening();
+  }
+
+  void change(String game, [bool isClick = true]) async {
+    if (isClick && gameId.isNotEmpty) {
       updateMyChangedGame(game);
+      return;
     }
+    if (!finishedRound) {
+      updateMatchRound(null);
+    }
+
+    updateGameAction("change", game: game);
+    stopListening();
   }
 
-  void concede([String? playerId, bool act = false]) async {
+  void concede([String? playerId, bool isClick = true]) async {
+    if (isClick && gameId.isNotEmpty) {
+      if (loadingDetails) {
+        showToast("Can't concede now, still loading details");
+        return;
+      }
+      await setActionDetails("concede");
+
+      concede(myId, false);
+
+      return;
+    }
     final index = playerId != null ? getPlayerIndex(playerId) : pauseIndex;
     onConcede(index);
 
-    if (act || gameId == "" || isWatch) {
-      if (gameId.isEmpty && !isWatch) setActionDetails("concede");
+    if (gameId.isEmpty && !isWatch) setActionDetails("concede");
 
-      concedeOrLeftPlayers.add(ConcedeOrLeft(
-          index: index, playerId: playerId, action: "concede", time: gameTime));
-      if (index == currentPlayer) {
-        changePlayer();
-      }
-      pauseIndex = currentPlayer;
-      final activePlayersCount = getActivePlayersIndices().length;
+    concedeOrLeftPlayers.add(ConcedeOrLeft(
+        index: index, playerId: playerId, action: "concede", time: gameTime));
+    if (index == currentPlayer) {
+      changePlayer();
+    }
+    pauseIndex = currentPlayer;
+    final activePlayersCount = getActivePlayersIndices().length;
 
-      if (activePlayersCount == 1) {
-        updateWin(getNextPlayerIndex(index),
-            reason:
-                "${getPlayerUsername(playerIndex: index, playerId: playerId)} conceded");
-      }
-      if (gameId.isEmpty) {
-        showAllPlayersToast(
-            "${getPlayerUsername(playerIndex: index)} conceded");
-      } else {
-        showToast("${getPlayerUsername(playerId: playerId)} conceded");
-      }
-      setState(() {});
-    } else {
-      if (gameId != "" && matchId != "") {
-        //await concedeGame(gameId, matchId, players, recordId, duration);
-        // await updatePlayerAction(gameId, matchId, "concede");
-        await setActionDetails("concede");
-
-        //updateMyAction("concede");
+    if (activePlayersCount == 1) {
+      updateWin(getNextPlayerIndex(index),
+          reason:
+              "${getPlayerUsername(playerIndex: index, playerId: playerId)} conceded");
+    } else if (activePlayersCount < 1) {
+      if (!finishedRound) {
+        updateMatchRound(null);
       }
     }
+    if (gameId.isEmpty) {
+      showAllPlayersToast("${getPlayerUsername(playerIndex: index)} conceded");
+    } else {
+      showToast("${getPlayerUsername(playerId: playerId)} conceded");
+    }
+    setState(() {});
   }
 
-  void leave(
-      [String? playerId, bool act = false, bool isWatchEnd = false]) async {
-    if (act) {
-      context.pop();
+  void leave([String? playerId, bool isClick = true]) async {
+    if (isClick && gameId.isNotEmpty) {
+      if (loadingDetails) {
+        showToast("Can't leave now, still loading details");
+        return;
+      }
+      setActionDetails("leave");
+      updateMyAction("");
+      //leaveMatch(gameId, matchId, match, players);
+
+      leave(myId, false);
+
       return;
     }
 
     final index = playerId != null ? getPlayerIndex(playerId) : pauseIndex;
+    if (concedeOrLeftPlayers.indexWhere((element) => element.index == index) !=
+        -1) {
+      return;
+    }
+
     onLeave(index);
-    if (act || gameId == "" || isWatch) {
-      if (gameId.isEmpty && !isWatch) setActionDetails("leave");
+    if (gameId.isEmpty && !isWatch) setActionDetails("leave");
 
-      concedeOrLeftPlayers.add(ConcedeOrLeft(
-          index: index, playerId: playerId, action: "leave", time: gameTime));
-      if (!playersLeft.contains(pauseIndex)) playersLeft.add(pauseIndex);
-      if (index == currentPlayer) {
-        changePlayer();
-      }
+    concedeOrLeftPlayers.add(ConcedeOrLeft(
+        index: index, playerId: playerId, action: "leave", time: gameTime));
+    if (!playersLeft.contains(pauseIndex)) playersLeft.add(pauseIndex);
+    if (index == currentPlayer) {
+      changePlayer();
+    }
 
-      pauseIndex = currentPlayer;
-      final activePlayersCount = getActivePlayersIndices().length;
+    pauseIndex = currentPlayer;
+    availablePlayersCount = getAvailablePlayersIndices().length;
 
-      if (activePlayersCount == 1) {
-        updateWin(getNextPlayerIndex(index),
-            reason:
-                "${getPlayerUsername(playerIndex: index, playerId: playerId)} left");
-      }
+    final activePlayersCount = getActivePlayersIndices().length;
 
-      if (gameId.isEmpty) {
-        showAllPlayersToast("${getPlayerUsername(playerIndex: index)} left");
-      } else {
-        showToast("${getPlayerUsername(playerId: playerId)} left");
-      }
-      setState(() {});
-
-      final availablePlayersCount = getAvailablePlayersIndices().length;
-      if (availablePlayersCount < 2) {
-        if (!mounted || isWatchEnd) return;
-        context.pop();
-      }
-    } else {
-      if (gameId != "" && matchId != "") {
-        leaveMatch(gameId, matchId, match, players);
-
-        setActionDetails("leave");
-
-        if (!mounted) return;
-        context.pop();
+    if (activePlayersCount == 1) {
+      updateWin(getNextPlayerIndex(index),
+          reason:
+              "${getPlayerUsername(playerIndex: index, playerId: playerId)} left");
+    } else if (activePlayersCount < 1) {
+      if (!finishedRound) {
+        updateMatchRound(null);
       }
     }
+
+    if (gameId.isEmpty) {
+      showAllPlayersToast("${getPlayerUsername(playerIndex: index)} left");
+    } else {
+      showToast("${getPlayerUsername(playerId: playerId)} left");
+    }
+    setState(() {});
+
+    // if (availablePlayersCount < 2) {
+    //   if (!mounted) return;
+    //   context.pop();
+    // }
+  }
+
+  void close() {
+    if (!finishedRound) {
+      pause();
+    }
+
+    context.pop();
   }
 
   void toggleMenu(int index) {
@@ -2288,10 +2414,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     setState(() {});
   }
 
-  void toggleCall(String? callMode, [bool act = false]) async {
-    // if (act || gameId == "") {
-    // } else {}
-
+  void toggleCall(String? callMode, [bool isClick = true]) async {
     updateMyCallMode(callMode: callMode);
   }
 
@@ -2347,18 +2470,16 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       return;
     }
     Match match = this.match!;
+    if (match.records?["$recordId"]?["rounds"]?["$roundId"] != null) return;
 
-    Match prevMatch = match.copyWith();
+    // Match prevMatch = match.copyWith();
 
     match.time_start ??= time;
     if (!match.games!.contains(gameName)) {
       match.games!.add(gameName);
     }
 
-    // if (match.recordsCount == null || recordId > match.recordsCount!) {
-    //   match.recordsCount = recordId + 1;
-    // }
-    if (match.records!["$recordId"] == null) {
+    if (match.records?["$recordId"] == null) {
       match.records!["$recordId"] = MatchRecord(
           id: recordId,
           game: gameName,
@@ -2367,7 +2488,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
           scores: playersScores.toMap(),
           rounds: {}).toMap().removeNull();
     }
-    if (match.records!["$recordId"]["rounds"]["$roundId"] == null) {
+    if (match.records?["$recordId"]?["rounds"]?["$roundId"] == null) {
       match.records!["$recordId"]["rounds"]["$roundId"] = MatchRound(
               id: recordId,
               game: gameName,
@@ -2378,23 +2499,24 @@ abstract class BaseGamePageState<T extends BaseGamePage>
               duration: 0)
           .toMap()
           .removeNull();
-    }
 
-    final matchOutcome =
-        getMatchOutcome(getMatchOverallScores(match), match.players!);
+      final matchOutcome =
+          getMatchOutcome(getMatchOverallScores(match), match.players!);
 
-    match.outcome = matchOutcome.outcome;
-    match.winners = matchOutcome.winners;
-    match.others = matchOutcome.others;
+      match.outcome = matchOutcome.outcome;
+      match.winners = matchOutcome.winners;
+      match.others = matchOutcome.others;
 
-    if (gameId.isNotEmpty &&
-        !isWatch &&
-        (winners != null && winners!.isNotEmpty
-            ? myPlayer == winners!.first
-            : myPlayer == 0)) {
-      match.time_modified = time;
-      // updateMatch(match, prevMatch.toMap().getChangedProperties(match.toMap()));
-      updateMatch(match, match.toMap());
+      if (gameId.isNotEmpty &&
+          // !isWatch &&
+          (winners != null && winners!.isNotEmpty
+              ? myPlayer == winners!.first
+              : myPlayer == 0)) {
+        match.time_modified = time;
+        // updateMatch(match, prevMatch.toMap().getChangedProperties(match.toMap()));
+        match.user_id = myId;
+        updateMatch(match, match.toMap());
+      }
     }
   }
 
@@ -2405,16 +2527,16 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     playersSub = null;
   }
 
-  void updateMatchRound(List<int>? winners, [bool win = false]) {
+  void updateMatchRound(List<int>? winners) {
     if (finishedRound) return;
+    endDuration = duration;
     gameDetailsLength = gameDetails.length;
     finishedRound = true;
-    endDuration = duration;
 
-    stopListening();
+    pause();
 
     this.winners = winners;
-    if (win && winners != null) {
+    if (winners != null) {
       for (int i = 0; i < winners.length; i++) {
         final player = winners[i];
         playersScores[player]++;
@@ -2433,13 +2555,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     }
     Match match = this.match!;
 
-    Match prevMatch = match.copyWith();
+    // Match prevMatch = match.copyWith();
 
     match.time_start ??= time;
 
-    // if (match.recordsCount == null || recordId > match.recordsCount!) {
-    //   match.recordsCount = recordId;
-    // }
     if (match.records!["$recordId"] != null) {
       match.records!["$recordId"]["scores"] = playersScores.toMap();
 
@@ -2447,6 +2566,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         match.records!["$recordId"]["rounds"] = {};
       }
       if (match.records!["$recordId"]["rounds"]["$roundId"] != null) {
+        match.records!["$recordId"]["rounds"]["$roundId"]["scores"] =
+            playersScores.toMap();
         match.records!["$recordId"]["rounds"]["$roundId"]["winners"] = winners;
         match.records!["$recordId"]["rounds"]["$roundId"]["time_end"] = time;
         match.records!["$recordId"]["rounds"]["$roundId"]["detailsLength"] =
@@ -2454,9 +2575,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         match.records!["$recordId"]["rounds"]["$roundId"]["duration"] =
             endDuration;
       }
-      if (winners == null) {
-        match.records!["$recordId"]["time_end"] = time;
-      }
+      match.records!["$recordId"]["time_end"] = time;
 
       final matchOutcome =
           getMatchOutcome(getMatchOverallScores(match), match.players!);
@@ -2465,14 +2584,19 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       match.winners = matchOutcome.winners;
       match.others = matchOutcome.others;
 
+      if (availablePlayersCount <= 1) {
+        match.time_end = time;
+      }
+
+      match.time_modified = time;
+
       if (gameId.isNotEmpty &&
-          !isWatch &&
+          // !isWatch &&
           (winners != null && winners.isNotEmpty
               ? myPlayer == winners.first
               : myPlayer == 0)) {
-        match.time_modified = time;
-        updateMatch(
-            match, prevMatch.toMap().getChangedProperties(match.toMap()));
+        match.user_id = myId;
+        updateMatch(match, match.toMap());
       }
     }
   }
@@ -2922,7 +3046,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   String getFirstHint() {
     String hint = "";
-    if (gameName.endsWith("Quiz")) {
+    if (gameName.isQuiz) {
       return "Tap on any option that you think is the answer to the question\nSubmit if you are sure to be done\nSelected answer would be automatically submited on timeout";
     }
     switch (gameName) {
@@ -2984,6 +3108,11 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     pageInfos = ref.watch(gamePageInfosProvider);
   }
 
+  bool get isLastPage =>
+      recordId == pageInfos?.lastRecordId &&
+      roundId == pageInfos?.lastRecordIdRoundId;
+  bool get isFirstPage => recordId == 0 && roundId == 0;
+
   Widget? buildVideoView(int index) {
     if (gameId.isEmpty || players.isEmpty) return null;
     final playerId = getPlayerId(index);
@@ -3026,13 +3155,13 @@ abstract class BaseGamePageState<T extends BaseGamePage>
               children: [
                 ProfilePhoto(
                   profilePhoto: user?.profile_photo,
-                  name: user?.username ?? "Player ${index + 1}",
+                  name: getPlayerUsername(playerIndex: index),
                   size: 20,
                 ),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
-                    user?.username ?? "Player ${index + 1}",
+                    getPlayerUsername(playerIndex: index),
                     style: TextStyle(
                         fontSize: 14,
                         color: currentPlayer == index ? Colors.blue : tint),
@@ -3054,33 +3183,26 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   Widget getMenuWidget(int index) {
     if (paused && pauseIndex == index) return Container();
+    if (gameId.isNotEmpty && index != myPlayer) return Container();
 
-    if (gameId.isEmpty || index == myPlayer) {
-      return IconButton(
-        style: IconButton.styleFrom(
-          padding: const EdgeInsets.all(2),
-        ),
-        onPressed: () {
-          toggleMenu(index);
-          if (!paused) {
-            pause();
-          }
-        },
-        icon: Icon(EvaIcons.menu_outline, color: tint),
-      );
-    }
-    return Container();
+    return IconButton(
+      style: IconButton.styleFrom(
+        padding: const EdgeInsets.all(2),
+      ),
+      onPressed: () {
+        toggleMenu(index);
+        if (!paused) {
+          pause();
+        }
+      },
+      icon: Icon(EvaIcons.menu_outline, color: tint),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     updateGamePageInfos();
-    // print(
-    //     "gameName = $gameName, isChessOrDraught = $isChessOrDraught, playersTimes = $playersTimes, currentPlayer = $currentPlayer, $players");
-    // print("length = ${gameDetails.length}");
-
-    // print("gameDetails = ${gameDetails}");
 
     double padding = (context.screenHeight - context.screenWidth).abs() / 2;
     bool landScape = context.isLandscape;
@@ -3322,11 +3444,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                                             child: GameTimer(
                                               timerStream:
                                                   timerController.stream,
-                                              // timerStream: index == 1 &&
-                                              //         isChessOrDraught &&
-                                              //         timerController2 != null
-                                              //     ? timerController2!.stream
-                                              //     : timerController.stream,
                                               time: concedeOrLeft?.time,
                                             ),
                                           ),
@@ -3565,15 +3682,15 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                     ],
                   ),
                 ),
-                if (loadingDetails)
-                  Center(
-                    child: SizedBox(
-                      width: 60,
-                      height: 60,
-                      child: CircularProgressIndicator(
-                          color: Colors.white.withOpacity(0.5), strokeWidth: 2),
-                    ),
-                  ),
+                // if (loadingDetails)
+                //   Center(
+                //     child: SizedBox(
+                //       width: 60,
+                //       height: 60,
+                //       child: CircularProgressIndicator(
+                //           color: Colors.white.withOpacity(0.5), strokeWidth: 2),
+                //     ),
+                //   ),
                 if (!paused &&
                     isWatchMode &&
                     !isCheckoutMode &&
@@ -3621,31 +3738,22 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                       gameId: gameId,
                       isWatching: isWatchMode,
                       isWatch: isWatch,
-                      isFirstPage: recordId == pageInfos?.firstRecordId &&
-                          roundId == pageInfos?.firstRecordIdRoundId,
-                      isLastPage: recordId == pageInfos?.lastRecordId &&
-                          roundId == pageInfos?.lastRecordIdRoundId,
+                      isFirstPage: isFirstPage,
+                      isLastPage: isLastPage,
+                      availablePlayersCount: availablePlayersCount,
                       onWatch: watch,
                       onRewatch: rewatch,
                       onStart: start,
+                      onContinue: continueMatch,
                       onRestart: restart,
                       onChange: change,
-                      onLeave: (end) => leave(null, end),
+                      onLeave: leave,
+                      onClose: close,
                       onConcede: concede,
                       onPrevious: previous,
                       onNext: next,
-                      onCheckOut: () {
-                        setState(() {
-                          isCheckoutMode = true;
-                        });
-                      },
-                      onReadAboutGame: () {
-                        if (readAboutGame) {
-                          setState(() {
-                            readAboutGame = false;
-                          });
-                        }
-                      },
+                      onCheckOut: checkout,
+                      onReadAboutGame: readAboutTheGame,
                       callMode: callMode,
                       onToggleCall: toggleCall,
                       isFrontCamera: isFrontCameraSelected,
@@ -3687,52 +3795,89 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                     ),
                   )
                 ],
+                if (gameId.isNotEmpty && !isConnectedToInternet)
+                  Positioned(
+                    top: 0,
+                    left: 20,
+                    right: 20,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(20)),
+                        child: Text(
+                          "No Internet Connection",
+                          style:
+                              context.bodySmall?.copyWith(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
                 // if (isCheckoutMode)
                 //   Text(
                 //     "Press back to Exit Checkout Mode",
                 //     style: context.bodySmall,
                 //   )
-
-                ...List.generate(playersSize, (index) {
-                  if (isCard) {
-                    return Positioned(
-                      top: index == 0 || (index == 1 && playersSize > 2)
-                          ? 0
-                          : null,
-                      bottom: (index == 1 && playersSize == 2) ||
-                              index == 2 ||
-                              (index == 3)
-                          ? 0
-                          : null,
-                      left: index == 3 || (index == 0) ? 0 : null,
-                      right: (index == 1 && playersSize > 2) ||
-                              (((index == 1 && playersSize == 2) || index == 2))
-                          ? 0
-                          : null,
-                      child: RotatedBox(
-                          quarterTurns: index == 0
-                              ? 2
-                              : index == 1 && playersSize > 2
-                                  ? 3
-                                  : index == 3
-                                      ? 1
-                                      : 0,
-                          child: getMenuWidget(index)),
-                    );
-                  } else {
-                    final mindex = (playersSize / 2).ceil();
-                    return Positioned(
-                        top: playersSize > 1 && index < mindex ? 0 : null,
-                        bottom: playersSize == 1 || index >= mindex ? 0 : null,
-                        left: playersSize > 1 && (index == 0 || index == 3)
-                            ? 0
-                            : null,
-                        right: playersSize == 1 || index == 1 || index == 2
-                            ? 0
-                            : null,
-                        child: getMenuWidget(index));
-                  }
-                }),
+                RotatedBox(
+                    quarterTurns: getLayoutTurn(),
+                    child: Stack(
+                      children: List.generate(playersSize, (index) {
+                        if (isCard) {
+                          return Positioned(
+                            top: index == 0 || (index == 1 && playersSize > 2)
+                                ? 0
+                                : null,
+                            bottom: (index == 1 && playersSize == 2) ||
+                                    index == 2 ||
+                                    (index == 3)
+                                ? 0
+                                : null,
+                            left: index == 3 || (index == 0) ? 0 : null,
+                            right: (index == 1 && playersSize > 2) ||
+                                    (((index == 1 && playersSize == 2) ||
+                                        index == 2))
+                                ? 0
+                                : null,
+                            child: RotatedBox(
+                                quarterTurns: index == 0
+                                    ? 2
+                                    : index == 1 && playersSize > 2
+                                        ? 3
+                                        : index == 3
+                                            ? 1
+                                            : 0,
+                                child: getMenuWidget(index)),
+                          );
+                        } else {
+                          final mindex = (playersSize / 2).ceil();
+                          return Positioned(
+                              top: playersSize > 1 && index < mindex ? 0 : null,
+                              bottom: playersSize == 1 || index >= mindex
+                                  ? 0
+                                  : null,
+                              left:
+                                  playersSize > 1 && (index == 0 || index == 3)
+                                      ? 0
+                                      : null,
+                              right:
+                                  playersSize == 1 || index == 1 || index == 2
+                                      ? 0
+                                      : null,
+                              child: getMenuWidget(index));
+                        }
+                      }),
+                    )),
+                if (loadingDetails)
+                  Center(
+                    child: SizedBox(
+                      width: 60,
+                      height: 60,
+                      child: CircularProgressIndicator(
+                          color: Colors.white.withOpacity(0.5), strokeWidth: 2),
+                    ),
+                  ),
               ],
             ),
           ),

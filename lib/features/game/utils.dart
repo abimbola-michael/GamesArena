@@ -13,7 +13,7 @@ import '../user/models/user.dart';
 import 'models/player.dart';
 import 'models/match.dart';
 
-void gotoGamePage(
+Future<dynamic> gotoGamePage(
     BuildContext context, String game, String gameId, String matchId,
     {Match? match,
     List<User?>? users,
@@ -27,6 +27,7 @@ void gotoGamePage(
     int roundId = 0,
     String? currentPlayerId,
     int adsTime = 0,
+    bool isReplacement = true,
     Object? result}) async {
   if (match != null) {
     //Match prevMatch = match.copyWith();
@@ -70,7 +71,12 @@ void gotoGamePage(
   //     args: args,
   //     result: result);
 
-  context.pushReplacementNamed(GamePage.route, args: args, result: result);
+  if (isReplacement) {
+    return context.pushReplacementNamed(GamePage.route,
+        args: args, result: result);
+  } else {
+    return context.pushNamedTo(GamePage.route, args: args);
+  }
 }
 
 // void updateMatchRecord(Match match, int recordId, String game,
@@ -195,6 +201,13 @@ String getOtherPlayersUsernames(List<User> users) {
       .toStringWithCommaandAnd((t) => t);
 }
 
+String getAllPlayersUsernames(List<User> users) {
+  return users
+      .map((e) => e.username)
+      .toList()
+      .toStringWithCommaandAnd((t) => t);
+}
+
 String getPlayersVs(List<User> users) {
   return users.map((e) => e.username).join(" vs ");
 }
@@ -212,13 +225,6 @@ String getPlayersVs(List<User> users) {
 //   return "Scores: ${scores.join(" - ")} • Games: ${games.toStringWithCommaandAnd((t) => t)} • Rounds: ${match.recordsCount} • Duration: ${getMatchDuration(match)}";
 // }
 
-String getMatchDuration(Match? match) {
-  if (match == null || match.time_start == null) return "";
-  if (match.time_end == null) return "live";
-  int duration = int.parse(match.time_end!) - int.parse(match.time_start!);
-  return (duration ~/ 1000).toDurationString();
-}
-
 List<String> getgames(Match match) {
   if (match.records == null) return [];
   List<String> games = [];
@@ -229,6 +235,32 @@ List<String> getgames(Match match) {
     }
   }
   return games;
+}
+
+// String getMatchDuration(Match? match) {
+//   if (match == null || match.time_start == null) return "";
+//   if (match.time_end == null) return "live";
+//   int duration = int.parse(match.time_end!) - int.parse(match.time_start!);
+//   return (duration ~/ 1000).toDurationString();
+// }
+double getMatchDuration(Match match) {
+  if (match.time_start == null || match.time_end == null) return 0;
+  double duration = 0;
+  for (int i = 0; i < match.records!.length; i++) {
+    final record = MatchRecord.fromMap(match.records!["$i"]);
+    duration += getMatchRecordDuration(record);
+  }
+  return duration;
+}
+
+double getMatchRecordDuration(MatchRecord record) {
+  if (record.time_end == null) return 0;
+  double duration = 0;
+  for (int i = 0; i < record.rounds.length; i++) {
+    final round = MatchRound.fromMap(record.rounds["$i"]);
+    duration += round.duration;
+  }
+  return duration;
 }
 
 List<MatchRecord> getMatchRecords(Match match) {
@@ -395,23 +427,27 @@ List<List<int?>> getMatchOverallTotalScores(Match match) {
 String getMoreInfoOnComfirmation(String comfirmationType) {
   switch (comfirmationType) {
     case "restart":
-      return "This means to start a new game from 0 - 0";
+      return "This means this record ends and a new record is started from 0 - 0 with the same game";
     case "change":
-      return "This means this game ends and a new game is started";
+      return "This means this record ends and a new record is started from 0 - 0 with the new game";
     case "leave":
-      return "This means you are out of the game";
+      return "This means you are out of the match and would not be added to subsequent rounds";
     case "concede":
-      return "This means you accept that you have lost the game and your opponent wins";
+      return "This means you accept that you have lost this round and your opponent wins";
+    case "close":
+      return "This means to close match, can later continue as long as there is at least 2 players left";
     case "previous":
-      return "This means to go the previous game record";
+      return "This means to go the previous round";
     case "next":
-      return "This means to go the next game record";
+      return "This means to go the next round";
   }
   return "";
 }
 
-bool isChessOrDraught(String gameName) =>
-    gameName == chessGame || gameName == draughtGame;
-bool isPuzzle(String gameName) => allPuzzleGames.contains(gameName);
-bool isQuiz(String gameName) => gameName.endsWith("Quiz");
-bool isCard(String gameName) => allCardGames.contains(gameName);
+extension QuizExtensions on String {
+  bool get isChessOrDraught => this == chessGame || this == draughtGame;
+  bool get isPuzzle => allPuzzleGames.contains(this);
+  bool get isQuiz => allQuizGames.contains(this) || endsWith("Quiz");
+  bool get isCard => allCardGames.contains(this);
+  bool get isBoard => allBoardGames.contains(this);
+}
