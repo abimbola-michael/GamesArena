@@ -1,13 +1,9 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:async';
-import 'dart:io';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:gamesarena/features/game/views/watch_game_controls_view.dart';
@@ -23,12 +19,13 @@ import 'package:gamesarena/shared/services.dart';
 import 'package:gamesarena/shared/utils/constants.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import '../../../shared/utils/call_utils.dart';
 import '../../records/models/match_round.dart';
-import '../models/concede_or_left.dart';
+import '../models/exempt_player.dart';
 import '../models/game_action.dart';
 import '../models/game_page_infos.dart';
-import '../providers/game_action_provider.dart';
 import '../providers/game_page_infos_provider.dart';
+import '../../match/providers/match_provider.dart';
 import '../views/paused_game_view.dart';
 import '../services.dart';
 import '../utils.dart';
@@ -37,7 +34,6 @@ import '../../subscription/pages/subscription_page.dart';
 import '../../subscription/services/services.dart';
 import '../../user/services.dart';
 import '../../../main.dart';
-import '../../../shared/dialogs/comfirmation_dialog.dart';
 import '../../../shared/models/models.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/widgets/app_toast.dart';
@@ -46,9 +42,11 @@ import '../../../theme/colors.dart';
 
 abstract class BaseGamePage extends ConsumerStatefulWidget {
   final Map<String, dynamic>? arguments;
+  final CallUtils gameCallUtils;
   final void Function(GameAction gameAction) onGameActionPressed;
   const BaseGamePage(
     this.arguments,
+    this.gameCallUtils,
     this.onGameActionPressed, {
     super.key,
   });
@@ -87,6 +85,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   bool isVisible = true;
   bool isConnectedToInternet = true;
+  bool alertShown = false;
 
   //watch
 
@@ -141,6 +140,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   //String timeStart = "";
 
   //Call
+
   String? callMode;
   bool calling = false;
 
@@ -175,7 +175,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   int pageIndex = 0;
   int myPageIndex = -1;
 
-  List<int> playersLeft = [];
   List<Player> players = [];
   List<Player> allPlayers = [];
   List<Player> currentPlayers = [];
@@ -195,14 +194,12 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   int gameTime = 0;
 
   //Ads
-  int adsCount = 0;
-  int adsTime = 0;
-  bool adLoaded = false;
+
   bool awaiting = false;
 
   InterstitialAd? _interstitialAd;
 
-  bool paused = true, startedRound = false, finishedRound = false;
+  bool paused = true, finishedRound = false;
 
   String currentPlayerId = "";
   int currentPlayer = 0;
@@ -223,7 +220,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   List<int> playersCounts = [];
   List<int> playersScores = [];
   List<int>? winners;
-  List<ConcedeOrLeft> concedeOrLeftPlayers = [];
+  List<ExemptPlayer> exemptPlayers = [];
 
   List<String> playersToasts = [];
   List<String> playersMessages = [];
@@ -245,6 +242,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   bool isTournament = false;
   PageController? pageController;
 
+  // StreamSubscription? callSetStateSub;
+
   @override
   void initState() {
     super.initState();
@@ -255,6 +254,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     onInitState();
     init();
     resetPlayerTime();
+    // callSetStateSub = widget.gameCallUtils.setStateStream?.listen((callback) {
+    //   setState(callback);
+    // });
   }
 
   @override
@@ -271,6 +273,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   @override
   void dispose() {
+    // callSetStateSub?.cancel();
+
     connectivitySub?.cancel();
     pageController?.dispose();
     timerController.close();
@@ -310,14 +314,15 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       matchId = arguments["matchId"] ?? "";
       gameId = arguments["gameId"] ?? "";
       match = arguments["match"];
-      users = arguments["users"];
+      users = arguments["users"] ?? [];
       players = arguments["players"] ?? [];
+      exemptPlayers = arguments["closedPlayers"] ?? [];
       playersSize = arguments["playersSize"] ?? 2;
       indices = arguments["indices"];
       recordId = arguments["recordId"] ?? 0;
       roundId = arguments["roundId"] ?? 0;
 
-      adsTime = arguments["adsTime"] ?? 0;
+      // adsTime = arguments["adsTime"] ?? 0;
       pageIndex = arguments["pageIndex"] ?? 0;
       playersScores = arguments["playersScores"] ?? [];
       isTournament = arguments["isTournament"] ?? false;
@@ -337,7 +342,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     matchEnded = match?.time_end != null;
 
     checkFirstime();
-    checkSubscription();
+    //checkSubscription();
     initMessages();
     initPlayersCounts();
     initToasts();
@@ -381,9 +386,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     setState(() {});
   }
 
-  void showPlayersMessagesExcept(List<int> exceptedPlayers, String message) {
+  void showPlayersMessagesExcept(List<int> exemptedPlayers, String message) {
     final players = getActivePlayersIndices()
-        .where((player) => !exceptedPlayers.contains(player))
+        .where((player) => !exemptedPlayers.contains(player))
         .toList();
     for (int i = 0; i < players.length; i++) {
       final player = players[i];
@@ -436,25 +441,25 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         }
       }
 
-      if (isSubscribed != null) {
-        if (isSubscribed!) {
-          if (availableDuration > 0) {
-            availableDuration--;
-          } else {
-            showToast(
-                "Your subscription has expired. Please subscribe to continue without ads");
-            gotoSubscription();
-          }
-        }
-        if (availableDuration == 0) {
-          if (adsTime >= maxAdsTime) {
-            loadAd();
-            adsTime = 0;
-          } else {
-            adsTime++;
-          }
-        }
+      // if (isSubscribed != null) {
+      //   if (isSubscribed!) {
+      //     if (availableDuration > 0) {
+      //       availableDuration--;
+      //     } else {
+      //       showToast(
+      //           "Your subscription has expired. Please subscribe to continue without ads");
+      //       gotoSubscription();
+      //     }
+      //   }
+      //  if (availableDuration == 0) {
+      if (adUtils.adTime >= adUtils.maxAdTime) {
+        loadAd();
+      } else {
+        adUtils.adTime++;
       }
+      // print("adTime = ${adUtils.adTime}");
+      // }
+      //}
 
       if (maxGameTime != null && gameTime <= 0) {
         timer.cancel();
@@ -476,6 +481,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
           } else if (isChessOrDraught) {
             updateWin(getNextPlayerIndex(currentPlayer));
           }
+          if (!mounted) return;
           setState(() {});
         } else {
           playersTimes[currentPlayer] = playerTime - 1;
@@ -587,6 +593,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         currentPlayerId = playerId;
       }
 
+      if (!mounted) return;
+
       setState(() {});
       return;
     }
@@ -601,26 +609,14 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     setState(() {});
   }
 
-  void resetConcedeOrLeft() {
-    // if (gameId.isNotEmpty) {
-    //   concedeOrLeftPlayers.removeWhere((element) =>
-    //       element.action == "leave" &&
-    //       players
-    //               .firstWhereNullable((player) => player.id == element.playerId)
-    //               ?.matchId ==
-    //           matchId);
-    // }
-
-    // concedeOrLeftPlayers.removeWhere((element) => element.action == "concede");
-    // setState(() {});
-
-    if (concedeOrLeftPlayers.isEmpty) return;
+  void resetExemptPlayer() {
+    if (exemptPlayers.isEmpty) return;
     List<int> newScores = getNewPlayersScores();
 
-    for (int i = 0; i < concedeOrLeftPlayers.length; i++) {
-      final concedeOrLeft = concedeOrLeftPlayers[i];
-      final playerId = concedeOrLeft.playerId;
-      final action = concedeOrLeft.action;
+    for (int i = 0; i < exemptPlayers.length; i++) {
+      final exemptPlayer = exemptPlayers[i];
+      final playerId = exemptPlayer.playerId;
+      final action = exemptPlayer.action;
       if (action == "concede") continue;
       users?.removeWhere((element) => element?.user_id == playerId);
       players.removeWhere((element) => element.id == playerId);
@@ -637,31 +633,72 @@ abstract class BaseGamePageState<T extends BaseGamePage>
           .indexWhere((element) => element != null && element.user_id == myId);
       myPlayer = index;
     }
-    concedeOrLeftPlayers.clear();
+    exemptPlayers.clear();
 
     setState(() {});
   }
 
   bool isPlayerActive(int player) {
-    return getConcedeOrLeft(player) == null;
+    return getExemptPlayer(player) == null;
   }
 
   bool isPlayerAvailable(int player) {
-    final concedeOrLeft = getConcedeOrLeft(player);
-    return concedeOrLeft == null || concedeOrLeft.action == "concede";
+    final exemptPlayer = getExemptPlayer(player);
+    return exemptPlayer == null || exemptPlayer.action == "concede";
   }
 
-  ConcedeOrLeft? getConcedeOrLeft(int player) {
+  ExemptPlayer? getExemptPlayer(int player) {
     final index =
-        concedeOrLeftPlayers.indexWhere((element) => element.index == player);
-    return index != -1 ? concedeOrLeftPlayers[index] : null;
+        exemptPlayers.indexWhere((element) => element.index == player);
+    return index != -1 ? exemptPlayers[index] : null;
+  }
+
+  ExemptPlayer? getMyExemptPlayer() {
+    final index =
+        exemptPlayers.indexWhere((element) => element.playerId == myId);
+    return index != -1 ? exemptPlayers[index] : null;
+  }
+
+  List<int>? getClosedPlayers() {
+    List<int> players = exemptPlayers
+        .where((player) => player.action == "close")
+        .map((e) => e.index)
+        .toList();
+    return players.isEmpty ? null : players;
+  }
+
+  void addClosedPlayers(List<int> closedPlayers) {
+    for (int i = 0; i < closedPlayers.length; i++) {
+      final index = closedPlayers[i];
+
+      final exemptPlayer = ExemptPlayer(
+          index: index,
+          playerId: getPlayerId(index),
+          action: "close",
+          time: gameTime);
+      exemptPlayers.add(exemptPlayer);
+    }
+  }
+
+  void addLeftPlayers(List<String> availablePlayers) {
+    for (int i = 0; i < players.length; i++) {
+      final player = players[i];
+      if (availablePlayers.contains(player.id)) continue;
+
+      final exemptPlayer = ExemptPlayer(
+          index: getPlayerIndex(player.id),
+          playerId: player.id,
+          action: "leave",
+          time: gameTime);
+      exemptPlayers.add(exemptPlayer);
+    }
   }
 
   List<int> getNewPlayersScores() {
     List<int> scores = [];
     int length = gameId.isNotEmpty ? players.length : playersSize;
     for (int i = 0; i < length; i++) {
-      if (concedeOrLeftPlayers.indexWhere(
+      if (exemptPlayers.indexWhere(
               (element) => element.index == i && element.action == "leave") !=
           -1) {
         continue;
@@ -675,7 +712,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     List<Player> activePlayers = [];
     for (int i = 0; i < players.length; i++) {
       final player = players[i];
-      if (concedeOrLeftPlayers
+      if (exemptPlayers
               .indexWhere((element) => element.playerId == player.id) !=
           -1) {
         continue;
@@ -689,7 +726,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     List<Player> availablePlayers = [];
     for (int i = 0; i < players.length; i++) {
       final player = players[i];
-      if (concedeOrLeftPlayers.indexWhere((element) =>
+      if (exemptPlayers.indexWhere((element) =>
               element.playerId == player.id && element.action == "leave") !=
           -1) {
         continue;
@@ -704,8 +741,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     int length = gameId.isNotEmpty ? players.length : playersSize;
 
     for (int i = 0; i < length; i++) {
-      if (concedeOrLeftPlayers.indexWhere((element) => element.index == i) !=
-          -1) {
+      if (exemptPlayers.indexWhere((element) => element.index == i) != -1) {
         continue;
       }
       playersIndices.add(i);
@@ -718,8 +754,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     int length = gameId.isNotEmpty ? players.length : playersSize;
 
     for (int i = 0; i < length; i++) {
-      if (concedeOrLeftPlayers.indexWhere(
-              (element) => element.index == i && element.action == "leave") !=
+      if (exemptPlayers.indexWhere((element) =>
+              element.index == i &&
+              (element.action == "leave" || element.action == "close")) !=
           -1) {
         continue;
       }
@@ -783,6 +820,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   void getPrevPlayer() {
     final index = getPrevPlayerIndex();
+    if (index == -1) return;
     if (gameId.isNotEmpty) {
       final playerIds = players.map((e) => e.id).toList();
       currentPlayerId = playerIds[index];
@@ -793,6 +831,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   void getNextPlayer() {
     final index = isPuzzle || isQuiz ? currentPlayer : getNextPlayerIndex();
+    if (index == -1) return;
     if (gameId.isNotEmpty) {
       final playerIds = players.map((e) => e.id).toList();
       currentPlayerId = playerIds[index];
@@ -824,16 +863,34 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                 : 1;
   }
 
-  void updateMyAction(String action) async {
+  void updateMyCallMode(String? callMode) async {
+    final index = players.indexWhere((element) => element.id == myId);
+    if (index == -1 || players[index].callMode == callMode) return;
+
+    await updateCallMode(gameId, matchId, callMode);
+
+    players[index] = players[index].copyWith(callMode: callMode);
+
+    executeCallAction(players[index]);
+    // widget.gameCallUtils.executeCallAction(players[index]);
+
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future updateMyAction(String action) async {
     final index = players.indexWhere((element) => element.id == myId);
     if (index == -1 || players[index].action == action) return;
-    await updatePlayerActionAndShowToast(gameId, action);
-
+    await updatePlayerActionAndShowToast(action);
+    if (index < 0 || index > players.length - 1) return;
     players[index] = players[index].copyWith(action: action);
-    showToast(action.isEmpty
-        ? "You left"
-        : "You $action${action.endsWith("e") ? "d" : "ed"}");
-    executeGameAction();
+    if (action != "ad" && action.isNotEmpty) {
+      showToast(action == "start" && !startingRound && !finishedRound
+          ? "You resumed"
+          : "You $action${action.endsWith("e") ? "d" : "ed"}");
+    }
+
+    executeAction();
 
     if (!mounted) return;
     setState(() {});
@@ -842,22 +899,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   void updateMyChangedGame(String game) async {
     final index = players.indexWhere((element) => element.id == myId);
     if (index == -1 || players[index].game == game) return;
-    await updatePlayerActionAndShowToast(gameId, "pause", game);
+    await updatePlayerActionAndShowToast("pause", game);
     players[index] = players[index].copyWith(game: game, action: "pause");
     showToast("You changed game to $game");
     executeGameChange();
-    if (!mounted) return;
-    setState(() {});
-  }
-
-  void updateMyCallMode({String? callMode}) async {
-    final index = players.indexWhere((element) => element.id == myId);
-    if (index == -1 || players[index].callMode == callMode) return;
-    // await updatePlayerActionAndShowToast(gameId, "pause", game);
-    await executeCallAction(players[index]);
-
-    players[index] = players[index].copyWith(callMode: callMode);
-
     if (!mounted) return;
     setState(() {});
   }
@@ -868,7 +913,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     change(newgame, false);
   }
 
-  String executeGameAction() {
+  String executeAction() {
     String action = getAction(getAvailablePlayers());
     if (action == "pause") {
       if (!paused) {
@@ -975,7 +1020,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     if (gameId.isEmpty) return;
     connectivitySub = _connectivity.onConnectivityChanged.listen((results) {
       isConnectedToInternet = results.contains(ConnectivityResult.mobile) ||
-          results.contains(ConnectivityResult.wifi);
+          results.contains(ConnectivityResult.wifi) ||
+          results.contains(ConnectivityResult.ethernet);
       setState(() {});
 
       if (isConnectedToInternet && unsentGameDetails.isNotEmpty) {
@@ -996,6 +1042,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
             (index) =>
                 Player(id: round.players[index], time: timeNow, order: index));
       }
+      if (round.closed_players != null) {
+        addClosedPlayers(round.closed_players!);
+      }
+
       playersScores = round.scores.toList().cast();
       winners = round.winners;
       finishedRound = round.time_end != null;
@@ -1013,15 +1063,18 @@ abstract class BaseGamePageState<T extends BaseGamePage>
               (index) => Player(
                   id: match!.players![index], time: timeNow, order: index));
         }
-      } else {
-        players = List.generate(playersSize,
-            (index) => Player(id: "$index", time: timeNow, order: index));
       }
+      // else {
+      //   players = List.generate(playersSize,
+      //       (index) => Player(id: "$index", time: timeNow, order: index));
+      // }
     }
     availablePlayersCount = gameId.isEmpty ? playersSize : players.length;
 
     if (gameId.isEmpty || match == null) return;
     players.sortList((player) => player.order, false);
+
+    widget.gameCallUtils.setPlayers(players);
 
     if (users == null || users!.isEmpty) {
       users = await playersToUsers(players.map((e) => e.id).toList());
@@ -1029,6 +1082,16 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
     final index = players.indexWhere((element) => element.id == myId);
     myPlayer = index;
+
+    // if (!finishedRound) {
+    //   players[myPlayer] = players[myPlayer].copyWith(action: "pause");
+    // }
+    if (isLastPage && !finishedRound) {
+      final availablePlayers = (match?.available_players ?? []);
+      if (availablePlayers.isNotEmpty) {
+        addLeftPlayers(match!.available_players!);
+      }
+    }
 
     setState(() {});
     if (finishedRound) {
@@ -1039,6 +1102,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         .lastOrNull
         ?.time_modified;
 
+    players.sortList((player) => player.order ?? 0, false);
+
     final playerIds = players.map((player) => player.id).toList();
 
     playersSub = getPlayersChange(gameId,
@@ -1046,111 +1111,134 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         .listen((playersChanges) async {
       for (int i = 0; i < playersChanges.length; i++) {
         final playersChange = playersChanges[i];
-        final value = playersChange.value;
+        final player = playersChange.value;
 
         final playerIndex =
-            players.indexWhere((element) => element.id == value.id);
+            players.indexWhere((element) => element.id == player.id);
         final userIndex =
-            users!.indexWhere((element) => element?.user_id == value.id);
+            users!.indexWhere((element) => element?.user_id == player.id);
         final username = userIndex == -1
             ? ""
             : users![userIndex]?.user_id == myId
                 ? "you"
                 : users![userIndex]?.username ?? "";
 
-        print("playersChange = $playersChange");
-
-        if (playersChange.removed || value.matchId != matchId) {
-          leave(value.id, false);
-          print("leaving");
-
-          value.game = null;
-          value.matchId = "";
-        }
-
-        print("value = $value");
+        final myPlayer = getMyPlayer(players);
 
         if (playerIndex != -1) {
-          final actionMessage = value.game != null && value.game != gameName
-              ? "changed to ${value.game}"
-              : players[playerIndex].action != value.action &&
-                      (value.action ?? "").isNotEmpty
-                  ? value.action ?? ""
-                  : "";
-          if (actionMessage.isNotEmpty) {
+          final prevPlayer = players[playerIndex];
+          if (player.game != null &&
+              myPlayer?.game != null &&
+              prevPlayer.game != player.game &&
+              player.game != myPlayer?.game) {
+            if (alertShown) {
+              context.pop();
+              alertShown = false;
+            }
+            alertShown = true;
+            final result = await context.showComfirmationDialog(
+                title: "$username changed to ${player.game}",
+                message: "Do you also want to change game?");
+            alertShown = false;
+            if (result == true) {
+              change(player.game!);
+            }
+          } else if ((player.action ?? "").isNotEmpty &&
+              (myPlayer?.action ?? "").isNotEmpty &&
+              prevPlayer.action != player.action &&
+              player.action != myPlayer?.action) {
+            final action = player.action ?? "";
+            final playerId = player.id;
             final title =
-                "$username ${value.game != gameName ? actionMessage : "$actionMessage${actionMessage.endsWith("e") ? "d" : "ed"}"}";
-            if (value.game != null && value.game != gameName
-                ? value.game != getMyPlayer(players)?.game
-                : value.action != "pause" &&
-                    value.action != "concede" &&
-                    value.action != "leave" &&
-                    value.action != "" &&
-                    value.action != getMyPlayer(players)?.action) {
-              final result = await context.showComfirmationDialog(
-                  title: title,
-                  message:
-                      "Do you also want to ${value.game != gameName ? "change" : value.action!} game?");
-              if (result == true) {
-                if (value.game != null && value.game != gameName) {
-                  change(value.game!);
-                } else {
-                  if (value.action == "pause") {
+                "$username $action${action.endsWith("e") ? "d" : "ed"}";
+
+            if (action == "ad") {
+              loadAd();
+            } else if (action == "concede") {
+              if (startingRound && !finishedRound) concede(playerId, false);
+            } else if (action == "leave") {
+              leave(playerId, false);
+            } else if (action == "close") {
+              close(playerId, false);
+            } else if (action == "unclose") {
+              unclose(playerId, false);
+            } else if (action == "pause") {
+              showToast(title);
+            } else {
+              showToast(title);
+
+              if (alertShown) {
+                context.pop();
+              }
+              if (myPlayer?.action != "ad") {
+                if (action == "start") {
+                  if (startingRound &&
+                      !finishedRound &&
+                      (match!.available_players == null ||
+                          match!.available_players!.contains(playerId)) &&
+                      (getExemptPlayer(playerIndex)?.action == "close")) {
+                    unclose(playerId, false);
+                  }
+                }
+                alertShown = true;
+                final result = await context.showComfirmationDialog(
+                    title: title, message: "Do you also want to $action game?");
+                alertShown = false;
+
+                if (result == true) {
+                  if (player.action == "pause") {
                     if (!paused) {
                       pause();
                     }
-                  } else if (value.action == "start") {
+                  } else if (player.action == "start") {
                     if (paused) {
                       start();
                     }
-                  } else if (value.action == "restart") {
+                  } else if (player.action == "restart") {
                     restart();
-                  } else if (value.action == "continue") {
+                  } else if (player.action == "continue") {
                     continueMatch();
                   }
                 }
               }
-            } else {
-              showToast(title);
             }
-          }
-          if (players[playerIndex].callMode != value.callMode) {
-            if (value.callMode != null) {
-              final title = "$username started ${value.callMode} call";
-              if (value.callMode != getMyPlayer(players)?.callMode) {
-                if (!mounted) return;
-                final result = await context.showComfirmationDialog(
-                    title: title, message: "Do you accept?");
-                if (result == true) {
-                  await updateCallMode(gameId, matchId, callMode);
-                  updateMyCallMode(callMode: value.callMode!);
-                }
-              } else {
-                showToast(title);
-              }
-            } else {
-              final title = "$username ended call";
-              showToast(title);
-            }
-          }
+          } else if (player.callMode != null &&
+              prevPlayer.callMode != player.callMode &&
+              player.callMode != myPlayer?.callMode) {
+            final callMode = player.callMode;
+            final title =
+                "$username ${callMode == null ? "ended ${prevPlayer.callMode} call" : "started $callMode call"}";
 
-          players[playerIndex] = value;
+            showToast(title);
+
+            if (callMode != null) {
+              final result = await context.showComfirmationDialog(
+                  title: title, message: "Do you accept?");
+              if (result == true) {
+                toggleCall(callMode);
+              }
+            }
+          }
+          // widget.gameCallUtils.executeCallAction(player, playersChange.removed);
+
+          players[playerIndex] = player;
         } else {
           showToast("$username joined");
-          players.add(value);
+          // widget.gameCallUtils.executeCallAction(player, playersChange.removed);
+
+          players.add(player);
         }
 
         if (!mounted) return;
-        executeGameAction();
+        executeAction();
         executeGameChange();
-        executeCallAction(value, playersChange.removed);
+        //executeCallAction(player, playersChange.removed);
+        // widget.gameCallUtils.executeCallAction(player, playersChange.removed);
 
         setState(() {});
       }
     });
   }
-
-  // int get end => (timeEnd ?? timeStart + (duration * 1000));
 
   Future readWatchDetails() async {
     //trying to match the watch position
@@ -1386,6 +1474,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   Future readDetails() async {
+    if (match == null) return;
     if (detailsSub != null) {
       await detailsSub!.cancel();
       detailsSub = null;
@@ -1397,7 +1486,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     // final timeEnd =
     //     match?.records?["$recordId"]?["rounds"]?["$roundId"]?["time_end"];
 
-    var lastTime = gameDetails.lastOrNull?["time"];
+    //var lastTime = gameDetails.lastOrNull?["time"];
     final playerIds = players.map((player) => player.id).toList();
 
     if (gameId.isNotEmpty) {
@@ -1405,11 +1494,11 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         loadingDetails = true;
         setState(() {});
 
-        final foundGameDetails = await getGameDetails(
-            gameId, matchId, recordId, roundId,
-            time: lastTime,
-            limit: isWatch && finishedRound ? watchDetailsLimit * 2 : null,
-            players: playerIds);
+        final foundGameDetails =
+            await getGameDetails(gameId, matchId, recordId, roundId,
+                // time: lastTime,
+                limit: isWatch && finishedRound ? watchDetailsLimit * 2 : null,
+                players: playerIds);
 
         loadingDetails = false;
         gameDetails.addAll(foundGameDetails);
@@ -1430,10 +1519,12 @@ abstract class BaseGamePageState<T extends BaseGamePage>
             timerController.sink.add(gameTime);
             getCurrentPlayer();
             onStart();
+            seeking = true;
             for (int i = 0; i < foundGameDetails.length; i++) {
               final gameDetail = foundGameDetails[i];
               updateGameDetails(gameDetail, readMoreDetails: true);
             }
+            seeking = false;
             endDuration = gameDetails.lastOrNull?["duration"] ?? 0.0;
           }
         }
@@ -1445,7 +1536,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         return;
       }
 
-      lastTime = gameDetails.lastOrNull?["time"];
+      var lastTime = gameDetails.lastOrNull?["time"];
 
       detailsSub = getGameDetailsChange(gameId, matchId, recordId, roundId,
               time: lastTime, players: playerIds)
@@ -1460,8 +1551,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     }
   }
 
-  Future updateGameDetails(Map<String, dynamic> gameDetail,
-      {bool readMoreDetails = false}) async {
+  void updateGameDetails(Map<String, dynamic> gameDetail,
+      {bool readMoreDetails = false}) {
     final playerId = gameDetail["id"];
     final duration = gameDetail["duration"];
     final playerTime = gameDetail["playerTime"] as int?;
@@ -1472,9 +1563,14 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
     if (duration != null) {
       this.duration = (duration is int) ? duration.toDouble() : duration;
+      gameTime = maxGameTime != null
+          ? maxGameTime! - this.duration.toInt()
+          : this.duration.toInt();
     }
 
-    if (playerTime != null) {
+    if (playerTime != null &&
+        playerIndex > 0 &&
+        playerIndex < playersTimes.length) {
       playersTimes[playerIndex] = playerTime;
     }
 
@@ -1483,29 +1579,37 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         concede(playerId, false);
       } else if (action == "leave") {
         leave(playerId, false);
+      } else if (action == "close") {
+        close(playerId, false);
+      } else if (action == "unclose") {
+        unclose(playerId, false);
       }
     } else {
       awaitingDetails = true;
-      await onDetailsChange(gameDetail);
+      onDetailsChange(gameDetail);
       awaitingDetails = false;
     }
     if (readMoreDetails && gameDetail["moreDetails"] != null) {
       final moreDetails = gameDetail["moreDetails"] as List<dynamic>;
       for (int i = 0; i < moreDetails.length; i++) {
         final detail = moreDetails[i];
-        await updateGameDetails(detail);
+        updateGameDetails(detail);
       }
     }
   }
 
-  Future setActionDetails(String action) async {
-    if (gameDetails.isEmpty) return;
-    await setGatheredDetails();
-    setDetail({"action": action});
+  void setActionDetails(String action) {
+    if (finishedRound) return;
+
+    final outputDetail = getFullDetail({"action": action}, index: 0, length: 1);
+    gatheredGameDetails.add(outputDetail);
+
+    setGatheredDetails();
   }
 
   Future<List<Map<String, dynamic>>> setDetails(
       List<Map<String, dynamic>> details) async {
+    if (finishedRound) return [];
     List<Map<String, dynamic>> outputDetails = [];
     for (int i = 0; i < details.length; i++) {
       final detail = details[i];
@@ -1524,12 +1628,15 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     detail["duration"] = (duration - ((length - index - 1) * (1 / length)))
         .toStringAsFixed(1)
         .toDouble;
+    detail["playerTime"] = playerTime;
     detail["id"] = gameId.isEmpty ? "$currentPlayer" : myId;
     return detail.removeNull();
   }
 
   Future<Map<String, dynamic>> setDetail(Map<String, dynamic> detail,
       {bool add = true}) async {
+    if (finishedRound) return {};
+
     final outputDetail = getFullDetail(detail, index: 0, length: 1);
     gatheredGameDetails.add(outputDetail);
 
@@ -1613,7 +1720,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   bool itsMyTurnForMessage(int player) =>
       (currentPlayer == player && showMessage) ||
-      getConcedeOrLeft(player) != null;
+      getExemptPlayer(player) != null;
 
   bool itsMyTurnToPlay(bool isClick, [int? player]) {
     if (isClick) toggleLayoutPressed();
@@ -1637,57 +1744,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       return false;
     }
     return true;
-  }
-
-  void loadAd() async {
-    await _interstitialAd?.dispose();
-    _interstitialAd = null;
-    if (kIsWeb || !isAndroidAndIos || privateKey == null) {
-      return;
-    }
-    privateKey ??= await getPrivateKey();
-    final mobileAdUnit = privateKey!.mobileAdUnit;
-    InterstitialAd.load(
-        adUnitId: mobileAdUnit,
-        request: const AdRequest(),
-        adLoadCallback: InterstitialAdLoadCallback(
-          // Called when an ad is successfully received.
-          onAdLoaded: (ad) {
-            ad.fullScreenContentCallback = FullScreenContentCallback(
-                // Called when the ad showed the full screen content.
-                onAdShowedFullScreenContent: (ad) {
-                  adsCount++;
-                  if (adsCount % 3 == 0 && isSubscribed == false) {
-                    gotoSubscription();
-                  }
-                  stopTimer();
-                },
-                // Called when an impression occurs on the ad.
-                onAdImpression: (ad) {},
-                // Called when the ad failed to show full screen content.
-                onAdFailedToShowFullScreenContent: (ad, err) {
-                  // Dispose the ad here to free resources.
-                  ad.dispose();
-                  // startTimer();
-                },
-                // Called when the ad dismissed full screen content.
-                onAdDismissedFullScreenContent: (ad) {
-                  // Dispose the ad here to free resources.
-                  ad.dispose();
-                  // startTimer();
-                },
-                // Called when a click is recorded for an ad.
-                onAdClicked: (ad) {});
-
-            // Keep a reference to the ad so you can show it later.
-            _interstitialAd = ad;
-            _interstitialAd!.show();
-          },
-          // Called when an ad request failed.
-          onAdFailedToLoad: (LoadAdError error) {
-            // startTimer();
-          },
-        ));
   }
 
   void incrementCount(int player, [int count = 1]) {
@@ -1763,8 +1819,14 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     setState(() {});
   }
 
-  String getConcedeOrLeftMessage(ConcedeOrLeft concedeOrLeft) {
-    return concedeOrLeft.action == "concede" ? "Conceded" : "Left";
+  String getExemptPlayerMessage(ExemptPlayer exemptPlayer) {
+    return exemptPlayer.action == "concede"
+        ? "Conceded"
+        : exemptPlayer.action == "leave"
+            ? "Left"
+            : exemptPlayer.action == "close"
+                ? "Closed"
+                : "";
   }
 
   String getMessage(int index) {
@@ -1772,12 +1834,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
     return "${itsMyTurnForMessage(index) ? "${message.isEmpty ? this.message.isNotEmpty ? this.message : "Play" : message} - " : message.isEmpty ? "" : "$message - "}${playersTimes[index].toDurationString(false)}";
   }
-
-  // String getPlayerName(int player) {
-  //   return users == null || users!.isEmpty || player >= users!.length
-  //       ? "Player ${player + 1}"
-  //       : users![player]?.username ?? "";
-  // }
 
   void updateWinForPlayerWithHighestCount() {
     final players = getHighestCountPlayer(playersCounts);
@@ -2105,7 +2161,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   void stopWatching() {
-    if (!isWatchMode || gameDetailsLength != gameDetails.length) return;
+    if (!isWatchMode || gameDetailsLength != gameDetails.length || !mounted)
+      return;
 
     resetWatchDetails();
     isWatchMode = false;
@@ -2140,14 +2197,13 @@ abstract class BaseGamePageState<T extends BaseGamePage>
           action: action,
           game: game ?? gameName,
           players: players,
-          playersLeft: playersLeft,
-          hasDetails: gameDetails.isNotEmpty,
+          exemptPlayers: exemptPlayers,
+          hasStarted: !startingRound,
           args: widget.arguments ?? {}),
     );
   }
 
   Future<dynamic> updatePlayerActionAndShowToast(
-    String gameId,
     String action, [
     String? game,
   ]) async {
@@ -2156,7 +2212,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     final myGame = myPlaying.game;
 
     if (myAction == action && myGame == game) return;
-    await updatePlayerAction(gameId, action, game);
+    await updatePlayerAction(gameId, matchId, action, game);
 
     if (this.users == null || this.users!.isEmpty) return;
     final users = this.users!;
@@ -2181,7 +2237,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
           waitingUsers.add(user);
         }
       }
-      if (action.isEmpty && game == null) return;
+      if ((action.isEmpty || action == "ad") && game == null) {
+        return;
+      }
       showToast(
           "Waiting for ${waitingUsers.toStringWithCommaandAnd((user) => user.username)} to also ${action != myAction ? action : "change to $game"}");
     }
@@ -2196,7 +2254,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     gameTime = maxGameTime ?? 0;
     playersTimes[currentPlayer] = maxPlayerTime ?? 30;
     gatheredGameDetails.clear();
-    concedeOrLeftPlayers.clear();
+    exemptPlayers.clear();
 
     isCheckoutMode = false;
     timerController.sink.add(gameTime);
@@ -2228,7 +2286,23 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     }
   }
 
+  bool get startingRound =>
+      maxGameTime != null ? gameTime == maxGameTime : gameTime == 0;
+
+  void loadAd() {
+    adUtils.loadAd(onShow: updateAd, onHide: start, onFail: start);
+    adUtils.adTime = 0;
+  }
+
+  void updateAd([bool isClick = true]) {
+    if (isClick && gameId.isNotEmpty) {
+      updateMyAction("ad");
+      return;
+    }
+  }
+
   void pause([bool isClick = true]) async {
+    if (!mounted) return;
     if (isClick && gameId.isNotEmpty) {
       updateMyAction("pause");
       return;
@@ -2238,10 +2312,18 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     setState(() {});
   }
 
-  bool get startingRound =>
-      maxGameTime != null ? gameTime == maxGameTime : gameTime == 0;
-
   void start([bool isClick = true]) async {
+    if (isClick &&
+        gameId.isNotEmpty &&
+        match != null &&
+        !finishedRound &&
+        (match!.available_players == null ||
+            match!.available_players!.contains(myId)) &&
+        !isWatch &&
+        (getMyExemptPlayer()?.action == "close")) {
+      unclose(myId, true);
+      return;
+    }
     final myPlayer = getMyPlayer(players);
     if (isClick && gameId.isNotEmpty) {
       if (paused && myPlayer?.action == "start") {
@@ -2249,13 +2331,12 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       } else {
         updateMyAction("start");
       }
-
       return;
     }
 
     if (startingRound) {
-      updateMatchRecord();
       resetAllDetails();
+      updateMatchRecord();
     } else {
       onResume();
     }
@@ -2269,7 +2350,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       return;
     }
     if (!finishedRound) {
-      updateMatchRound(null);
+      updateMatchRound(null, false);
     }
     updateGameAction("continue");
     stopListening();
@@ -2281,7 +2362,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       return;
     }
     if (!finishedRound) {
-      updateMatchRound(null);
+      updateMatchRound(null, false);
     }
     updateGameAction("restart");
     stopListening();
@@ -2293,20 +2374,105 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       return;
     }
     if (!finishedRound) {
-      updateMatchRound(null);
+      updateMatchRound(null, false);
     }
 
     updateGameAction("change", game: game);
     stopListening();
   }
 
+  void close([String? playerId, bool isClick = true]) async {
+    if (isClick && (finishedRound || gameId.isEmpty)) {
+      context.pop();
+      return;
+    }
+    if (isClick && gameId.isNotEmpty) {
+      if (startingRound || finishedRound) {
+        try {
+          await updateMyAction("close");
+        } catch (e) {}
+      } else {
+        setActionDetails("close");
+      }
+      updateMyAction("");
+
+      if (!mounted) return;
+      context.pop();
+      return;
+    }
+    final index = playerId != null ? getPlayerIndex(playerId) : pauseIndex;
+    //onClose(index);
+
+    if (gameId.isEmpty && !isWatch) setActionDetails("close");
+
+    final prevIndex =
+        exemptPlayers.indexWhere((player) => player.index == index);
+
+    if (prevIndex != -1) {
+      exemptPlayers[prevIndex] =
+          exemptPlayers[prevIndex].copyWith(action: "close");
+    } else {
+      exemptPlayers.add(ExemptPlayer(
+          index: index, playerId: playerId, action: "close", time: gameTime));
+    }
+
+    final activePlayersCount = getActivePlayersIndices().length;
+    if (activePlayersCount > 1) {
+      if (index == currentPlayer) {
+        changePlayer();
+      }
+      pauseIndex = currentPlayer;
+    }
+
+    if (gameId.isEmpty) {
+      showAllPlayersToast("${getPlayerUsername(playerIndex: index)} closed");
+    } else {
+      showToast("${getPlayerUsername(playerId: playerId)} closed");
+    }
+    setState(() {});
+  }
+
+  void unclose([String? playerId, bool isClick = true]) async {
+    if (isClick && gameId.isNotEmpty) {
+      if (!startingRound && !finishedRound) {
+        setActionDetails("unclose");
+      }
+      updateMyAction("start");
+      unclose(myId, false);
+      return;
+    }
+
+    final index = playerId != null ? getPlayerIndex(playerId) : pauseIndex;
+    //onUnClose(index);
+
+    if (gameId.isEmpty && !isWatch) setActionDetails("unclose");
+
+    final prevIndex = exemptPlayers.indexWhere(
+        (player) => player.index == index && player.action == "close");
+
+    if (prevIndex != -1) {
+      exemptPlayers.removeAt(prevIndex);
+    }
+
+    final activePlayersCount = getActivePlayersIndices().length;
+    if (activePlayersCount > 1) {
+      if (index == currentPlayer) {
+        changePlayer();
+      }
+      pauseIndex = currentPlayer;
+    }
+
+    if (gameId.isEmpty) {
+      showAllPlayersToast("${getPlayerUsername(playerIndex: index)} continued");
+    } else {
+      showToast("${getPlayerUsername(playerId: playerId)} continued");
+    }
+    setState(() {});
+  }
+
   void concede([String? playerId, bool isClick = true]) async {
     if (isClick && gameId.isNotEmpty) {
-      if (loadingDetails) {
-        showToast("Can't concede now, still loading details");
-        return;
-      }
-      await setActionDetails("concede");
+      setActionDetails("concede");
 
       concede(myId, false);
 
@@ -2317,13 +2483,25 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
     if (gameId.isEmpty && !isWatch) setActionDetails("concede");
 
-    concedeOrLeftPlayers.add(ConcedeOrLeft(
-        index: index, playerId: playerId, action: "concede", time: gameTime));
-    if (index == currentPlayer) {
-      changePlayer();
+    final prevIndex =
+        exemptPlayers.indexWhere((player) => player.index == index);
+
+    if (prevIndex != -1) {
+      exemptPlayers[prevIndex] =
+          exemptPlayers[prevIndex].copyWith(action: "concede");
+    } else {
+      exemptPlayers.add(ExemptPlayer(
+          index: index, playerId: playerId, action: "concede", time: gameTime));
     }
-    pauseIndex = currentPlayer;
+
     final activePlayersCount = getActivePlayersIndices().length;
+
+    if (activePlayersCount > 1) {
+      if (index == currentPlayer) {
+        changePlayer();
+      }
+      pauseIndex = currentPlayer;
+    }
 
     if (activePlayersCount == 1) {
       updateWin(getNextPlayerIndex(index),
@@ -2348,43 +2526,74 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         showToast("Can't leave now, still loading details");
         return;
       }
-      setActionDetails("leave");
-      updateMyAction("");
-      //leaveMatch(gameId, matchId, match, players);
 
+      if (startingRound || finishedRound) {
+        try {
+          await updateMyAction("leave");
+          updateMyAction("");
+        } catch (e) {}
+      } else {
+        setActionDetails("leave");
+      }
+
+      // leaveMatch(gameId, matchId, match, players, false);
       leave(myId, false);
 
+      if (!mounted) return;
+      context.pop();
       return;
     }
 
     final index = playerId != null ? getPlayerIndex(playerId) : pauseIndex;
-    if (concedeOrLeftPlayers.indexWhere((element) => element.index == index) !=
-        -1) {
+    if (exemptPlayers.indexWhere((element) => element.index == index) != -1) {
       return;
     }
 
     onLeave(index);
     if (gameId.isEmpty && !isWatch) setActionDetails("leave");
 
-    concedeOrLeftPlayers.add(ConcedeOrLeft(
-        index: index, playerId: playerId, action: "leave", time: gameTime));
-    if (!playersLeft.contains(pauseIndex)) playersLeft.add(pauseIndex);
-    if (index == currentPlayer) {
-      changePlayer();
+    final prevIndex =
+        exemptPlayers.indexWhere((player) => player.index == index);
+
+    if (prevIndex != -1) {
+      exemptPlayers[prevIndex] =
+          exemptPlayers[prevIndex].copyWith(action: "leave");
+    } else {
+      exemptPlayers.add(ExemptPlayer(
+          index: index, playerId: playerId, action: "leave", time: gameTime));
     }
 
-    pauseIndex = currentPlayer;
     availablePlayersCount = getAvailablePlayersIndices().length;
 
     final activePlayersCount = getActivePlayersIndices().length;
 
-    if (activePlayersCount == 1) {
-      updateWin(getNextPlayerIndex(index),
-          reason:
-              "${getPlayerUsername(playerIndex: index, playerId: playerId)} left");
-    } else if (activePlayersCount < 1) {
-      if (!finishedRound) {
-        updateMatchRound(null);
+    if (activePlayersCount > 1) {
+      if (index == currentPlayer) {
+        changePlayer();
+      }
+      pauseIndex = currentPlayer;
+    }
+
+    if (availablePlayersCount < 2) {
+      match?.available_players = [];
+    } else {
+      match?.available_players?.remove(playerId);
+    }
+
+    if (startingRound) {
+      if (activePlayersCount < 2) {
+        if (match != null) uploadMatch(match!);
+        updateGameAction("close");
+      }
+    } else {
+      if (activePlayersCount == 1) {
+        updateWin(getNextPlayerIndex(index),
+            reason:
+                "${getPlayerUsername(playerIndex: index, playerId: playerId)} left");
+      } else if (activePlayersCount < 1) {
+        if (!finishedRound) {
+          updateMatchRound(null);
+        }
       }
     }
 
@@ -2394,19 +2603,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       showToast("${getPlayerUsername(playerId: playerId)} left");
     }
     setState(() {});
-
-    // if (availablePlayersCount < 2) {
-    //   if (!mounted) return;
-    //   context.pop();
-    // }
-  }
-
-  void close() {
-    if (!finishedRound) {
-      pause();
-    }
-
-    context.pop();
   }
 
   void toggleMenu(int index) {
@@ -2415,7 +2611,13 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   void toggleCall(String? callMode, [bool isClick = true]) async {
-    updateMyCallMode(callMode: callMode);
+    if (!mounted) return;
+    if (isClick && gameId.isNotEmpty) {
+      updateMyCallMode(callMode);
+      return;
+    }
+
+    setState(() {});
   }
 
   void toggleCamera() async {
@@ -2450,7 +2652,17 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       return finishedRound;
     }
     if (finishedRound ||
-        (players.indexWhere((player) => player.id == myId) == -1)) return true;
+        (match?.available_players != null &&
+            match!.available_players!.indexWhere((player) => player == myId) ==
+                -1)) {
+      return true;
+    }
+    final myExemptPlayer = getMyExemptPlayer();
+    if (myExemptPlayer != null &&
+        (myExemptPlayer.action == "leave" ||
+            myExemptPlayer.action == "concede")) {
+      return true;
+    }
 
     final timeStart =
         match?.records?["$recordId"]?["rounds"]?["$roundId"]?["time_start"];
@@ -2460,11 +2672,15 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     return timeStart != null && timeEnd != null;
   }
 
+  void saveMatch(Match match) {
+    ref.read(matchProvider.notifier).updateMatch(match);
+  }
+
   void updateMatchRecord() {
     if (finishedRound) return;
     final time = timeNow;
 
-    if (this.match == null) {
+    if (this.match == null || this.match!.players == null) {
       setState(() {});
 
       return;
@@ -2478,6 +2694,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     if (!match.games!.contains(gameName)) {
       match.games!.add(gameName);
     }
+
+    match.available_players ??= [...match.players!];
+
+    match.records ??= {};
 
     if (match.records?["$recordId"] == null) {
       match.records!["$recordId"] = MatchRecord(
@@ -2495,28 +2715,36 @@ abstract class BaseGamePageState<T extends BaseGamePage>
               time_start: time,
               scores: playersScores.toMap(),
               players: players.map((e) => e.id).toList(),
+              closed_players: getClosedPlayers(),
               detailsLength: 0,
               duration: 0)
           .toMap()
           .removeNull();
 
       final matchOutcome =
-          getMatchOutcome(getMatchOverallScores(match), match.players!);
+          getMatchOutcome(getMatchOverallScores(match), [...match.players!]);
 
       match.outcome = matchOutcome.outcome;
       match.winners = matchOutcome.winners;
       match.others = matchOutcome.others;
+      uploadMatch(match, time);
+    }
+  }
 
-      if (gameId.isNotEmpty &&
-          // !isWatch &&
-          (winners != null && winners!.isNotEmpty
-              ? myPlayer == winners!.first
-              : myPlayer == 0)) {
-        match.time_modified = time;
-        // updateMatch(match, prevMatch.toMap().getChangedProperties(match.toMap()));
-        match.user_id = myId;
-        updateMatch(match, match.toMap());
-      }
+  void uploadMatch(Match match, [String? time]) {
+    time ??= timeNow;
+    if ((match.available_players?.length ?? 0) < 2) {
+      match.time_end = time;
+    }
+    if (gameId.isNotEmpty &&
+        // !isWatch &&
+        (winners != null && winners!.isNotEmpty
+            ? myPlayer == winners!.first
+            : myPlayer == 0)) {
+      match.time_modified = time;
+      match.user_id = myId;
+      updateMatch(match);
+      saveMatch(match);
     }
   }
 
@@ -2525,10 +2753,14 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     detailsSub = null;
     playersSub?.cancel();
     playersSub = null;
+    // callSetStateSub?.cancel();
+    // callSetStateSub = null;
   }
 
-  void updateMatchRound(List<int>? winners) {
+  void updateMatchRound(List<int>? winners, [bool isOutcome = true]) {
+    // if (!isOutcome && finishedRound) return;
     if (finishedRound) return;
+
     endDuration = duration;
     gameDetailsLength = gameDetails.length;
     finishedRound = true;
@@ -2549,7 +2781,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     }
     final time = timeNow;
 
-    if (this.match == null) {
+    if (this.match == null || this.match!.players == null) {
       setState(() {});
       return;
     }
@@ -2558,6 +2790,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     // Match prevMatch = match.copyWith();
 
     match.time_start ??= time;
+
+    match.records ??= {};
 
     if (match.records!["$recordId"] != null) {
       match.records!["$recordId"]["scores"] = playersScores.toMap();
@@ -2578,26 +2812,13 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       match.records!["$recordId"]["time_end"] = time;
 
       final matchOutcome =
-          getMatchOutcome(getMatchOverallScores(match), match.players!);
+          getMatchOutcome(getMatchOverallScores(match), [...match.players!]);
 
       match.outcome = matchOutcome.outcome;
       match.winners = matchOutcome.winners;
       match.others = matchOutcome.others;
 
-      if (availablePlayersCount <= 1) {
-        match.time_end = time;
-      }
-
-      match.time_modified = time;
-
-      if (gameId.isNotEmpty &&
-          // !isWatch &&
-          (winners != null && winners.isNotEmpty
-              ? myPlayer == winners.first
-              : myPlayer == 0)) {
-        match.user_id = myId;
-        updateMatch(match, match.toMap());
-      }
+      uploadMatch(match, time);
     }
   }
 
@@ -2870,8 +3091,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   double getOverlayOpacity(int index) {
-    final concedeOrLeft = getConcedeOrLeft(index);
-    double opacity = concedeOrLeft != null ? 0.3 : 1;
+    final exemptPlayer = getExemptPlayer(index);
+    double opacity = exemptPlayer != null ? 0.3 : 1;
 
     final userId = getPlayerId(index);
     if (userId == null) return opacity;
@@ -2881,7 +3102,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       case "show":
         return opacity;
       case "faint":
-        return concedeOrLeft != null ? 0.3 : 0.5;
+        return exemptPlayer != null ? 0.3 : 0.5;
       case "hide":
         return 0;
     }
@@ -2988,8 +3209,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     return turn;
   }
 
-  int getLayoutTurn() {
-    if (playersSize == 1) return 2;
+  int getLayoutTurn([bool isOptionMenu = false]) {
+    if (!isOptionMenu && playersSize == 1) return 2;
     return isCard
         ? (gameId != ""
             ? myPlayer == 0
@@ -3116,27 +3337,36 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   Widget? buildVideoView(int index) {
     if (gameId.isEmpty || players.isEmpty) return null;
     final playerId = getPlayerId(index);
-    if (playerId == null ||
-        (playerId == myId && _localRenderer == null) ||
-        (playerId != myId && _remoteRenderers[playerId] == null)) {
-      return null;
-    }
+    if (playerId == null) return null;
+    // if (playerId == null ||
+    //     (playerId == myId && _localRenderer == null) ||
+    //     (playerId != myId && _remoteRenderers[playerId] == null)) {
+    //   return null;
+    // }
+    final videoRenderer = playerId == myId
+        ? widget.gameCallUtils.getMyRenderer()
+        : widget.gameCallUtils.getPeerRenderer(playerId);
+    // playerId == myId ? _localRenderer! : _remoteRenderers[playerId]!,
+//isFrontCameraSelected
     return RotatedBox(
       quarterTurns: getVideoViewTurn(index),
-      child: RTCVideoView(
-        playerId == myId ? _localRenderer! : _remoteRenderers[playerId]!,
-        objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-        mirror: playerId == myId && isFrontCameraSelected,
-      ),
+      child: videoRenderer != null
+          ? RTCVideoView(
+              videoRenderer,
+              objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+              mirror: playerId == myId &&
+                  widget.gameCallUtils.isFrontCameraSelected,
+            )
+          : Container(),
     );
   }
 
   Widget getPlayerBottomWidget(int index) {
-    final concedeOrLeft = getConcedeOrLeft(index);
+    final exemptPlayer = getExemptPlayer(index);
     final user = users != null && index < users!.length ? users![index] : null;
     return IgnorePointer(
-      ignoring: concedeOrLeft != null &&
-          concedeOrLeft.action == "leave" &&
+      ignoring: exemptPlayer != null &&
+          exemptPlayer.action == "leave" &&
           !finishedRound,
       child: RotatedBox(
         quarterTurns: getStraightTurn(index),
@@ -3202,7 +3432,21 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    // print("hasVideo = ${widget.gameCallUtils.getMyRenderer()}");
     updateGamePageInfos();
+    // print("players = $players");
+    // print("exemptPlayers = $exemptPlayers");
+
+    final currentMatch = ref.watch(matchProvider);
+
+    if (match?.match_id != null &&
+        currentMatch?.match_id != null &&
+        match!.match_id == currentMatch!.match_id &&
+        match!.time_modified != currentMatch.time_modified) {
+      match = currentMatch;
+      // setState(() {});
+      // print("updatedMatch = $match");
+    }
 
     double padding = (context.screenHeight - context.screenWidth).abs() / 2;
     bool landScape = context.isLandscape;
@@ -3254,7 +3498,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                       if (isCard) ...[
                         ...List.generate(playersSize, (index) {
                           final videoView = buildVideoView(index);
-                          final concedeOrLeft = getConcedeOrLeft(index);
+                          final exemptPlayer = getExemptPlayer(index);
                           return Positioned(
                             top: index == 0 ||
                                     ((index == 1 || index == 3) &&
@@ -3281,9 +3525,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                                                 : null,
                                             builder: (context, snapshot) {
                                               return Text(
-                                                concedeOrLeft != null
-                                                    ? getConcedeOrLeftMessage(
-                                                        concedeOrLeft)
+                                                exemptPlayer != null
+                                                    ? getExemptPlayerMessage(
+                                                        exemptPlayer)
                                                     : getMessage(index),
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.bold,
@@ -3331,12 +3575,12 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                                                       : 8),
                                               child: IgnorePointer(
                                                   ignoring:
-                                                      concedeOrLeft != null &&
+                                                      exemptPlayer != null &&
                                                           !finishedRound,
                                                   child: buildBottomOrLeftChild(
                                                       index)),
                                             ),
-                                            if (concedeOrLeft == null &&
+                                            if (exemptPlayer == null &&
                                                 index < playersToasts.length &&
                                                 playersToasts[index] != "") ...[
                                               Align(
@@ -3372,7 +3616,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                               playersSize > 2 &&
                               (myPlayer == 1 || myPlayer == 3);
                           final value = isEdgeTilt ? !landScape : landScape;
-                          final concedeOrLeft = getConcedeOrLeft(index);
+                          final exemptPlayer = getExemptPlayer(index);
                           return Positioned(
                               top: index < mindex ? 0 : null,
                               bottom: index >= mindex ? 0 : null,
@@ -3444,7 +3688,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                                             child: GameTimer(
                                               timerStream:
                                                   timerController.stream,
-                                              time: concedeOrLeft?.time,
+                                              time: exemptPlayer?.time,
                                             ),
                                           ),
                                         ],
@@ -3509,7 +3753,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                           (index) {
                             final mindex = (playersSize / 2).ceil();
                             final videoView = buildVideoView(index);
-                            final concedeOrLeft = getConcedeOrLeft(index);
+                            final exemptPlayer = getExemptPlayer(index);
                             return Positioned(
                                 top: index < mindex ? 0 : null,
                                 bottom: index >= mindex ? 0 : null,
@@ -3585,13 +3829,13 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                                                         //     : timerController
                                                         //         .stream,
                                                         time:
-                                                            concedeOrLeft?.time,
+                                                            exemptPlayer?.time,
                                                       ),
                                                     ),
                                                     // if ((currentPlayer ==
                                                     //             index &&
                                                     //         showMessage) ||
-                                                    //     concedeOrLeft !=
+                                                    //     exemptPlayer !=
                                                     //         null) ...[
                                                     const SizedBox(height: 4),
                                                     RotatedBox(
@@ -3605,10 +3849,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                                                           builder: (context,
                                                               snapshot) {
                                                             return Text(
-                                                              concedeOrLeft !=
+                                                              exemptPlayer !=
                                                                       null
-                                                                  ? getConcedeOrLeftMessage(
-                                                                      concedeOrLeft)
+                                                                  ? getExemptPlayerMessage(
+                                                                      exemptPlayer)
                                                                   : getMessage(
                                                                       index),
                                                               // : "${itsMyTurnForMessage(index) ? "${message.isNotEmpty ? message : "Play"} - " : ""}${playersTimes[index].toDurationString(false)}",
@@ -3633,7 +3877,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                                                 Expanded(
                                                   child: IgnorePointer(
                                                     ignoring:
-                                                        concedeOrLeft != null &&
+                                                        exemptPlayer != null &&
                                                             !finishedRound,
                                                     child: Container(
                                                       alignment: Alignment
@@ -3698,6 +3942,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                   WatchGameControlsView(
                     watchTimerController: watchTimerController,
                     showWatchControls: showWatchControls,
+                    users: users,
+                    players: players,
                     playersSize: playersSize,
                     finishedRound: finishedRound,
                     duration: duration,
@@ -3713,7 +3959,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                     onPressed: toggleShowControls,
                   ),
 
-                if (paused && !isCheckoutMode && pauseIndex != -1)
+                if (paused &&
+                    !isCheckoutMode &&
+                    pauseIndex != -1 &&
+                    !loadingDetails)
                   RotatedBox(
                     quarterTurns: getPausedGameTurn(),
                     child: PausedGameView(
@@ -3754,17 +4003,25 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                       onNext: next,
                       onCheckOut: checkout,
                       onReadAboutGame: readAboutTheGame,
-                      callMode: callMode,
-                      onToggleCall: toggleCall,
-                      isFrontCamera: isFrontCameraSelected,
-                      onToggleCamera: toggleCamera,
-                      isAudioOn: isAudioOn,
-                      onToggleMute: toggleMute,
-                      isSpeakerOn: isOnSpeaker,
-                      onToggleSpeaker: toggleSpeaker,
+                      callMode: widget.gameCallUtils.callMode,
+                      onToggleCall: widget.gameCallUtils.toggleCall,
+                      isFrontCamera: widget.gameCallUtils.isFrontCameraSelected,
+                      onToggleCamera: widget.gameCallUtils.toggleCamera,
+                      isAudioOn: widget.gameCallUtils.isAudioOn,
+                      onToggleMute: widget.gameCallUtils.toggleMic,
+                      isSpeakerOn: widget.gameCallUtils.isOnSpeaker,
+                      onToggleSpeaker: widget.gameCallUtils.toggleSpeaker,
+                      // callMode: callMode,
+                      // onToggleCall: toggleCall,
+                      // isFrontCamera: isFrontCameraSelected,
+                      // onToggleCamera: toggleCamera,
+                      // isAudioOn: isAudioOn,
+                      // onToggleMute: toggleMute,
+                      // isSpeakerOn: isOnSpeaker,
+                      // onToggleSpeaker: toggleSpeaker,
                       quarterTurns: getPausedGameTurn(),
                       pauseIndex: pauseIndex,
-                      concedeOrLeftPlayers: concedeOrLeftPlayers,
+                      exemptPlayers: exemptPlayers,
                       winners: winners,
                       duration: duration,
                       endDuration: endDuration,
@@ -3821,7 +4078,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                 //     style: context.bodySmall,
                 //   )
                 RotatedBox(
-                    quarterTurns: getLayoutTurn(),
+                    quarterTurns: getLayoutTurn(true),
                     child: Stack(
                       children: List.generate(playersSize, (index) {
                         if (isCard) {

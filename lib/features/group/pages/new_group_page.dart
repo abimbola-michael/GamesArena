@@ -1,34 +1,32 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamesarena/features/game/services.dart';
-import 'package:gamesarena/shared/services.dart';
+import 'package:gamesarena/features/match/providers/gamelist_provider.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:gamesarena/shared/widgets/app_appbar.dart';
 import 'package:gamesarena/shared/widgets/app_text_field.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../../shared/extensions/special_context_extensions.dart';
 import '../../../shared/views/loading_overlay.dart';
 import '../../../shared/widgets/app_button.dart';
-import '../../user/services.dart';
 import '../../user/widgets/user_item.dart';
 import '../../../shared/models/models.dart';
-import '../../../shared/widgets/action_button.dart';
-import '../../../theme/colors.dart';
-import '../../../shared/utils/utils.dart';
-import '../services.dart';
 
-class NewGroupPage extends StatefulWidget {
+class NewGroupPage extends ConsumerStatefulWidget {
   final List<User> users;
   const NewGroupPage({super.key, required this.users});
 
   @override
-  State<NewGroupPage> createState() => _NewGroupPageState();
+  ConsumerState<NewGroupPage> createState() => _NewGroupPageState();
 }
 
-class _NewGroupPageState extends State<NewGroupPage> {
+class _NewGroupPageState extends ConsumerState<NewGroupPage> {
   TextEditingController controller = TextEditingController();
   String gameId = "";
   bool creating = false;
   GlobalKey<FormState> formFieldStateKey = GlobalKey();
+  Box<String> gameListsBox = Hive.box<String>("gamelists");
+
   @override
   void initState() {
     super.initState();
@@ -54,8 +52,13 @@ class _NewGroupPageState extends State<NewGroupPage> {
       creating = true;
     });
     try {
-      await createGameGroup(
+      final gameList = await createGameGroup(
           groupname, widget.users.map((e) => e.user_id).toList());
+
+      gameListsBox.put(gameList.game_id, gameList.toJson());
+
+      ref.read(gamelistProvider.notifier).updateGameList(gameList);
+
       await hideDialog();
 
       if (!mounted) return;
@@ -82,6 +85,7 @@ class _NewGroupPageState extends State<NewGroupPage> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Column(
               // mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 AppTextField(controller: controller, hintText: "Groupname"),
                 const SizedBox(height: 8),
@@ -113,10 +117,7 @@ class _NewGroupPageState extends State<NewGroupPage> {
           ),
         ),
       ),
-      bottomNavigationBar: AppButton(
-        title: "Create",
-        onPressed: createGroup,
-      ),
+      bottomNavigationBar: AppButton(title: "Create", onPressed: createGroup),
     );
   }
 }

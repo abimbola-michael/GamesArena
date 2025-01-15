@@ -6,13 +6,11 @@ import 'package:gamesarena/features/game/widgets/profile_photo.dart';
 import 'package:gamesarena/shared/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
 
 import '../../../shared/models/models.dart';
 import '../../../theme/colors.dart';
-import '../../../shared/utils/utils.dart';
 import '../../user/services.dart';
-import '../services.dart';
+import '../../game/services.dart';
 import 'match_arrow_signal.dart';
 import 'match_scores_item.dart';
 
@@ -23,7 +21,6 @@ class GameListItem extends StatelessWidget {
       {super.key, required this.gameList, required this.onPressed});
 
   Future<void> getDetails() async {
-    //final matchesBox = Hive.box<String>("matches");
     gameList.game ??= await getGame(gameList.game_id);
 
     if (gameList.game != null &&
@@ -55,24 +52,27 @@ class GameListItem extends StatelessWidget {
               child: Row(
                 children: [
                   SizedBox(
-                    width: 50,
-                    height: 50,
+                    width: 55,
+                    height: 55,
                     child: Stack(
                       children: [
                         if (gameList.game?.users != null)
                           PlayersProfilePhoto(
                             users: gameList.game!.users!,
                             withoutMyId: true,
+                            size: 55,
                           )
                         else if ((gameList.game?.groupName ?? "").isNotEmpty)
                           ProfilePhoto(
                             profilePhoto: gameList.game!.profilePhoto ?? "",
                             name: gameList.game!.groupName!,
+                            size: 55,
                           ),
                         Positioned(
                           bottom: 0,
                           right: 0,
-                          child: gameList.match == null
+                          child: gameList.match == null ||
+                                  gameList.time_end != null
                               ? Container()
                               : MatchArrowSignal(match: gameList.match!),
                         )
@@ -95,10 +95,8 @@ class GameListItem extends StatelessWidget {
                                     : gameList.game?.groupName != null
                                         ? gameList.game!.groupName!
                                         : "",
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    color: tint,
-                                    fontWeight: FontWeight.bold),
+                                style: context.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
                               ),
@@ -112,67 +110,38 @@ class GameListItem extends StatelessWidget {
                             )
                           ],
                         ),
-                        if (gameList.match != null) ...[
-                          MatchScoresItem(match: gameList.match!),
-                          // Row(
-                          //   children: [
-                          //     Expanded(
-                          //       child: Text(
-                          //         getPlayersVs(gameList.match!.users ?? []),
-                          //         style:
-                          //             context.bodyMedium?.copyWith(color: tint),
-                          //       ),
-                          //     ),
-                          //     if ((gameList.unseen ?? 0) != 0) ...[
-                          //       const SizedBox(width: 10),
-                          //       Container(
-                          //         padding: const EdgeInsets.symmetric(
-                          //             horizontal: 10, vertical: 5),
-                          //         decoration: BoxDecoration(
-                          //           color: primaryColor,
-                          //           borderRadius: BorderRadius.circular(20),
-                          //         ),
-                          //         child: Text(
-                          //           "${gameList.unseen}",
-                          //           style: context.bodySmall
-                          //               ?.copyWith(color: white),
-                          //         ),
-                          //       ),
-                          //     ]
-                          //   ],
-                          // ),
-                          // //const SizedBox(height: 2),
-                          // Row(
-                          //   children: [
-                          //     Expanded(
-                          //       child: Text(
-                          //         getMatchRecordMessage(gameList.match!),
-                          //         style: TextStyle(
-                          //           fontSize: 12,
-                          //           color: gameList.match!.creator_id != myId &&
-                          //                   (gameList.match!.time_start == "" ||
-                          //                       gameList.match!.time_start ==
-                          //                           null)
-                          //               ? Colors.red
-                          //               : lighterTint,
-                          //         ),
-                          //         // overflow: TextOverflow.ellipsis,
-                          //         // maxLines: 1,
-                          //       ),
-                          //     ),
-                          //     // if (duration.isNotEmpty) ...[
-                          //     //   const SizedBox(width: 10),
-                          //     //   Text(
-                          //     //     duration,
-                          //     //     style: context.bodyMedium?.copyWith(
-                          //     //         color: duration == "live"
-                          //     //             ? primaryColor
-                          //     //             : lightTint),
-                          //     //   ),
-                          //     // ]
-                          //   ],
-                          // ),
-                        ],
+                        Row(
+                          children: [
+                            Expanded(
+                                child: gameList.time_end != null
+                                    ? Text(
+                                        "You ${gameList.game?.groupName != null ? "left" : "blocked"}",
+                                        style: context.bodySmall)
+                                    : gameList.match != null
+                                        ? MatchScoresItem(
+                                            match: gameList.match!)
+                                        : Container()),
+                            if ((gameList.unseen ?? 0) != 0) ...[
+                              const SizedBox(width: 10),
+                              Container(
+                                // padding: const EdgeInsets.symmetric(
+                                //     horizontal: 8, vertical: 4),
+                                constraints: const BoxConstraints(
+                                    minWidth: 24, minHeight: 24, maxHeight: 24),
+                                decoration: BoxDecoration(
+                                  color: primaryColor,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  "${gameList.unseen}",
+                                  style:
+                                      context.bodySmall?.copyWith(color: white),
+                                ),
+                              ),
+                            ]
+                          ],
+                        ),
                       ],
                     ),
                   ),

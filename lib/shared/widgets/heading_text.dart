@@ -13,9 +13,7 @@ class HeadingText extends StatelessWidget {
         child: Text(
           text,
           style: TextStyle(
-            fontSize: isLarge ? 30 : 20,
-            fontWeight: FontWeight.bold,
-          ),
+              fontSize: isLarge ? 20 : 16, fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
       ),

@@ -20,29 +20,28 @@ import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:openai_dart/openai_dart.dart';
 
-import '../../../../../enums/emums.dart';
+import '../../../../shared/utils/call_utils.dart';
 import '../../../../shared/views/error_or_success_view.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../game/models/game_action.dart';
-import '../../../game/pages/game_page.dart';
-import '../../../../shared/views/loading_view.dart';
 import '../../../../shared/views/loading_view.dart';
 import '../models/quiz.dart';
-import '../utils/quizzes.dart';
 
 class QuizGamePage extends BaseGamePage {
   static const route = "/quiz";
   final Map<String, dynamic> args;
+  final CallUtils callUtils;
   final void Function(GameAction gameAction) onActionPressed;
-  const QuizGamePage(this.args, this.onActionPressed, {super.key})
-      : super(args, onActionPressed);
+  const QuizGamePage(this.args, this.callUtils, this.onActionPressed,
+      {super.key})
+      : super(args, callUtils, onActionPressed);
 
   @override
   ConsumerState<BaseGamePage> createState() => QuizGamePageState();
 }
 
 class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
-  bool loadingQuizzes = false;
+  bool loadingQuizzes = true;
   List<List<Quiz>> playersQuizzes = [];
 
   int? selectedAnswer;
@@ -584,6 +583,16 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
                                         );
                                       }),
                                 ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 8, horizontal: 20),
+                                  child: Text(
+                                    "AI can make mistakes most expecially mathematical questions. Enjoy for fun.",
+                                    style: context.bodySmall?.copyWith(
+                                        fontSize: 10, color: lighterTint),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                )
                               ],
                             ),
             ),

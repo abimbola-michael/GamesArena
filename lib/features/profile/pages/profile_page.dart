@@ -13,22 +13,15 @@ import 'package:icons_plus/icons_plus.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/firebase/auth_methods.dart';
-import '../../../core/firebase/firebase_methods.dart';
-import '../../../core/firebase/firestore_methods.dart';
 import '../../../core/firebase/storage_methods.dart';
-import '../../../shared/dialogs/comfirmation_dialog.dart';
 import '../../../shared/extensions/special_context_extensions.dart';
-import '../../../shared/services.dart';
-import '../../../shared/widgets/action_button.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../theme/colors.dart';
 import '../../../shared/utils/utils.dart';
 import '../../game/widgets/profile_photo.dart';
-import '../../group/services.dart';
 import '../../onboarding/pages/auth_page.dart';
 import '../../onboarding/services.dart';
 import '../../settings/pages/settings_and_more_page.dart';
-import '../../user/models/user_game.dart';
 import '../../user/services.dart';
 import 'user_games_selection_page.dart';
 
@@ -41,6 +34,7 @@ class ProfilePage extends StatefulWidget {
   // final List<UserGame>? games;
   final bool isGroup;
   final bool canEditGroup;
+  final void Function(Map<String, dynamic> map)? onChanged;
   const ProfilePage(
       {super.key,
       required this.id,
@@ -48,7 +42,8 @@ class ProfilePage extends StatefulWidget {
       this.profilePhoto,
       this.games,
       this.isGroup = false,
-      this.canEditGroup = false});
+      this.canEditGroup = false,
+      this.onChanged});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -132,10 +127,24 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
+  void toggleChange(String time) {
+    if (widget.onChanged != null) {
+      widget.onChanged!({
+        "name": name,
+        "profilePhoto": profilePhoto,
+        "games": games,
+        "time": time
+      });
+    }
+  }
+
   void gotoEditProfilePage(String type, String value) async {
-    final newValue = await context.pushTo(EditProfilePage(
+    final result = await context.pushTo(EditProfilePage(
         type: type, value: value, groupId: widget.isGroup ? widget.id : null));
-    if (newValue != null) {
+    if (result != null) {
+      final time = result["time"];
+      final newValue = result["value"];
+
       if (type == "username" || type == "groupname") {
         name = newValue;
       } else if (type == "email") {
@@ -143,6 +152,20 @@ class _ProfilePageState extends State<ProfilePage> {
       } else if (type == "phone") {
         phone = newValue;
       }
+      toggleChange(time);
+      setState(() {});
+    }
+  }
+
+  void gotoUserGamesSeletionPage() async {
+    final result = await context.pushTo(UserGamesSelectionPage(
+        gameId: widget.isGroup ? widget.id : null, games: games));
+
+    if (result != null) {
+      final time = result["time"];
+      final newGames = result["games"];
+      games = newGames;
+      toggleChange(time);
       setState(() {});
     }
   }
@@ -150,12 +173,12 @@ class _ProfilePageState extends State<ProfilePage> {
   Future logout() async {
     final comfirm = await context.showComfirmationDialog(
         title: "Logout", message: "Are you sure you want to logout?");
-    if (comfirm == null) return;
+    if (comfirm != true) return;
 
     try {
       showLoading(message: "Logging out...");
       await logoutUser();
-      await am.logOut();
+      am.logOut();
       gotoStartPage();
     } catch (e) {
       print("logoutError = $e");
@@ -164,9 +187,10 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void gotoStartPage() {
-    Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: ((context) => const AuthPage())),
-        (route) => false);
+    context.pushReplacement(const AuthPage());
+    // Navigator.of(context).pushAndRemoveUntil(
+    //     MaterialPageRoute(builder: ((context) => const AuthPage())),
+    //     (route) => false);
   }
 
   void readUser() async {
@@ -178,7 +202,7 @@ class _ProfilePageState extends State<ProfilePage> {
       profilePhoto = user.profile_photo ?? "";
       games = user.games ?? [];
     }
-    print("user = $user");
+    // print("user = $user");
     setState(() {});
   }
 
@@ -192,21 +216,12 @@ class _ProfilePageState extends State<ProfilePage> {
   // }
 
   void gotoSettingPage() {
-    context.pushTo(const SettingsAndMorePage());
-  }
-
-  void gotoUserGamesSeletionPage() async {
-    final newGames = await context.pushTo(UserGamesSelectionPage(
-        gameId: widget.isGroup ? widget.id : null, games: games));
-    if (newGames != null) {
-      games = newGames;
-    }
-    setState(() {});
+    context.pushReplacement(const SettingsAndMorePage());
   }
 
   @override
   Widget build(BuildContext context) {
-    print("games = ${games}");
+    final gamesString = getGamesString(games);
     return Scaffold(
       key: scaffoldStateKey,
       // extendBodyBehindAppBar: true,
@@ -215,26 +230,26 @@ class _ProfilePageState extends State<ProfilePage> {
           trailing: widget.id == myId
               ? IconButton(
                   onPressed: gotoSettingPage,
-                  icon: const Icon(EvaIcons.settings_2_outline))
+                  icon: Icon(EvaIcons.settings_2_outline, color: tint))
               : null),
 
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const SizedBox(height: 30),
             filePath != null
                 ? CircleAvatar(
-                    radius: 100,
+                    radius: 150,
                     backgroundImage: FileImage(File(filePath!)),
                   )
                 : ProfilePhoto(
                     profilePhoto: profilePhoto,
                     name: name,
-                    size: 100,
+                    size: 150,
                   ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 30),
             // if (widget.id == myId || widget.isGroup)  ...[
             //   Row(
             //     mainAxisSize: MainAxisSize.min,
@@ -287,7 +302,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
             ProfileOptionItem(
               title: "Games",
-              value: getGamesString(games),
+              value: gamesString.isEmpty ? "No game" : gamesString,
               editable: widget.id == myId || widget.canEditGroup,
               onEdit: gotoUserGamesSeletionPage,
             ),

@@ -1,5 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:gamesarena/features/game/widgets/match_scores_item.dart';
+import 'package:gamesarena/features/match/widgets/match_scores_item.dart';
 import 'package:gamesarena/shared/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
@@ -8,21 +8,22 @@ import 'package:hive/hive.dart';
 import '../../../shared/models/models.dart';
 import '../../../theme/colors.dart';
 import '../../records/pages/match_records_page.dart';
-import '../../../shared/utils/utils.dart';
 import '../../user/services.dart';
-import '../utils.dart';
+import '../../game/utils.dart';
 import 'match_arrow_signal.dart';
-import 'players_profile_photo.dart';
+import '../../game/widgets/players_profile_photo.dart';
 
 class MatchListItem extends StatelessWidget {
   final List<Match> matches;
   final int position;
   final bool isMatchRecords;
+  final String? groupName;
   const MatchListItem(
       {super.key,
       required this.matches,
       required this.position,
-      this.isMatchRecords = false});
+      this.isMatchRecords = false,
+      this.groupName});
 
   bool getDateVisibility() {
     if (position == 0) return true;
@@ -38,7 +39,7 @@ class MatchListItem extends StatelessWidget {
 
     if (match.users == null && match.players != null) {
       List<User> users = await playersToUsers(match.players!);
-      matches[position].users = users;
+      match.users = users;
     }
   }
 
@@ -62,24 +63,28 @@ class MatchListItem extends StatelessWidget {
                 ),
               ],
               InkWell(
-                onTap: () {
-                  if (isMatchRecords) return;
-                  context.pushTo(
-                    MatchRecordsPage(match: match),
-                  );
-                },
+                onTap: isMatchRecords
+                    ? null
+                    : () {
+                        context.pushTo(
+                          MatchRecordsPage(match: match, groupName: groupName),
+                        );
+                      },
                 child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   child: Row(
                     children: [
                       SizedBox(
-                        width: 50,
-                        height: 50,
+                        width: 55,
+                        height: 55,
                         child: Stack(
                           children: [
                             if (match.users != null)
-                              PlayersProfilePhoto(users: match.users!),
+                              PlayersProfilePhoto(
+                                users: match.users!,
+                                size: 55,
+                              ),
                             Positioned(
                               bottom: 0,
                               right: 0,

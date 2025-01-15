@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,17 +12,16 @@ import 'package:gamesarena/features/games/quiz/pages/quiz_game_page.dart';
 import 'package:gamesarena/features/user/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 
-import '../models/concede_or_left.dart';
+import '../../../shared/utils/call_utils.dart';
+import '../models/exempt_player.dart';
 import '../models/game_action.dart';
 import '../models/game_page_data.dart';
-import '../models/player.dart';
-import '../../user/models/user.dart';
+
 import '../../../shared/utils/constants.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/models/models.dart';
 
 import '../providers/game_page_infos_provider.dart';
-import '../providers/match_outcome_provider.dart';
 
 class GamePage extends ConsumerStatefulWidget {
   static const route = "/game";
@@ -71,7 +72,7 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
 
   List<int> playersCounts = [];
   List<int> playersScores = [];
-  List<ConcedeOrLeft> concedeOrLeftPlayers = [];
+  List<ExemptPlayer> exemptPlayers = [];
 
   List<String> playersToasts = [];
   List<String> playersMessages = [];
@@ -85,6 +86,8 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
   bool? isSubscribed;
   PageController pageController = PageController();
   List<PageController> pageControllers = [];
+  CallUtils callUtils = CallUtils();
+
   @override
   void initState() {
     super.initState();
@@ -98,6 +101,9 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
       controller.dispose();
     }
     pageControllers.clear();
+    callUtils.leaveCall();
+    callUtils.dispose();
+
     super.dispose();
   }
 
@@ -127,7 +133,10 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
   }
 
   void init() {
+    // adUtils.adTime = 0;
     if (gameId.isNotEmpty && match != null) {
+      //callUtils.initCall(gameId);
+
       final rounds = match!.records?["$recordId"]?["rounds"];
       if (rounds != null) {
         lastRecordId = match!.records!.length - 1;
@@ -177,27 +186,27 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
 
   Widget getGamePage(Map<String, dynamic> args, String gameName) {
     if (gameName.isQuiz) {
-      return QuizGamePage(args, updateGameAction);
+      return QuizGamePage(args, callUtils, updateGameAction);
     }
     switch (gameName) {
       case chessGame:
-        return ChessGamePage(args, updateGameAction);
+        return ChessGamePage(args, callUtils, updateGameAction);
       case draughtGame:
-        return DraughtGamePage(args, updateGameAction);
+        return DraughtGamePage(args, callUtils, updateGameAction);
       case ludoGame:
-        return LudoGamePage(args, updateGameAction);
+        return LudoGamePage(args, callUtils, updateGameAction);
       case xandoGame:
-        return XandOGamePage(args, updateGameAction);
+        return XandOGamePage(args, callUtils, updateGameAction);
       case whotGame:
-        return WhotGamePage(args, updateGameAction);
+        return WhotGamePage(args, callUtils, updateGameAction);
       case wordPuzzleGame:
-        return WordPuzzleGamePage(args, updateGameAction);
+        return WordPuzzleGamePage(args, callUtils, updateGameAction);
     }
     return Container();
   }
 
   GamePageData getFullGamePageData(Map<String, dynamic> args,
-      {bool hasDetails = false}) {
+      {bool hasStarted = false}) {
     String gameName = args["gameName"];
     var players = args["players"] as List<Player>?;
     //final playersSize = args["playersSize"] as int;
@@ -207,7 +216,7 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
       List<List<Player>> tournamentPlayers = getTournamentPlayers(players);
       //playerPage
       final pageController = PageController(initialPage: playerPage);
-      if (hasDetails) {
+      if (hasStarted) {
         pageControllers.add(pageController);
       }
       gamePage = PageView.builder(
@@ -249,9 +258,11 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
   }
 
   void updateRoundDetails(Map<String, dynamic> args) {
+    args["recordId"] ??= lastRecordId;
+    args["roundId"] ??= lastRecordIdRoundId;
+
     int recordId = args["recordId"];
     int roundId = args["roundId"];
-    print("recordId = $recordId, roundId = $roundId");
 
     final rounds = match?.records?["$recordId"]?["rounds"];
     if (rounds == null) return;
@@ -261,6 +272,8 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
 
     final playerIds = rounds!["$roundId"]["players"] as List<dynamic>?;
     if (playerIds != null) {
+      //var players = args["players"] as List<Player>?;
+
       args["players"] = List.generate(
           playerIds.length,
           (index) =>
@@ -274,6 +287,7 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
               users?.firstWhereNullable(
                   (user) => user?.user_id == playerIds[index]) ??
               (await getUser(playerIds[index])));
+
       // args["users"] = users == null
       //     ? null
       //     : List.generate(
@@ -289,30 +303,46 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
     int recordId = args["recordId"] ?? 0;
     int roundId = args["roundId"] ?? 0;
     final match = args["match"] as Match?;
-    final playersLeft = gameAction.playersLeft;
     final playersSize = args["playersSize"] as int;
+    final exemptPlayers = gameAction.exemptPlayers;
 
-    if (playersLeft.isNotEmpty &&
-        (gameAction.action == "change" ||
-            gameAction.action == "restart" ||
-            gameAction.action == "continue")) {
-      var players = args["players"] as List<Player>?;
-      if (players != null) {
-        final playersToRemove =
-            playersLeft.map((index) => players![index].id).toList();
-        players = players
-            .where((player) => !playersToRemove.contains(player.id))
-            .toList();
-        args["players"] = players;
+    if (gameAction.action == "close") {
+      gamePagesDatas.removeLast();
+      setState(() {});
+      if (gamePagesDatas.isEmpty) {
+        context.pop();
+      }
+      return;
+    }
 
-        args["playersSize"] = players.length;
-      } else {
-        args["playersSize"] = playersSize - playersLeft.length;
+    if ((gameAction.action == "change" ||
+        gameAction.action == "restart" ||
+        gameAction.action == "continue")) {
+      final leftPlayers =
+          exemptPlayers.map((player) => player.playerId).toList();
+      if (leftPlayers.isNotEmpty) {
+        var players = args["players"] as List<Player>?;
+        if (players != null) {
+          players = players
+              .where((player) => !leftPlayers.contains(player.id))
+              .toList();
+          args["players"] = players;
+
+          args["playersSize"] = players.length;
+        } else {
+          args["playersSize"] = playersSize - leftPlayers.length;
+        }
+      }
+
+      final closedPlayers =
+          exemptPlayers.where((player) => player.action == "close").toList();
+      if (closedPlayers.isNotEmpty) {
+        args["closedPlayers"] = closedPlayers;
       }
     }
 
     if (gameAction.action == "change" || gameAction.action == "restart") {
-      if (gameAction.hasDetails) {
+      if (gameAction.hasStarted) {
         recordId++;
         roundId = 0;
         args["recordId"] = recordId;
@@ -379,9 +409,9 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
     //else if (gameAction.action == "jump") {}
 
     final gamePageData =
-        getFullGamePageData(args, hasDetails: gameAction.hasDetails);
+        getFullGamePageData(args, hasStarted: gameAction.hasStarted);
 
-    if (gameAction.hasDetails ||
+    if (gameAction.hasStarted ||
         gameAction.action == "previous" ||
         gameAction.action == "next") {
       if (gameAction.action == "previous") {
@@ -419,9 +449,6 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
 
   @override
   Widget build(BuildContext context) {
-    // final gameAction = ref.watch(gameActionProvider);
-    // print("gameAction = $gameAction");
-
     return PageView.builder(
       controller: pageController,
       itemCount: gamePagesDatas.length,

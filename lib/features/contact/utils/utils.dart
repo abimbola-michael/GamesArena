@@ -13,7 +13,8 @@ String getMatchInviteMessage(Match match, [String? name]) {
 }
 
 String getContactInviteMessage([String? name]) {
-  String playStoreLink = "https://gamesarena.com";
+  String playStoreLink =
+      "https://play.google.com/store/apps/details?id=com.hms.gamesarena";
   return "Hi${name == null ? "" : " $name"}, Let's play games together on Games Arena! It's a cool, simple and amazing app we can use to play board, card, puzzle and quiz games. Get it at $playStoreLink";
 }
 

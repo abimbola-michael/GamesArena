@@ -46,6 +46,7 @@ dependencies:
   cloud_firestore:
   flutter_local_notifications:
   google_sign_in:
+  google_sign_in_dartio:
   #just_audio:
   vibration:
   vibration_web: ^1.6.6
@@ -89,8 +90,10 @@ dependencies:
   visibility_detector:
   connectivity_plus:
   googleapis_auth:
+  flutter_libphonenumber:
   sim_card_info:
   permission_handler:
+  flutter_dotenv:
 
 dev_dependencies:
   flutter_test:
@@ -120,6 +123,7 @@ flutter:
     - assets/icons/
     - assets/images/
     - assets/svgs/
+    - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

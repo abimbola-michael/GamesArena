@@ -3,39 +3,40 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import 'exempt_player.dart';
 import 'player.dart';
 
 class GameAction {
   String action;
   String game;
-  bool hasDetails;
+  bool hasStarted;
   List<Player> players;
-  List<int> playersLeft;
+  List<ExemptPlayer> exemptPlayers;
   Map<String, dynamic> args;
 
   GameAction({
     required this.action,
     required this.game,
-    required this.hasDetails,
+    required this.hasStarted,
     required this.players,
-    required this.playersLeft,
+    required this.exemptPlayers,
     required this.args,
   });
 
   GameAction copyWith({
     String? action,
     String? game,
-    bool? hasDetails,
+    bool? hasStarted,
     List<Player>? players,
-    List<int>? playersLeft,
+    List<ExemptPlayer>? exemptPlayers,
     Map<String, dynamic>? args,
   }) {
     return GameAction(
       action: action ?? this.action,
       game: game ?? this.game,
-      hasDetails: hasDetails ?? this.hasDetails,
+      hasStarted: hasStarted ?? this.hasStarted,
       players: players ?? this.players,
-      playersLeft: playersLeft ?? this.playersLeft,
+      exemptPlayers: exemptPlayers ?? this.exemptPlayers,
       args: args ?? this.args,
     );
   }
@@ -44,27 +45,30 @@ class GameAction {
     return <String, dynamic>{
       'action': action,
       'game': game,
-      'hasDetails': hasDetails,
+      'hasStarted': hasStarted,
       'players': players.map((x) => x.toMap()).toList(),
-      'playersLeft': playersLeft,
+      'exemptPlayers': exemptPlayers.map((x) => x.toMap()).toList(),
       'args': args,
     };
   }
 
   factory GameAction.fromMap(Map<String, dynamic> map) {
     return GameAction(
-        action: map['action'] as String,
-        game: map['game'] as String,
-        hasDetails: map['hasDetails'] as bool,
-        players: List<Player>.from(
-          (map['players'] as List<dynamic>).map<Player>(
-            (x) => Player.fromMap(x as Map<String, dynamic>),
-          ),
+      action: map['action'] as String,
+      game: map['game'] as String,
+      hasStarted: map['hasStarted'] as bool,
+      players: List<Player>.from(
+        (map['players'] as List<int>).map<Player>(
+          (x) => Player.fromMap(x as Map<String, dynamic>),
         ),
-        playersLeft: List<int>.from((map['playersLeft'] as List<dynamic>)),
-        args: Map<String, dynamic>.from(
-          (map['args'] as Map<String, dynamic>),
-        ));
+      ),
+      exemptPlayers: List<ExemptPlayer>.from(
+        (map['exemptPlayers'] as List<dynamic>).map<ExemptPlayer>(
+          (x) => ExemptPlayer.fromMap(x as Map<String, dynamic>),
+        ),
+      ),
+      args: Map<String, dynamic>.from((map['args'] as Map<String, dynamic>)),
+    );
   }
 
   String toJson() => json.encode(toMap());
@@ -74,7 +78,7 @@ class GameAction {
 
   @override
   String toString() {
-    return 'GameAction(action: $action, game: $game, hasDetails: $hasDetails, players: $players, playersLeft: $playersLeft, args: $args)';
+    return 'GameAction(action: $action, game: $game, hasStarted: $hasStarted, players: $players, exemptPlayers: $exemptPlayers, args: $args)';
   }
 
   @override
@@ -83,9 +87,9 @@ class GameAction {
 
     return other.action == action &&
         other.game == game &&
-        other.hasDetails == hasDetails &&
+        other.hasStarted == hasStarted &&
         listEquals(other.players, players) &&
-        listEquals(other.playersLeft, playersLeft) &&
+        listEquals(other.exemptPlayers, exemptPlayers) &&
         mapEquals(other.args, args);
   }
 
@@ -93,9 +97,9 @@ class GameAction {
   int get hashCode {
     return action.hashCode ^
         game.hashCode ^
-        hasDetails.hashCode ^
+        hasStarted.hashCode ^
         players.hashCode ^
-        playersLeft.hashCode ^
+        exemptPlayers.hashCode ^
         args.hashCode;
   }
 }

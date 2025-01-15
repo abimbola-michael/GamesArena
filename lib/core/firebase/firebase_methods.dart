@@ -195,6 +195,7 @@ class FirebaseMethods {
   }
 
   DatabaseReference getDatabaseRef(List<String> path) {
+    // print("path = $path");
     return database.ref(path.join("/"));
   }
 

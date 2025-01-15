@@ -64,35 +64,25 @@ extension QueryExtension on Query {
             //if (value != null) {
             if (clause == "==") {
               query = query.where(name, isEqualTo: value);
-            }
-            if (clause == "!=") {
+            } else if (clause == "!=") {
               query = query.where(name, isNotEqualTo: value);
-            }
-            if (clause == "<") {
+            } else if (clause == "<") {
               query = query.where(name, isLessThan: value);
-            }
-            if (clause == ">") {
+            } else if (clause == ">") {
               query = query.where(name, isGreaterThan: value);
-            }
-            if (clause == "<=") {
+            } else if (clause == "<=") {
               query = query.where(name, isLessThanOrEqualTo: value);
-            }
-            if (clause == ">=") {
+            } else if (clause == ">=") {
               query = query.where(name, isGreaterThanOrEqualTo: value);
-            }
-            if (clause == "in") {
+            } else if (clause == "in") {
               query = query.where(name, whereIn: value);
-            }
-            if (clause == "notin") {
+            } else if (clause == "notin") {
               query = query.where(name, whereNotIn: value);
-            }
-            if (clause == "contains") {
+            } else if (clause == "contains") {
               query = query.where(name, arrayContains: value);
-            }
-            if (clause == "containsany") {
+            } else if (clause == "containsany") {
               query = query.where(name, arrayContainsAny: value);
-            }
-            if (clause == "is") {
+            } else if (clause == "null") {
               query = query.where(name, isNull: value);
             }
             //}
@@ -147,37 +137,30 @@ extension QueryExtension on Query {
         //if (value != null) {
         if (clause == "==") {
           query = query.where(name, isEqualTo: value);
-        }
-        if (clause == "!=") {
+        } else if (clause == "!=") {
           query = query.where(name, isNotEqualTo: value);
-        }
-        if (clause == "<") {
+        } else if (clause == "<") {
           query = query.where(name, isLessThan: value);
-        }
-        if (clause == ">") {
+        } else if (clause == ">") {
           query = query.where(name, isGreaterThan: value);
-        }
-        if (clause == "<=") {
+        } else if (clause == "<=") {
           query = query.where(name, isLessThanOrEqualTo: value);
-        }
-        if (clause == ">=") {
+        } else if (clause == ">=") {
           query = query.where(name, isGreaterThanOrEqualTo: value);
-        }
-        if (clause == "in") {
+        } else if (clause == "in") {
           query = query.where(name, whereIn: value);
-        }
-        if (clause == "notin") {
+        } else if (clause == "notin") {
           query = query.where(name, whereNotIn: value);
-        }
-        if (clause == "contains") {
+        } else if (clause == "contains") {
           query = query.where(name, arrayContains: value);
-        }
-        if (clause == "containsany") {
+        } else if (clause == "containsany") {
           query = query.where(name, arrayContainsAny: value);
-        }
-        if (clause == "is") {
+        } else if (clause == "null") {
           query = query.where(name, isNull: value);
         }
+        // if (clause == "is") {
+        //   query = query.where(name, isNull: value);
+        // }
         //}
       }
     }

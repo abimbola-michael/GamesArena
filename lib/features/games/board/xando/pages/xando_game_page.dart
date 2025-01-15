@@ -7,6 +7,7 @@ import 'package:gamesarena/enums/emums.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../../shared/utils/call_utils.dart';
 import '../../../../game/models/game_action.dart';
 import '../widgets/xando_line_paint.dart';
 import '../models/xando.dart';
@@ -15,12 +16,14 @@ import '../../../../../shared/utils/utils.dart';
 class XandOGamePage extends BaseGamePage {
   static const route = "/xando";
   final Map<String, dynamic> args;
+  final CallUtils callUtils;
   final void Function(GameAction gameAction) onActionPressed;
   const XandOGamePage(
     this.args,
+    this.callUtils,
     this.onActionPressed, {
     super.key,
-  }) : super(args, onActionPressed);
+  }) : super(args, callUtils, onActionPressed);
 
   @override
   ConsumerState<XandOGamePage> createState() => _XandOGamePageState();
@@ -53,16 +56,17 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
     await setDetail(details.toMap());
   }
 
-  void playChar(int index, [bool isClick = true]) async {
+  void playChar(int index, [int? playerIndex, bool isClick = true]) async {
     if (!itsMyTurnToPlay(isClick)) return;
 
     final coordinates = convertToGrid(index, gridSize);
     final rowindex = coordinates[0];
     final colindex = coordinates[1];
-    final xando = xandoTiles[colindex][rowindex];
-    if (xando.char == null) {
+    final xando = xandoTiles.get(colindex)?.get(rowindex);
+    if (xando != null && xando.char == null) {
       if (isClick) updateDetails(index);
-      xandoTiles[colindex][rowindex].char = getChar(currentPlayer);
+      xandoTiles[colindex][rowindex].char =
+          getChar(playerIndex ?? currentPlayer);
       checkIfMatch(xando);
       //getHintMessage();
       setState(() {});
@@ -86,7 +90,7 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
     // changePlayer();
   }
 
-  void checkIfMatch(XandOTile xando) {
+  void checkIfMatch(XandOTile xando) async {
     // if (awaiting) return;
     final x = xando.x;
     final y = xando.y;
@@ -159,12 +163,17 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
         //updateWin(currentPlayer);
       }
       awaiting = true;
-      Future.delayed(const Duration(seconds: 2)).then((value) {
-        initGrids();
-      });
+      changePlayer();
+      setState(() {});
+      if (!seeking) {
+        await Future.delayed(const Duration(seconds: 2));
+      }
+
+      initGrids();
+    } else {
+      changePlayer();
+      setState(() {});
     }
-    changePlayer();
-    setState(() {});
   }
 
   // Future resetChars() async {
@@ -187,8 +196,6 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
   // }
 
   void initGrids() {
-    setInitialCount(0);
-
     playedCount = 0;
     awaiting = false;
     winDirection = null;
@@ -221,10 +228,11 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
   Future onDetailsChange(Map<String, dynamic>? map) async {
     if (map != null) {
       final details = XandODetails.fromMap(map);
+      final playerIndex = getPlayerIndex(map["id"]);
 
       final playPos = details.playPos;
       if (playPos != -1) {
-        playChar(playPos, false);
+        playChar(playPos, playerIndex, false);
       } else {
         changePlayer();
       }
@@ -261,6 +269,7 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
 
   @override
   void onStart() {
+    setInitialCount(0);
     initGrids();
   }
 

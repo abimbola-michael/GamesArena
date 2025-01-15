@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:io';
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +12,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-import '../../features/game/models/game_list.dart';
 import '../../features/user/services.dart';
 import '../../shared/utils/constants.dart';
 import '../../shared/utils/utils.dart';
@@ -35,65 +35,34 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 Future<void> handleMessage(
     RemoteMessage? message, NotificationMode mode) async {
-  print("handleMessage message = $message, mode = $mode");
+  // print("handleMessage message = $message, mode = $mode");
   if (message == null) return;
   final notification = message.notification;
-
-  if (notification != null && mode == NotificationMode.background) {
-    final title = notification.title;
-    final body = notification.body;
-    flutterLocalNotificationsPlugin.show(
-      notification.hashCode,
-      title,
-      body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          androidChannel.id,
-          androidChannel.name,
-          channelDescription: androidChannel.description,
-          icon: '@mipmap/launcher_icon',
-          // importance: Importance.max,
-          // priority: Priority.max,
-          playSound: true,
-        ),
-      ),
-      payload: jsonEncode(message.toMap()),
-    );
-  }
-
   final data = message.data;
+  if (data.isEmpty) return;
+  FirebaseNotification.sendData(data);
 
-  print("pushNotificationData = $data");
-
-  if (data["data"] != null) {
-    FirebaseNotification.onMessageData(data);
-    final notificationType = data["type"];
-    final dataValue = jsonDecode(data["data"]);
-    if (mode == NotificationMode.foreground ||
-        mode == NotificationMode.background ||
-        mode == NotificationMode.initial) {
-      if (notificationType == "match") {
-        final match = Match.fromMap(dataValue);
-
-        final gameListsBox = Hive.box<String>("gamelists");
-        final matchesBox = Hive.box<String>("matches");
-
-        final gameListJson = gameListsBox.get(match.game_id);
-        final gameList =
-            gameListJson == null ? null : GameList.fromJson(gameListJson);
-        if (gameList != null) {
-          if (matchesBox.get(match.match_id) == null) {
-            gameList.unseen =
-                match.creator_id == myId ? 0 : (gameList.unseen ?? 0) + 1;
-            gameList.match = match;
-            gameListsBox.put(gameList.game_id, gameList.toJson());
-          }
-
-          matchesBox.put(match.match_id, match.toJson());
-        }
-      }
-    } else {}
-  }
+  // if (notification != null && mode == NotificationMode.background) {
+  //   final title = notification.title;
+  //   final body = notification.body;
+  //   flutterLocalNotificationsPlugin.show(
+  //     notification.hashCode,
+  //     title,
+  //     body,
+  //     NotificationDetails(
+  //       android: AndroidNotificationDetails(
+  //         androidChannel.id,
+  //         androidChannel.name,
+  //         channelDescription: androidChannel.description,
+  //         icon: '@mipmap/launcher_icon',
+  //         // importance: Importance.max,
+  //         // priority: Priority.max,
+  //         playSound: true,
+  //       ),
+  //     ),
+  //     payload: jsonEncode(message.toMap()),
+  //   );
+  // }
 }
 
 Future<void> handleResponse(NotificationResponse response) async {
@@ -135,7 +104,22 @@ Future initPushNotification() async {
 class FirebaseNotification {
   final messaging = FirebaseMessaging.instance;
 
-  static void Function(Map<String, dynamic>? data) onMessageData = (data) {};
+  static List<ValueChanged<Map<String, dynamic>>> listeners = [];
+
+  static addListener(ValueChanged<Map<String, dynamic>> callback) {
+    listeners.add(callback);
+  }
+
+  static removeListener(ValueChanged<Map<String, dynamic>> callback) {
+    listeners.remove(callback);
+  }
+
+  static sendData(Map<String, dynamic> data) {
+    for (int i = 0; i < listeners.length; i++) {
+      final callback = listeners[i];
+      callback(data);
+    }
+  }
 
   void subscribeToTopic(String topic) {
     if (!isAndroidAndIos) return;
@@ -187,53 +171,81 @@ class FirebaseNotification {
   }
 }
 
-Future sendUserPushNotification(String userId,
-    {Map<String, dynamic>? data,
-    String? title,
-    String? body,
-    String? notificationType,
-    List<String>? previouslySentTokens}) async {
-  //previouslySentTokens == null
-  final user = await getUser(userId, useCache: false);
-  if ((user?.tokens ?? []).isEmpty) return;
-
-  for (int i = 0; i < user!.tokens!.length; i++) {
-    final token = user.tokens![i];
-    print("userToken = $token");
-    // if (previouslySentTokens != null && previouslySentTokens.contains(token)) {
-    //   continue;
-    // }
-    final result = await sendPushNotification(token,
-        data: data,
-        title: title,
-        body: body,
-        notificationType: notificationType);
-    // if (!result) {
-    //   if (previouslySentTokens != null) continue;
-    //   sendUserPushNotification(userId,
-    //       data: data,
-    //       title: title,
-    //       body: body,
-    //       notificationType: notificationType,
-    //       previouslySentTokens: previouslySentTokens);
-    //   return;
-    // } else {
-    //   previouslySentTokens ??= [];
-    //   previouslySentTokens.add(token);
-    // }
-  }
-}
-
 Future<String?> getAccessToken() async {
   String serviceAccountPath = 'secure_files/service_account.json';
 
-  final serviceAccount = ServiceAccountCredentials.fromJson(
-      json.decode(File(serviceAccountPath).readAsStringSync()));
+  // final serviceAccount = ServiceAccountCredentials.fromJson(
+  //     json.decode(File(serviceAccountPath).readAsStringSync()));
+  final serviceAccount = ServiceAccountCredentials(
+    dotenv.env['CLIENT_EMAIL']!,
+    ClientId(dotenv.env['CLIENT_ID']!),
+    dotenv.env['PRIVATE_KEY']!.replaceAll(r'\n', '\n'),
+  );
 
   final authClient = await clientViaServiceAccount(
       serviceAccount, ['https://www.googleapis.com/auth/firebase.messaging']);
 
   return authClient.credentials.accessToken.data;
+}
+
+Future sendUserPushNotification(String userId,
+    {Map<String, dynamic>? data,
+    String? title,
+    String? body,
+    String? notificationType}) async {
+  if (!isConnectedToInternet) return;
+
+  final user = await getUser(userId);
+  final tokens = user?.tokens ?? [];
+
+  if (tokens.isEmpty) return;
+
+  List<String> sentTokens = [];
+  List<String> unsentTokens = [];
+
+  for (int i = 0; i < tokens.length; i++) {
+    final token = tokens[i];
+
+    final result = await sendPushNotification(token,
+        data: data,
+        title: title,
+        body: body,
+        notificationType: notificationType);
+    if (result) {
+      sentTokens.add(token);
+    } else {
+      unsentTokens.add(token);
+    }
+  }
+
+  if (unsentTokens.isNotEmpty) {
+    final user = await getUser(userId, useCache: false);
+    final tokens = user?.tokens ?? [];
+    if (!isConnectedToInternet) return;
+
+    List<String> newTokens = tokens
+        .where((token) =>
+            sentTokens.contains(token) || unsentTokens.contains(token))
+        .toList();
+
+    for (int i = 0; i < newTokens.length; i++) {
+      final token = newTokens[i];
+
+      await sendPushNotification(token,
+          data: data,
+          title: title,
+          body: body,
+          notificationType: notificationType);
+    }
+    if (!isConnectedToInternet) return;
+
+    final dormantTokens = tokens.where((token) => unsentTokens.contains(token));
+    if (dormantTokens.isEmpty) return;
+
+    tokens.removeWhere((token) => unsentTokens.contains(token));
+
+    updateUserToken(userId, tokens);
+  }
 }
 
 Future<bool> sendPushNotification(String tokenOrTopic,
@@ -248,10 +260,9 @@ Future<bool> sendPushNotification(String tokenOrTopic,
   try {
     final accessToken = await getAccessToken();
     if (accessToken == null) {
-      print('Failed to obtain access token');
+      // print('Failed to obtain access token');
       return false;
     }
-    print("accessToken = $accessToken");
 
     final headers = {
       'Authorization': 'Bearer $accessToken',
@@ -260,26 +271,23 @@ Future<bool> sendPushNotification(String tokenOrTopic,
 
     final notificationPayload = {
       'message': {
-        isTopic ? "topic" : 'token': tokenOrTopic,
-        if (title != null || body != null)
+        if (isTopic) "topic": tokenOrTopic else "token": tokenOrTopic,
+        if (title != null || body != null) ...{
           'notification': {
             'title': title,
             'body': body,
           },
-
+          "android": {
+            "priority": "HIGH",
+            "notification": {"channel_id": "high_importance_channel"}
+          },
+        },
         "data": {
           "type": notificationType,
+          "click_action": "FLUTTER_NOTIFICATION_CLICK",
+          "status": "done",
           if (data != null) "data": jsonEncode(data),
         }
-
-        // 'data': data ?? {},
-        // "data": {
-        //   "click_action": "FLUTTER_NOTIFICATION_CLICK",
-        //   "status": "done",
-        //   "body": body,
-        //   "title": title,
-        //   "notificationType": notificationType,
-        // },
       }
     };
 
@@ -289,51 +297,11 @@ Future<bool> sendPushNotification(String tokenOrTopic,
       body: jsonEncode(notificationPayload),
     );
 
-    print('FCM Response: ${response.statusCode} - ${response.body}');
+    // print('FCM Response: ${response.statusCode} - ${response.body}');
+
     return response.statusCode == 200;
   } catch (e) {
+    // print("notificationError = $e");
     return false;
   }
-
-// Future<bool> sendPushNotification(String tokenOrTopic,
-//     {Map<String, dynamic>? data,
-//     String? title,
-//     String? body,
-//     String? notificationType,
-//     bool isTopic = false}) async {
-//   privateKey ??= await getPrivateKey();
-//   String firebaseAuthKey = privateKey!.firebaseAuthKey;
-//   print(
-//       "firebaseAuthKey = $firebaseAuthKey, tokenOrTopic = $tokenOrTopic data = $data, $title, $body");
-//   try {
-//     final response = await post(
-//       Uri.parse("https://fcm.googleapis.com/fcm/send"),
-//       headers: {
-//         "Content-Type": "application/json",
-//         "Authorization": "key=$firebaseAuthKey",
-//       },
-//       body: jsonEncode(<String, dynamic>{
-//         "priority": "high",
-//         if (title != null || body != null)
-//           "notification": {
-//             "body": body,
-//             "title": title,
-//             "android_channel_id": CHANNEL_ID,
-//           },
-//         "data": {
-//           "click_action": "FLUTTER_NOTIFICATION_CLICK",
-//           "status": "done",
-//           "body": body,
-//           "title": title,
-//           "notificationType": notificationType,
-//           if (data != null) "data": data,
-//         },
-//         if (isTopic) "topic": tokenOrTopic else "to": tokenOrTopic,
-//       }),
-//     );
-//     print('FCM Response: ${response.statusCode} - ${response.body}');
-//     return response.statusCode == 200;
-//   } catch (e) {
-//     return false;
-//   }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/widgets.dart';
@@ -15,9 +16,10 @@ import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/main.dart';
 import 'package:gamesarena/features/app_info/pages/app_info_page.dart';
 import 'package:gamesarena/features/games/pages.dart';
-import 'package:gamesarena/features/home/tabs/matches_page.dart';
-import 'package:gamesarena/features/home/tabs/games_page.dart';
+import 'package:gamesarena/features/match/pages/matches_page.dart';
+import 'package:gamesarena/features/game/pages/games_page.dart';
 import 'package:flutter/material.dart';
+import 'package:gamesarena/shared/providers/internet_connection_provider.dart';
 import 'package:gamesarena/shared/utils/country_code_utils.dart';
 import 'package:gamesarena/shared/widgets/app_appbar.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -30,13 +32,12 @@ import '../../../shared/models/models.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/widgets/app_search_bar.dart';
 import '../../../theme/colors.dart';
-import '../../contact/pages/findorinvite_player_page.dart';
 import '../../contact/services/services.dart';
+import '../../game/providers/search_games_provider.dart';
 import '../../game/services.dart';
 import '../../onboarding/services.dart';
 import '../../user/services.dart';
-import '../providers/search_games_provider.dart';
-import '../providers/search_matches_provider.dart';
+import '../../match/providers/search_matches_provider.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -63,12 +64,14 @@ class _HomePageState extends ConsumerState<HomePage> {
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
   AuthMethods am = AuthMethods();
   bool loading = false;
-  bool? isLoggedIn;
+  StreamSubscription? connectivitySub;
+  final Connectivity _connectivity = Connectivity();
 
   @override
   void initState() {
     super.initState();
     readAuthUserChange();
+    listenForInternetConnection();
   }
 
   @override
@@ -77,6 +80,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     userSub?.cancel();
     subscription?.cancel();
     searchController.dispose();
+    connectivitySub?.cancel();
     super.dispose();
   }
 
@@ -84,9 +88,20 @@ class _HomePageState extends ConsumerState<HomePage> {
     sharedPref.setInt("theme", value);
   }
 
+  void listenForInternetConnection() {
+    connectivitySub = _connectivity.onConnectivityChanged.listen((results) {
+      isConnectedToInternet = results.contains(ConnectivityResult.mobile) ||
+          results.contains(ConnectivityResult.wifi) ||
+          results.contains(ConnectivityResult.ethernet);
+      ref
+          .read(internetConnectionProvider.notifier)
+          .updateConnection(isConnectedToInternet);
+    });
+  }
+
   void readAuthUserChange() {
     authSub = auth.FirebaseAuth.instance.authStateChanges().listen((authUser) {
-      print("authUser = $authUser");
+      // print("authUser = $authUser");
       if (authUser != null) {
         currentUserId = authUser.uid;
         readUser(authUser);
@@ -119,8 +134,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         playersBox.clear();
         contactsBox.clear();
       }
-      isLoggedIn = authUser != null;
-
       sharedPref.setString("currentUserId", currentUserId);
       if (!mounted) return;
       setState(() {});
@@ -152,8 +165,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       mode = AuthMode.usernameAndPhoneNumber;
       result = await context.pushTo(AuthPage(mode: mode));
 
-      print("result= $result");
-
       if (result is Map<String, dynamic>) {
         user.username = result["username"];
         user.phone = result["phone"];
@@ -175,8 +186,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
     if (mode != null) {
       if (result == null) {
-        print("logging out");
-
         logout();
       } else {
         saveUserProperty(myId, user.toMap().removeNull());
@@ -226,7 +235,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         if (match == null || !mounted) return;
 
         final page = NewOnlineGamePage(
-          indices: "",
           players: const [],
           users: const [],
           game: match.games?.firstOrNull ?? "",
@@ -251,135 +259,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     });
   }
-
-  // void readUser() async {
-  //   print("currentUserId = $currentUserId, myId= $myId");
-  //   userSub = getStreamUser(myId).listen((user) {
-  //     name = user?.username ?? "";
-  //     this.user = user;
-  //     if (name.isEmpty) {
-  //       context.pushTo(const AuthPage(mode: AuthMode.username));
-  //       return;
-  //     }
-  //     if (user?.time_deleted != null) {
-  //       logOut();
-  //       return;
-  //     }
-  //     if (user != null && user.answeredRequests != true) {
-  //       acceptPlayersRequests(user.phone);
-  //     }
-  //     if (!mounted) return;
-  //     setState(() {});
-  //   });
-
-  //   // subscription = getRequestedMatchesStream().listen((matchesChange) async {
-  //   //   //print("matchesChange = $matchesChange");
-  //   //   for (int i = 0; i < matchesChange.length; i++) {
-  //   //     final matchChange = matchesChange[i];
-  //   //     final match = matchChange.value;
-  //   //     if (matchChange.added) {
-  //   //       currentMatch ??= match;
-  //   //     } else {
-  //   //       if (currentMatch != null &&
-  //   //           (matchChange.removed || !match.players!.contains(myId))) {
-  //   //         context.pop();
-  //   //       }
-  //   //     }
-  //   //   }
-  //   //   if (currentMatch != null) {
-  //   //     await context.pushTo(NewOnlineGamePage(
-  //   //       indices: "",
-  //   //       players: const [],
-  //   //       users: const [],
-  //   //       game: currentMatch!.game ?? "",
-  //   //       matchId: currentMatch!.match_id!,
-  //   //       gameId: currentMatch!.game_id!,
-  //   //       creatorId: currentMatch!.creator_id!,
-  //   //       creatorName: "",
-  //   //     ));
-  //   //     currentMatch = null;
-  //   //   }
-  //   // });
-  //   // final gameRequestStream = getGameRequest();
-  //   // subscription = gameRequestStream.listen((request) async {
-  //   //   if (!mounted || request == null) return;
-  //   //   context.pushTo(NewOnlineGamePage(
-  //   //     indices: "",
-  //   //     players: const [],
-  //   //     users: const [],
-  //   //     game: request.game,
-  //   //     matchId: request.match_id,
-  //   //     gameId: request.game_id,
-  //   //     creatorId: request.creator_id,
-  //   //     creatorName: "",
-  //   //   ));
-  //   //   // if (request != null) {
-  //   //   //   if (!mounted) return;
-  //   //   //   // String gameId = request.game_id;
-  //   //   //   // String matchId = request.match_id;
-
-  //   //   //   context.pushTo(NewOnlineGamePage(
-  //   //   //     indices: "",
-  //   //   //     players: const [],
-  //   //   //     users: const [],
-  //   //   //     game: request.game,
-  //   //   //     matchId: request.match_id,
-  //   //   //     gameId: request.game_id,
-  //   //   //     creatorId: request.creator_id,
-  //   //   //     creatorName: "",
-  //   //   //   ));
-  //   //   //   //   final players = await readPlayers(gameId, matchId);
-  //   //   //   //   //if (players.length == 1) return;
-  //   //   //   //   if (players.length == 1 && players.first.id == myId) {
-  //   //   //   //     leaveMatch(gameId, matchId, players, false, 0, 0);
-  //   //   //   //     //removeGamedetails(gameId, matchId);
-  //   //   //   //     return;
-  //   //   //   //   }
-  //   //   //   //   if (players.isEmpty ||
-  //   //   //   //       players.indexWhere((element) => element.id == myId) == -1) {
-  //   //   //   //     removeGameRequest();
-  //   //   //   //     if (players.isEmpty) {
-  //   //   //   //       //removeGamedetails(gameId, matchId);
-  //   //   //   //     }
-  //   //   //   //     return;
-  //   //   //   //   }
-  //   //   //   //   players.sort((a, b) => a.order?.compareTo(b.order ?? 0) ?? 0);
-  //   //   //   //   final users = await playersToUsers(players.map((e) => e.id).toList());
-  //   //   //   //   if (players.length != users.length) {
-  //   //   //   //     return;
-  //   //   //   //   }
-  //   //   //   //   final game = request.game;
-  //   //   //   //   String indices = "";
-  //   //   //   //   // if (game == "Ludo") {
-  //   //   //   //   //   indices = await getLudoIndices(gameId);
-  //   //   //   //   //   if (indices == "") return;
-  //   //   //   //   // } else if (game == "Whot") {
-  //   //   //   //   //   indices = await getWhotIndices(gameId);
-  //   //   //   //   //   if (indices == "") return;
-  //   //   //   //   // }
-  //   //   //   //   final creatorIndex = users
-  //   //   //   //       .indexWhere((element) => element.user_id == request.creator_id);
-  //   //   //   //   String creatorName = "";
-  //   //   //   //   if (creatorIndex != -1) {
-  //   //   //   //     creatorName = users[creatorIndex].username;
-  //   //   //   //   } else {
-  //   //   //   //     creatorName = (await getUser(request.creator_id))?.username ?? "";
-  //   //   //   //   }
-  //   //   //   //   if (!mounted) return;
-
-  //   //   //   //   context.pushTo(NewOnlineGamePage(
-  //   //   //   //     indices: indices,
-  //   //   //   //     players: players,
-  //   //   //   //     users: users,
-  //   //   //   //     game: request.game,
-  //   //   //   //     matchId: request.match_id,
-  //   //   //   //     gameId: request.game_id,
-  //   //   //   //     creatorId: request.creator_id,
-  //   //   //   //     creatorName: creatorName,
-  //   //   //   //   ));
-  //   //   // }
-  //   // });
-  // }
 
   void gotoLoginPage() {
     context.pushTo(const AuthPage());
@@ -531,17 +410,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                 setState(() {});
               },
             ),
-            MatchesPage(
-              playGameCallback: () {
-                currentIndex = 0;
-                setState(() {});
-              },
-            )
+            const MatchesPage()
           ],
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: gotoSelectPlayers,
-          child: const Icon(IonIcons.play),
+          child: const Icon(EvaIcons.play_circle_outline),
+          // child: const Icon(IonIcons.play),
         ),
         bottomNavigationBar: SizedBox(
           height: 50,

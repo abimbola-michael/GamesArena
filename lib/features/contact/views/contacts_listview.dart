@@ -32,9 +32,6 @@ class ContactsListView extends ConsumerWidget {
       this.newlyAddedPlayers});
 
   void addContact(PhoneContact contact, WidgetRef ref) async {
-    // final dialCode = await getCurrentCountryDialingCode();
-    // final number = contact.phone.toValidNumber(dialCode);
-    // if (number == null) return;
     final users = await getUsersWithNumber(contact.phone);
     final phoneContactsBox = Hive.box<String>("contacts");
     if (users.isNotEmpty) {
@@ -43,7 +40,7 @@ class ContactsListView extends ConsumerWidget {
 
       contact.contactStatus = ContactStatus.added;
       contact.userIds = [];
-      for (var user in users) {
+      for (final user in users) {
         contact.userIds!.add(user.user_id);
         usersBox.put(user.user_id, user.toJson());
 
@@ -65,16 +62,21 @@ class ContactsListView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final usersBox = Hive.box<String>("users");
 
-    final contacts = ref.watch(contactsProvider).where((contact) =>
-        (isInvite && contact.contactStatus != ContactStatus.added) ||
-        (contactStatus != null && contact.contactStatus == contactStatus));
+    final contacts = ref
+        .watch(contactsProvider)
+        .where((contact) =>
+            (isInvite && contact.contactStatus != ContactStatus.added) ||
+            (contactStatus != null && contact.contactStatus == contactStatus))
+        .toList();
 
-    final searchText = ref.watch(searchContactsProvider);
+    final searchString = ref.watch(searchContactsProvider);
 
-    final phoneContacts = contacts.where((contact) {
-      return contact.name!.toLowerCase().contains(searchText) ||
-          contact.phone.toLowerCase().contains(searchText);
-    }).toList();
+    final phoneContacts = searchString.isEmpty
+        ? contacts
+        : contacts.where((contact) {
+            return contact.name!.toLowerCase().contains(searchString) ||
+                contact.phone.toLowerCase().contains(searchString);
+          }).toList();
     if (phoneContacts.isEmpty) {
       return const EmptyListView(message: "No Contact");
     }
@@ -101,12 +103,12 @@ class ContactsListView extends ConsumerWidget {
             username: "",
             email: "",
             phone: phoneContact.phone,
+            phoneName: phoneContact.name,
             tokens: [],
-            time: phoneContact.createdAt,
+            time: phoneContact.modifiedAt ?? phoneContact.createdAt,
             last_seen: "",
-            time_deleted: phoneContact.modifiedAt ?? phoneContact.createdAt,
           );
-          user.phoneName = phoneContact.name;
+          // user.phoneName = phoneContact.name;
           users.add(user);
         }
 
@@ -126,7 +128,7 @@ class ContactsListView extends ConsumerWidget {
                     ContactStatus.requested) {
                   shareContactInvite(
                       "SMS", phoneContact.phone, phoneContact.name);
-                }
+                } else {}
               },
               onShare: (platform) =>
                   shareContactInvite(platform, phoneContact.phone),

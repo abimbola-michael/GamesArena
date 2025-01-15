@@ -20,7 +20,6 @@ class MatchOverallRecordItem extends StatelessWidget {
       this.onPressed,
       required this.onWatchPressed,
       this.showPlayers = true});
-
   @override
   Widget build(BuildContext context) {
     final overallOutcome = getMatchOverallOutcome(match);
@@ -35,7 +34,8 @@ class MatchOverallRecordItem extends StatelessWidget {
             MatchOrRoundHeaderItem(
                 title: "Overall Record",
                 game: match.games?.join(", ") ?? "",
-                timeStart: match.time_start ?? "",
+                timeCreated: match.time_created!,
+                timeStart: match.time_start,
                 timeEnd: match.time_end,
                 duration: getMatchDuration(match),
                 players: match.players!,

@@ -44,3 +44,4 @@ app.*.map.json
 build/
 keystore.properties
 service_account.json
+.env

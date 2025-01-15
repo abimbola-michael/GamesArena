@@ -4,12 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import '../../../shared/utils/utils.dart';
 import '../../../theme/colors.dart';
 
 class MatchOrRoundHeaderItem extends StatelessWidget {
   final String? title;
   final bool isRecord;
-  final String timeStart;
+  final String? timeCreated;
+
+  final String? timeStart;
   final String? timeEnd;
   final double? duration;
   final List<String> players;
@@ -22,6 +25,7 @@ class MatchOrRoundHeaderItem extends StatelessWidget {
       this.title,
       this.isRecord = false,
       required this.timeStart,
+      this.timeCreated,
       this.timeEnd,
       required this.duration,
       required this.game,
@@ -31,11 +35,23 @@ class MatchOrRoundHeaderItem extends StatelessWidget {
       required this.onWatchPressed});
 
   String getGameTime() {
-    return "${timeStart.time} - ${timeEnd != null && timeStart.date != timeEnd!.date ? "${timeEnd!.date} " : ""}${timeEnd?.time ?? "Live"}";
+    return timeStart == null
+        ? ""
+        : "${timeStart!.time} - ${timeEnd != null && timeStart!.date != timeEnd!.date ? "${timeEnd!.date} " : ""}${timeEnd?.time ?? "Live"}";
   }
 
   String getGameDuration() {
     return duration?.toInt().toDurationString() ?? "";
+  }
+
+  int get timeDelayEnd =>
+      timeCreated == null ? 0 : timeCreated!.toInt + (2 * 60 * 1000);
+
+  Widget textWidget(BuildContext context, Color color, String action) {
+    return Text(
+      "${players.length} players, $game, $action",
+      style: context.bodySmall?.copyWith(color: color),
+    );
   }
 
   @override
@@ -46,8 +62,10 @@ class MatchOrRoundHeaderItem extends StatelessWidget {
         children: [
           GestureDetector(
             onTap: onWatchPressed,
-            child: const Icon(
-              EvaIcons.play_circle_outline,
+            child: Icon(
+              timeStart == null
+                  ? EvaIcons.refresh_outline
+                  : EvaIcons.play_circle_outline,
               size: 30,
             ),
           ),
@@ -78,16 +96,40 @@ class MatchOrRoundHeaderItem extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        "${players.length} players, $outcome, $game",
-                        style: context.bodySmall?.copyWith(color: lightTint),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      getGameDuration(),
-                      style: context.bodySmall?.copyWith(color: lighterTint),
-                    )
+                        child: timeCreated != null &&
+                                (timeStart == null &&
+                                    (timeDelayEnd > timeNow.toInt))
+                            ? FutureBuilder(
+                                future: Future.delayed(Duration(
+                                    milliseconds:
+                                        timeDelayEnd - timeNow.toInt)),
+                                builder: (context, snapshot) {
+                                  final ended = snapshot.connectionState ==
+                                      ConnectionState.done;
+                                  return textWidget(
+                                      context,
+                                      ended ? Colors.red : Colors.yellow,
+                                      ended ? "Missed" : "Awaiting");
+                                })
+                            : textWidget(
+                                context,
+                                timeEnd != null
+                                    ? lighterTint
+                                    : timeStart == null
+                                        ? Colors.red
+                                        : primaryColor,
+                                timeEnd != null
+                                    ? outcome
+                                    : timeStart == null
+                                        ? "Missed"
+                                        : "Live")),
+                    if (timeStart != null) ...[
+                      const SizedBox(width: 10),
+                      Text(
+                        getGameDuration(),
+                        style: context.bodySmall?.copyWith(color: lighterTint),
+                      )
+                    ],
                   ],
                 ),
               ],

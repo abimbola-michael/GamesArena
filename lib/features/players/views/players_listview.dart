@@ -11,7 +11,7 @@ import '../../../shared/views/empty_listview.dart';
 import '../../../shared/views/loading_view.dart';
 import '../../game/models/game.dart';
 import '../../game/models/player.dart';
-import '../../home/tabs/games_page.dart';
+import '../../game/pages/games_page.dart';
 import '../../profile/pages/profile_page.dart';
 import '../widgets/player_item.dart';
 
@@ -35,11 +35,15 @@ class _PlayersListViewState extends State<PlayersListView>
   @override
   void initState() {
     super.initState();
+    myRole = widget.players
+            .firstWhereNullable((player) => player.id == myId)
+            ?.role ??
+        "";
     readPlayers();
   }
 
   void readPlayers([bool isMore = false]) async {
-    if (reachedEnd || loading) return;
+    if (reachedEnd || loading || !mounted) return;
     setState(() {
       loading = true;
     });
@@ -48,7 +52,11 @@ class _PlayersListViewState extends State<PlayersListView>
 
     if (!reachedAdminEnd) {
       final adminPlayers = await getGamePlayers(widget.game,
-          lastTime: widget.players.lastOrNull?.time,
+          lastTime: widget.players.lastOrNull?.id == myId ||
+                  widget.players.lastOrNull?.id == widget.game.creatorId ||
+                  widget.players.lastOrNull?.role == "creator"
+              ? null
+              : widget.players.lastOrNull?.time,
           role: "admin",
           limit: limit - playersCount);
       await addUsersToPlayers(adminPlayers);
@@ -63,7 +71,11 @@ class _PlayersListViewState extends State<PlayersListView>
 
     if (playersCount < limit) {
       final participantsPlayers = await getGamePlayers(widget.game,
-          lastTime: widget.players.lastOrNull?.time,
+          lastTime: widget.players.lastOrNull?.id == myId ||
+                  widget.players.lastOrNull?.id == widget.game.creatorId ||
+                  widget.players.lastOrNull?.role == "admin"
+              ? null
+              : widget.players.lastOrNull?.time,
           role: "participant",
           limit: limit - playersCount);
 
@@ -116,6 +128,8 @@ class _PlayersListViewState extends State<PlayersListView>
       widget.players.removeAt(selectedIndex);
       setState(() {});
     }
+    if (!mounted) return;
+    context.pop();
   }
 
   void showPlayerOptions(Player player) {
@@ -147,26 +161,6 @@ class _PlayersListViewState extends State<PlayersListView>
             options: options,
             onPressed: (index, option) async {
               executePlayerOption(player, option);
-              // if (option.startsWith("Play with")) {
-              //   final isGroup = option.endsWith("group");
-              //   final players = [myId, player.id];
-              //   final gameId =
-              //       isGroup ? widget.game.game_id : getGameId(players);
-              //   context.pushTo(
-              //     GamesPage(
-              //       gameId: gameId,
-              //       players: players,
-              //       groupName: isGroup ? widget.game.groupName : null,
-              //     ),
-              //   );
-              // } else if (option.startsWith("View Profile")) {
-              //   context.pushTo(ProfilePage(id: player.id));
-              // } else if (option.startsWith("Remove")) {
-              //   await removePlayerFromGameGroup(widget.game.game_id, player.id);
-              //   widget.players.removeAt(index);
-              //   setState(() {});
-              // } else if (option.startsWith("Make")) {
-              // } else if (option.startsWith("Dismiss")) {}
             },
           );
         });
@@ -181,6 +175,7 @@ class _PlayersListViewState extends State<PlayersListView>
     if (widget.players.isEmpty) {
       return const EmptyListView(message: "No player");
     }
+
     return ListView.builder(
       itemCount: widget.players.length + (loading ? 1 : 0),
       itemBuilder: (context, index) {

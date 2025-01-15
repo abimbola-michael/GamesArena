@@ -148,7 +148,7 @@
 //   List<int> playersCounts = [];
 //   List<int> playersScores = [];
 //   // List<int> players = [];
-//   List<ConcedeOrLeft> concedeOrLeftPlayers = [];
+//   List<ExemptPlayer> exemptPlayers = [];
 
 //   List<String> playersToasts = [];
 //   List<String> playersMessages = [];
@@ -407,9 +407,9 @@
 //     setState(() {});
 //   }
 
-//   void resetConcedeOrLeft() {
+//   void resetExemptPlayer() {
 //     // if (gameId.isNotEmpty) {
-//     //   concedeOrLeftPlayers.removeWhere((element) =>
+//     //   exemptPlayers.removeWhere((element) =>
 //     //       element.action == "leave" &&
 //     //       players
 //     //               .firstWhereNullable((player) => player.id == element.playerId)
@@ -417,16 +417,16 @@
 //     //           matchId);
 //     // }
 
-//     // concedeOrLeftPlayers.removeWhere((element) => element.action == "concede");
+//     // exemptPlayers.removeWhere((element) => element.action == "concede");
 //     // setState(() {});
 
-//     if (concedeOrLeftPlayers.isEmpty) return;
+//     if (exemptPlayers.isEmpty) return;
 //     List<int> newScores = getNewPlayersScores();
 
-//     for (int i = 0; i < concedeOrLeftPlayers.length; i++) {
-//       final concedeOrLeft = concedeOrLeftPlayers[i];
-//       final playerId = concedeOrLeft.playerId;
-//       final action = concedeOrLeft.action;
+//     for (int i = 0; i < exemptPlayers.length; i++) {
+//       final exemptPlayer = exemptPlayers[i];
+//       final playerId = exemptPlayer.playerId;
+//       final action = exemptPlayer.action;
 //       if (action == "concede") continue;
 //       users?.removeWhere((element) => element?.user_id == playerId);
 //       players.removeWhere((element) => element.id == playerId);
@@ -443,31 +443,31 @@
 //           .indexWhere((element) => element != null && element.user_id == myId);
 //       myPlayer = index;
 //     }
-//     concedeOrLeftPlayers.clear();
+//     exemptPlayers.clear();
 
 //     setState(() {});
 //   }
 
 //   bool isPlayerActive(int player) {
-//     return getConcedeOrLeft(player) == null;
+//     return getExemptPlayer(player) == null;
 //   }
 
 //   bool isPlayerAvailable(int player) {
-//     final concedeOrLeft = getConcedeOrLeft(player);
-//     return concedeOrLeft == null || concedeOrLeft.action == "concede";
+//     final exemptPlayer = getExemptPlayer(player);
+//     return exemptPlayer == null || exemptPlayer.action == "concede";
 //   }
 
-//   ConcedeOrLeft? getConcedeOrLeft(int player) {
+//   ExemptPlayer? getExemptPlayer(int player) {
 //     final index =
-//         concedeOrLeftPlayers.indexWhere((element) => element.index == player);
-//     return index != -1 ? concedeOrLeftPlayers[index] : null;
+//         exemptPlayers.indexWhere((element) => element.index == player);
+//     return index != -1 ? exemptPlayers[index] : null;
 //   }
 
 //   List<int> getNewPlayersScores() {
 //     List<int> scores = [];
 //     int length = gameId.isNotEmpty ? players.length : playersSize;
 //     for (int i = 0; i < length; i++) {
-//       if (concedeOrLeftPlayers.indexWhere(
+//       if (exemptPlayers.indexWhere(
 //               (element) => element.index == i && element.action == "leave") !=
 //           -1) {
 //         continue;
@@ -481,7 +481,7 @@
 //     List<Player> activePlayers = [];
 //     for (int i = 0; i < players.length; i++) {
 //       final player = players[i];
-//       if (concedeOrLeftPlayers
+//       if (exemptPlayers
 //               .indexWhere((element) => element.playerId == player.id) !=
 //           -1) {
 //         continue;
@@ -495,7 +495,7 @@
 //     List<Player> availablePlayers = [];
 //     for (int i = 0; i < players.length; i++) {
 //       final player = players[i];
-//       if (concedeOrLeftPlayers.indexWhere((element) =>
+//       if (exemptPlayers.indexWhere((element) =>
 //               element.playerId == player.id && element.action == "leave") !=
 //           -1) {
 //         continue;
@@ -510,7 +510,7 @@
 //     int length = gameId.isNotEmpty ? players.length : playersSize;
 
 //     for (int i = 0; i < length; i++) {
-//       if (concedeOrLeftPlayers.indexWhere((element) => element.index == i) !=
+//       if (exemptPlayers.indexWhere((element) => element.index == i) !=
 //           -1) {
 //         continue;
 //       }
@@ -524,7 +524,7 @@
 //     int length = gameId.isNotEmpty ? players.length : playersSize;
 
 //     for (int i = 0; i < length; i++) {
-//       if (concedeOrLeftPlayers.indexWhere(
+//       if (exemptPlayers.indexWhere(
 //               (element) => element.index == i && element.action == "leave") !=
 //           -1) {
 //         continue;
@@ -1282,8 +1282,8 @@
 //     setState(() {});
 //   }
 
-//   String getConcedeOrLeftMessage(ConcedeOrLeft concedeOrLeft) {
-//     return concedeOrLeft.action == "concede" ? "Conceded" : "Left";
+//   String getExemptPlayerMessage(ExemptPlayer exemptPlayer) {
+//     return exemptPlayer.action == "concede" ? "Conceded" : "Left";
 //   }
 
 //   String getMessage(int index) {
@@ -1531,7 +1531,7 @@
 
 //         checkFirstime();
 //         getCurrentPlayer();
-//         resetConcedeOrLeft();
+//         resetExemptPlayer();
 //         //if (gameId.isEmpty) onInit();
 //         onStart();
 //         finishedRound = false;
@@ -1587,7 +1587,7 @@
 
 //   void change(String game, [bool act = false]) async {
 //     if (act || gameId == "" || isWatch) {
-//       resetConcedeOrLeft();
+//       resetExemptPlayer();
 //       if (gameId == "") {
 //         recordId++;
 //       }
@@ -1613,7 +1613,7 @@
 //     onConcede(index);
 
 //     if (act || gameId == "" || isWatch) {
-//       concedeOrLeftPlayers.add(ConcedeOrLeft(
+//       exemptPlayers.add(ExemptPlayer(
 //           index: index, playerId: playerId, action: "concede", time: gameTime));
 //       if (index == currentPlayer) {
 //         changePlayer();
@@ -1656,7 +1656,7 @@
 //     final index = playerId != null ? getPlayerIndex(playerId) : pauseIndex;
 //     onLeave(index);
 //     if (act || gameId == "" || isWatch) {
-//       concedeOrLeftPlayers.add(ConcedeOrLeft(
+//       exemptPlayers.add(ExemptPlayer(
 //           index: index, playerId: playerId, action: "leave", time: gameTime));
 //       if (index == currentPlayer) {
 //         changePlayer();
@@ -2037,8 +2037,8 @@
 //   }
 
 //   double getOverlayOpacity(int index) {
-//     final concedeOrLeft = getConcedeOrLeft(index);
-//     double opacity = concedeOrLeft != null ? 0.3 : 1;
+//     final exemptPlayer = getExemptPlayer(index);
+//     double opacity = exemptPlayer != null ? 0.3 : 1;
 
 //     final userId = getPlayerId(index);
 //     if (userId == null) return opacity;
@@ -2048,7 +2048,7 @@
 //       case "show":
 //         return opacity;
 //       case "faint":
-//         return concedeOrLeft != null ? 0.3 : 0.5;
+//         return exemptPlayer != null ? 0.3 : 0.5;
 //       case "hide":
 //         return 0;
 //     }
@@ -2128,12 +2128,12 @@
 //   }
 
 //   Widget getPlayerBottomWidget(int index) {
-//     final concedeOrLeft = getConcedeOrLeft(index);
+//     final exemptPlayer = getExemptPlayer(index);
 //     final user = users != null && index < users!.length ? users![index] : null;
 //     final profilePhoto = user?.profile_photo;
 //     return IgnorePointer(
-//       ignoring: concedeOrLeft != null &&
-//           concedeOrLeft.action == "leave" &&
+//       ignoring: exemptPlayer != null &&
+//           exemptPlayer.action == "leave" &&
 //           !finishedRound,
 //       child: RotatedBox(
 //         quarterTurns: getStraightTurn(index),
@@ -2400,7 +2400,7 @@
 //                     if (isCard) ...[
 //                       ...List.generate(playersSize, (index) {
 //                         final videoView = buildVideoView(index);
-//                         final concedeOrLeft = getConcedeOrLeft(index);
+//                         final exemptPlayer = getExemptPlayer(index);
 //                         return Positioned(
 //                           top: index == 0 ||
 //                                   ((index == 1 || index == 3) &&
@@ -2427,9 +2427,9 @@
 //                                               : null,
 //                                           builder: (context, snapshot) {
 //                                             return Text(
-//                                               concedeOrLeft != null
-//                                                   ? getConcedeOrLeftMessage(
-//                                                       concedeOrLeft)
+//                                               exemptPlayer != null
+//                                                   ? getExemptPlayerMessage(
+//                                                       exemptPlayer)
 //                                                   : getMessage(index),
 //                                               style: TextStyle(
 //                                                 fontWeight: FontWeight.bold,
@@ -2475,12 +2475,12 @@
 //                                                     : 8),
 //                                             child: IgnorePointer(
 //                                                 ignoring:
-//                                                     concedeOrLeft != null &&
+//                                                     exemptPlayer != null &&
 //                                                         !finishedRound,
 //                                                 child: buildBottomOrLeftChild(
 //                                                     index)),
 //                                           ),
-//                                           if (concedeOrLeft == null &&
+//                                           if (exemptPlayer == null &&
 //                                               index < playersToasts.length &&
 //                                               playersToasts[index] != "") ...[
 //                                             Align(
@@ -2514,7 +2514,7 @@
 //                             playersSize > 2 &&
 //                             (myPlayer == 1 || myPlayer == 3);
 //                         final value = isEdgeTilt ? !landScape : landScape;
-//                         final concedeOrLeft = getConcedeOrLeft(index);
+//                         final exemptPlayer = getExemptPlayer(index);
 //                         return Positioned(
 //                             top: index < mindex ? 0 : null,
 //                             bottom: index >= mindex ? 0 : null,
@@ -2587,7 +2587,7 @@
 //                                                     timerController2 != null
 //                                                 ? timerController2!.stream
 //                                                 : timerController.stream,
-//                                             time: concedeOrLeft?.time,
+//                                             time: exemptPlayer?.time,
 //                                           ),
 //                                         ),
 //                                       ],
@@ -2649,7 +2649,7 @@
 //                         (index) {
 //                           final mindex = (playersSize / 2).ceil();
 //                           final videoView = buildVideoView(index);
-//                           final concedeOrLeft = getConcedeOrLeft(index);
+//                           final exemptPlayer = getExemptPlayer(index);
 //                           return Positioned(
 //                               top: index < mindex ? 0 : null,
 //                               bottom: index >= mindex ? 0 : null,
@@ -2714,12 +2714,12 @@
 //                                                               .stream
 //                                                           : timerController
 //                                                               .stream,
-//                                                       time: concedeOrLeft?.time,
+//                                                       time: exemptPlayer?.time,
 //                                                     ),
 //                                                   ),
 //                                                   if ((currentPlayer == index &&
 //                                                           showMessage) ||
-//                                                       concedeOrLeft !=
+//                                                       exemptPlayer !=
 //                                                           null) ...[
 //                                                     const SizedBox(height: 4),
 //                                                     RotatedBox(
@@ -2733,10 +2733,10 @@
 //                                                           builder: (context,
 //                                                               snapshot) {
 //                                                             return Text(
-//                                                               concedeOrLeft !=
+//                                                               exemptPlayer !=
 //                                                                       null
-//                                                                   ? getConcedeOrLeftMessage(
-//                                                                       concedeOrLeft)
+//                                                                   ? getExemptPlayerMessage(
+//                                                                       exemptPlayer)
 //                                                                   : isChessOrDraught
 //                                                                       ? "Play"
 //                                                                       : "Play - ${playerTime.toDurationString(false)}",
@@ -2758,7 +2758,7 @@
 //                                               Expanded(
 //                                                 child: IgnorePointer(
 //                                                   ignoring:
-//                                                       concedeOrLeft != null &&
+//                                                       exemptPlayer != null &&
 //                                                           !finishedRound,
 //                                                   child: Container(
 //                                                     alignment:
@@ -2864,7 +2864,7 @@
 //                     onToggleSpeaker: toggleSpeaker,
 //                     quarterTurns: getPausedGameTurn(),
 //                     pauseIndex: pauseIndex,
-//                     concedeOrLeftPlayers: concedeOrLeftPlayers,
+//                     exemptPlayers: exemptPlayers,
 //                   ),
 //                 ),
 //               if (firstTime && !paused && !seenFirstHint) ...[

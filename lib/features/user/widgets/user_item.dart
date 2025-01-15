@@ -41,7 +41,11 @@ class UserItem extends StatelessWidget {
                     onTap: onPressed,
                     child: CircleAvatar(
                       radius: 8,
-                      backgroundColor: Colors.red,
+                      backgroundColor: type == "select" &&
+                              user != null &&
+                              user!.user_id != myId
+                          ? Colors.red
+                          : primaryColor,
                       child: Icon(
                         type == "select" &&
                                 user != null &&

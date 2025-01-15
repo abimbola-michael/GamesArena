@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebaseUser;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -19,72 +20,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import './features/game/models/match.dart';
-
-import './features/game/models/game_list.dart';
 import './features/user/models/user.dart';
 import 'features/game/pages/game_page.dart';
+import 'features/home/pages/main_page.dart';
 import 'shared/utils/ads_utils.dart';
 import 'theme/theme.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 late SharedPreferences sharedPref;
+bool isConnectedToInternet = false;
 int themeValue = 1;
 String currentUserId = "";
 PrivateKey? privateKey;
 Map<String, User?> usersMap = {};
 AdUtils adUtils = AdUtils();
 FirebaseNotification firebaseNotification = FirebaseNotification();
+bool initialized = false;
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  privateKey = await getPrivateKey();
-  // await AuthMethods().logOut();
-  //if (privateKey != null) {
-  //   Gemini.init(apiKey: privateKey!.chatGptApiKey);
-  // }
-  String apiKey = "AIzaSyDvzr6pZ2o_DlWGFtzFmRrREJaiCG2ulHQ";
-  Gemini.init(apiKey: apiKey);
-
-  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-    MobileAds.instance.initialize();
-
-    FlutterError.onError = (errorDetails) {
-      FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
-    };
-    // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
-    PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true;
-    };
-  }
-  sharedPref = await SharedPreferences.getInstance();
-  currentUserId = sharedPref.getString("currentUserId") ??
-      firebaseUser.FirebaseAuth.instance.currentUser?.uid ??
-      "";
-  final theme = sharedPref.getInt("theme");
-  if (theme == null) {
-    sharedPref.setInt("theme", 1);
-  } else {
-    themeValue = theme;
-  }
-  await Hive.initFlutter();
-
-  await Hive.openBox<String>("users");
-  await Hive.openBox<String>("matches");
-  await Hive.openBox<String>("gamelists");
-  await Hive.openBox<String>("players");
-  await Hive.openBox<String>("contacts");
-
-  // Hive.box<String>("matches").clear();
-  // Hive.box<String>("gamelists").clear();
-  // Hive.box<String>("players").clear();
-
-  //final hivePath = Hive.deleteFromDisk();
-
-  firebaseNotification.initNotification();
-  //FirebaseService().updatePresence();
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -124,33 +77,12 @@ class MyApp extends ConsumerWidget {
           },
         ),
       },
-      home: const HomePage(),
-      // home: StreamBuilder<User?>(
-      //     stream: FirebaseAuth.instance.authStateChanges(),
-      //     builder: (context, snapshot) {
-      //       print("data = ${snapshot.data}");
-      //       currentUserId = snapshot.data?.uid ?? "";
+      home: const MainPage(),
 
-      //       if (snapshot.connectionState == ConnectionState.waiting) {
-      //         return const Center(
-      //           child: CircularProgressIndicator(),
-      //         );
-      //       }
-      //       return const HomePage();
+      // home: const HomePage(),
 
-      //       // return snapshot.hasData
-      //       //     ? const HomePage()
-      //       //     : const LoginPage(login: true);
-      //     }),
       routes: {
         GamePage.route: (_) => const GamePage(),
-        // ChessGamePage.route: (_) => const ChessGamePage(),
-        // DraughtGamePage.route: (_) => const DraughtGamePage(),
-        // LudoGamePage.route: (_) => const LudoGamePage(),
-        // WhotGamePage.route: (_) => const WhotGamePage(),
-        // WordPuzzleGamePage.route: (_) => const WordPuzzleGamePage(),
-        // XandOGamePage.route: (_) => const XandOGamePage(),
-        // QuizGamePage.route: (_) => const QuizGamePage(),
       },
     );
   }

@@ -1,7 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gamesarena/features/records/utils/utils.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/shared/widgets/app_appbar.dart';
 import 'package:icons_plus/icons_plus.dart';
@@ -11,9 +9,8 @@ import '../../../shared/utils/utils.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_search_bar.dart';
 import '../../../theme/colors.dart';
-import '../../home/providers/search_games_provider.dart';
-import '../../user/models/user_game.dart';
-import '../../user/services.dart';
+
+import '../../game/providers/search_games_provider.dart';
 import '../services.dart';
 import '../widgets/game_item.dart';
 import '../widgets/user_game_item.dart';
@@ -116,14 +113,15 @@ class _UserGamesSelectionPageState extends ConsumerState<UserGamesSelectionPage>
   void saveUserGames() async {
     saving = true;
     setState(() {});
+    final time = timeNow;
     try {
       if (widget.gameId != null) {
-        await updateGroupGames(widget.gameId!, selectedGames);
+        await updateGroupGames(widget.gameId!, selectedGames, time);
       } else {
-        await updateUserGames(selectedGames);
+        await updateUserGames(selectedGames, time);
       }
       if (!mounted) return;
-      context.pop(selectedGames);
+      context.pop({"games": selectedGames, "time": time});
     } catch (e) {
       saving = false;
       setState(() {});
@@ -206,10 +204,12 @@ class _UserGamesSelectionPageState extends ConsumerState<UserGamesSelectionPage>
                             : index == 2
                                 ? allPuzzleGames
                                 : allQuizGames;
-                    final games = foundGames
-                        .where(
-                            (game) => game.toLowerCase().contains(searchString))
-                        .toList();
+                    final games = searchString.isEmpty
+                        ? foundGames
+                        : foundGames
+                            .where((game) =>
+                                game.toLowerCase().contains(searchString))
+                            .toList();
 
                     return ListView.builder(
                       itemCount: games.length,
@@ -236,7 +236,7 @@ class _UserGamesSelectionPageState extends ConsumerState<UserGamesSelectionPage>
               Center(
                 child: AppButton(
                     title: saving ? "Saving" : "Save",
-                    wrapped: true,
+                    // wrapped: true,
                     loading: saving,
                     disabled: saving,
                     onPressed: saveUserGames),

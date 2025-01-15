@@ -5,7 +5,6 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:gamesarena/features/game/models/game.dart';
-import 'package:gamesarena/features/records/models/match_record.dart';
 
 import '../../user/models/user.dart';
 
@@ -19,9 +18,9 @@ class Match {
   String? time_start;
   String? time_end;
   String? user_id;
-
   List<String>? games;
   List<String>? players;
+  List<String>? available_players;
   String? outcome;
   List<String>? winners;
   List<String>? others;
@@ -41,11 +40,14 @@ class Match {
     this.user_id,
     this.games,
     this.players,
+    this.available_players,
     this.outcome,
     this.winners,
     this.others,
     this.scores,
     this.records,
+    this.users,
+    this.game,
   });
 
   Match copyWith({
@@ -60,11 +62,14 @@ class Match {
     String? user_id,
     List<String>? games,
     List<String>? players,
+    List<String>? available_players,
     String? outcome,
     List<String>? winners,
     List<String>? others,
     List<int>? scores,
     Map<String, dynamic>? records,
+    List<User>? users,
+    Game? game,
   }) {
     return Match(
       match_id: match_id ?? this.match_id,
@@ -78,11 +83,14 @@ class Match {
       user_id: user_id ?? this.user_id,
       games: games ?? this.games,
       players: players ?? this.players,
+      available_players: available_players ?? this.available_players,
       outcome: outcome ?? this.outcome,
       winners: winners ?? this.winners,
       others: others ?? this.others,
       scores: scores ?? this.scores,
       records: records ?? this.records,
+      users: users ?? this.users,
+      game: game ?? this.game,
     );
   }
 
@@ -99,11 +107,14 @@ class Match {
       'user_id': user_id,
       'games': games,
       'players': players,
+      'available_players': available_players,
       'outcome': outcome,
       'winners': winners,
       'others': others,
       'scores': scores,
       'records': records,
+      'users': users?.map((x) => x?.toMap()).toList(),
+      'game': game?.toMap(),
     };
   }
 
@@ -129,6 +140,9 @@ class Match {
       players: map['players'] != null
           ? List<String>.from((map['players'] as List<dynamic>))
           : null,
+      available_players: map['available_players'] != null
+          ? List<String>.from((map['available_players'] as List<dynamic>))
+          : null,
       outcome: map['outcome'] != null ? map['outcome'] as String : null,
       winners: map['winners'] != null
           ? List<String>.from((map['winners'] as List<dynamic>))
@@ -142,6 +156,16 @@ class Match {
       records: map['records'] != null
           ? Map<String, dynamic>.from((map['records'] as Map<String, dynamic>))
           : null,
+      users: map['users'] != null
+          ? List<User>.from(
+              (map['users'] as List<dynamic>).map<User?>(
+                (x) => User.fromMap(x as Map<String, dynamic>),
+              ),
+            )
+          : null,
+      game: map['game'] != null
+          ? Game.fromMap(map['game'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -152,7 +176,7 @@ class Match {
 
   @override
   String toString() {
-    return 'Match(match_id: $match_id, game_id: $game_id, creator_id: $creator_id, time_created: $time_created, time_modified: $time_modified, time_deleted: $time_deleted, time_start: $time_start, time_end: $time_end, user_id: $user_id, games: $games, players: $players, outcome: $outcome, winners: $winners, others: $others, scores: $scores, records: $records)';
+    return 'Match(match_id: $match_id, game_id: $game_id, creator_id: $creator_id, time_created: $time_created, time_modified: $time_modified, time_deleted: $time_deleted, time_start: $time_start, time_end: $time_end, user_id: $user_id, games: $games, players: $players, available_players: $available_players, outcome: $outcome, winners: $winners, others: $others, scores: $scores, records: $records, users: $users, game: $game)';
   }
 
   @override
@@ -170,11 +194,14 @@ class Match {
         other.user_id == user_id &&
         listEquals(other.games, games) &&
         listEquals(other.players, players) &&
+        listEquals(other.available_players, available_players) &&
         other.outcome == outcome &&
         listEquals(other.winners, winners) &&
         listEquals(other.others, others) &&
         listEquals(other.scores, scores) &&
-        mapEquals(other.records, records);
+        mapEquals(other.records, records) &&
+        listEquals(other.users, users) &&
+        other.game == game;
   }
 
   @override
@@ -190,10 +217,13 @@ class Match {
         user_id.hashCode ^
         games.hashCode ^
         players.hashCode ^
+        available_players.hashCode ^
         outcome.hashCode ^
         winners.hashCode ^
         others.hashCode ^
         scores.hashCode ^
-        records.hashCode;
+        records.hashCode ^
+        users.hashCode ^
+        game.hashCode;
   }
 }

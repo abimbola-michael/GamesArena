@@ -2,26 +2,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamesarena/features/game/utils.dart';
 import 'package:gamesarena/features/records/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
-import 'package:gamesarena/features/records/pages/game_records_page.dart';
+import 'package:gamesarena/features/match/pages/game_matches_page.dart';
 import 'package:gamesarena/features/games/pages.dart';
 import 'package:flutter/material.dart';
 import 'package:gamesarena/shared/utils/constants.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:icons_plus/icons_plus.dart';
 import '../../../shared/extensions/special_context_extensions.dart';
+import '../../../shared/utils/country_code_utils.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/views/loading_overlay.dart';
 import '../../../shared/widgets/app_appbar.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_search_bar.dart';
 import '../../contact/pages/findorinvite_player_page.dart';
-import '../../game/models/player.dart';
 import '../../game/services.dart';
-import '../../records/widgets/player_item.dart';
+import '../../game/pages/games_page.dart';
+import '../widgets/player_item.dart';
 import '../../user/services.dart';
 import '../../user/widgets/user_item.dart';
 import '../../../shared/models/models.dart';
-import '../../../shared/widgets/action_button.dart';
 import '../../../theme/colors.dart';
 import '../providers/search_players_provider.dart';
 
@@ -30,14 +30,19 @@ class PlayersSelectionPage extends ConsumerStatefulWidget {
   final String? gameId;
   final String? groupName;
   final String? game;
+  final bool isAddPlayers;
   final List<Player>? players;
+  final List<String>? playerIds;
+
   const PlayersSelectionPage(
       {super.key,
       required this.type,
       this.gameId,
       this.groupName,
+      this.isAddPlayers = false,
       this.game,
-      this.players});
+      this.players,
+      this.playerIds});
 
   @override
   ConsumerState<PlayersSelectionPage> createState() =>
@@ -58,6 +63,7 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
   int minPlayers = 0;
 
   List<Player> checkedPlayers = [];
+  final playersBox = Hive.box<String>("players");
 
   @override
   void initState() {
@@ -98,69 +104,94 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
     return users;
   }
 
+  Future<List<User>> playerIdsToUsers(List<String> players) async {
+    List<User> users = [];
+    for (int i = 0; i < players.length; i++) {
+      final player = players[i];
+      final user = await getUser(player);
+      if (user != null) {
+        users.add(user.copyWith());
+      }
+    }
+    return users;
+  }
+
   Future readPlayers([bool isMore = false]) async {
     loading = true;
     setState(() {});
 
     List<Player> players = [];
 
-    if (widget.players == null || widget.players!.isEmpty) {
-      List<Player> foundPlayers = [];
-
-      if (gameId != null && gameId != "") {
-        if (isMore) {
-          foundPlayers =
-              await getPlayers(gameId!, endTime: players.lastOrNull?.time);
-          players.addAll(foundPlayers);
-          if (foundPlayers.length < 10) reachedEnd = true;
-        } else {
-          foundPlayers =
-              await getPlayers(gameId!, startTime: players.firstOrNull?.time);
-          players.insertAll(0, foundPlayers);
-          if (players.length < 10) reachedEnd = true;
-        }
+    if (widget.playerIds != null && widget.playerIds!.isNotEmpty) {
+      final users = await playerIdsToUsers(widget.playerIds!);
+      prevUsers.addAll(users);
+      this.users.addAll(users);
+      reachedEnd = true;
+    } else {
+      if (widget.players != null && widget.players!.isNotEmpty) {
+        players = widget.players!;
+        reachedEnd = true;
       } else {
-        final playersBox = Hive.box<String>("players");
+        List<Player> foundPlayers = [];
 
-        if (isMore) {
-          foundPlayers = await getMyPlayers(endTime: players.lastOrNull?.time);
-          players.addAll(foundPlayers);
-          if (foundPlayers.length < 10) reachedEnd = true;
+        if (gameId != null && gameId != "" && widget.type != "group") {
+          try {
+            if (isMore) {
+              foundPlayers =
+                  await getPlayers(gameId!, endTime: players.lastOrNull?.time);
+              players.addAll(foundPlayers);
+              if (foundPlayers.length < 10) reachedEnd = true;
+            } else {
+              foundPlayers = await getPlayers(gameId!,
+                  startTime: players.firstOrNull?.time);
+              players.insertAll(0, foundPlayers);
+              if (players.length < 10) reachedEnd = true;
+            }
+          } catch (e) {
+            // print("exc = $e");
+          }
         } else {
-          //if (players.isEmpty) {
-          players = playersBox.values.map((e) => Player.fromJson(e)).toList();
-          players.sortList((player) => player.time, true);
-          // }
-          foundPlayers =
-              await getMyPlayers(startTime: players.firstOrNull?.time);
-          players.insertAll(0, foundPlayers);
-          if (players.length < 10) reachedEnd = true;
-        }
-        for (int i = 0; i < foundPlayers.length; i++) {
-          final player = foundPlayers[i];
-          playersBox.put(player.id, player.toJson());
+          if (isMore) {
+            foundPlayers =
+                await getMyPlayers(endTime: players.lastOrNull?.time);
+            players.addAll(foundPlayers);
+            if (foundPlayers.length < 10) reachedEnd = true;
+          } else {
+            //if (players.isEmpty) {
+            players = playersBox.values.map((e) => Player.fromJson(e)).toList();
+            players.sortList((player) => player.time, true);
+            // }
+            foundPlayers =
+                await getMyPlayers(startTime: players.firstOrNull?.time);
+            players.insertAll(0, foundPlayers);
+            if (players.length < 10) reachedEnd = true;
+          }
+
+          for (int i = 0; i < foundPlayers.length; i++) {
+            final player = foundPlayers[i];
+            playersBox.put(player.id, player.toJson());
+          }
         }
       }
-    } else {
-      players = widget.players!;
-    }
 
-    final users = await playersToUsers(players);
-    prevUsers.addAll(users);
-    this.users.addAll(users);
-    // if (searchString != "") {
-    //   searchRecords();
-    // }
+      final users = await playersToUsers(players);
+      prevUsers.addAll(users);
+      this.users.addAll(users);
+    }
     if (!mounted) return;
     loading = false;
     setState(() {});
   }
 
   void readUsers() async {
-    final user = await getUser(myId);
-    if (user != null) {
-      selectedUsers.add(user);
+    if (widget.type != "group" ||
+        (widget.type == "group" && (widget.gameId ?? "").isEmpty)) {
+      final user = await getUser(myId);
+      if (user != null) {
+        selectedUsers.add(user);
+      }
     }
+
     if (!mounted) return;
     readPlayers();
   }
@@ -189,7 +220,8 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
       type = "email";
     } else if (value.isOnlyNumber()) {
       type = "phone";
-      value = value.toValidNumber() ?? "";
+      final dialCode = await getDialCode();
+      value = value.toValidNumber(dialCode) ?? "";
       if (value.isEmpty) return;
     } else {
       type = "username";
@@ -278,27 +310,54 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
   }
 
   void executeAction() async {
-    if (selectedUsers.length < minPlayers) {
-      showErrorToast(
-          "There should be at least $minPlayers players in a ${game != null ? "$game " : ""}game");
-      return;
-    } else if (selectedUsers.length > maxPlayers) {
-      showErrorToast(
-          "There can only be $maxPlayers number of players in a ${game != null ? "$game " : ""}game");
-      return;
+    if (widget.type != "group") {
+      if (selectedUsers.length < minPlayers) {
+        showErrorToast(
+            "There should be at least $minPlayers players in a ${game != null ? "$game " : ""}game");
+        return;
+      } else if (selectedUsers.length > maxPlayers) {
+        showErrorToast(
+            "There can only be $maxPlayers number of players in a ${game != null ? "$game " : ""}game");
+        return;
+      }
     }
-    if (type == "group" && widget.gameId == null) {
-      final finish = await (Navigator.of(context).push(MaterialPageRoute(
-          builder: (context) => NewGroupPage(users: selectedUsers)))) as bool?;
-      if (finish != null) {
+
+    final players = selectedUsers.map((e) => e.user_id).toList();
+
+    if (type == "group") {
+      // if (widget.isAddPlayers) {
+
+      // }
+      if (widget.gameId == null) {
+        final finish =
+            await (context.pushTo(NewGroupPage(users: selectedUsers))) as bool?;
+        if (finish != null) {
+          if (!mounted) return;
+          Navigator.pop(context);
+        }
+      } else {
         if (!mounted) return;
-        Navigator.pop(context);
+        Navigator.pop(context, players);
+        return;
       }
     } else {
+      if (widget.game == null) {
+        final result = await context.pushReplacement(
+          GamesPage(
+              gameId: widget.gameId,
+              players: players,
+              playersSize: players.length),
+        );
+        // if (result == true) {
+        //   if (!mounted) return;
+        //   context.pop();
+        // }
+        return;
+      }
       // final isPlaying = await checkIfAnyPlayerIsPlayingMatch();
       // if (isPlaying || !mounted) return;
       if (!mounted) return;
-      Navigator.pop(context, selectedUsers.map((e) => e.user_id).toList());
+      Navigator.pop(context, players);
     }
   }
 
@@ -310,17 +369,56 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
     context.pushTo(const FindOrInvitePlayersPage());
   }
 
+  void toggleSelect(User user) async {
+    FocusScope.of(context).unfocus();
+    if (type == "oneonone") {
+      // Navigator.of(context).pushReplacement(MaterialPageRoute(
+      //     builder: (context) => const GameMatchesPage(
+      //           type: "",
+      //           game_id: "",
+      //         )));
+    } else {
+      final selIndex = selectedUsers.isEmpty
+          ? -1
+          : selectedUsers
+              .indexWhere((element) => user.user_id == element.user_id);
+      if (selIndex == -1) {
+        if (widget.gameId != null &&
+            widget.type == "group" &&
+            (await isAPlayerInGroup(user.user_id))) {
+          showErrorToast("${user.username} is already a player in the group");
+          return;
+        }
+        if (selectedUsers.length == maxPlayers) {
+          showErrorToast(
+              "There can only be $maxPlayers number of Players in $game game");
+          return;
+        }
+        selectedUsers.add(user);
+        user.checked = true;
+      } else {
+        selectedUsers.removeAt(selIndex);
+        user.checked = false;
+      }
+    }
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final searchString = ref.watch(searchPlayersProvider);
 
-    final users = this
-        .users
-        .where((user) =>
-            user.username.toLowerCase().contains(searchString) ||
-            user.email.toLowerCase().contains(searchString) ||
-            user.phone.toLowerCase().contains(searchString))
-        .toList();
+    final users = searchString.isEmpty
+        ? this.users
+        : this
+            .users
+            .where((user) =>
+                user.username.toLowerCase().contains(searchString) ||
+                user.email.toLowerCase().contains(searchString) ||
+                user.phone
+                    .toLowerCase()
+                    .contains(searchString.toValidNumber(dialCode) ?? ""))
+            .toList();
 
     return PopScope(
       canPop: !isSearch,
@@ -355,13 +453,7 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
                         onPressed: startSearch,
                         icon: const Icon(EvaIcons.search),
                         color: tint),
-                    if (isAndroidAndIos)
-                      IconButton(
-                        onPressed: gotoInviteContact,
-                        icon: const Icon(EvaIcons.person_add_outline),
-                        color: tint,
-                      ),
-                    if (type != "group")
+                    if (type != "group" && widget.game == null)
                       IconButton(
                         onPressed: gotoNewGroup,
                         icon: SizedBox(
@@ -451,90 +543,25 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
                           key: Key(user.user_id),
                           user: user,
                           onPressed: () async {
-                            FocusScope.of(context).unfocus();
-                            if (type == "oneonone") {
-                              Navigator.of(context)
-                                  .pushReplacement(MaterialPageRoute(
-                                      builder: (context) => GameRecordsPage(
-                                            id: user.user_id,
-                                            type: "",
-                                            game_id: "",
-                                          )));
-                            } else {
-                              final selIndex = selectedUsers.isEmpty
-                                  ? -1
-                                  : selectedUsers.indexWhere((element) =>
-                                      user.user_id == element.user_id);
-                              if (selIndex == -1) {
-                                if (widget.gameId != null &&
-                                    widget.type == "group" &&
-                                    (await isAPlayerInGroup(user.user_id))) {
-                                  showErrorToast(
-                                      "${user.username} is already a player in the group");
-                                  return;
-                                }
-                                if (selectedUsers.length == maxPlayers) {
-                                  showErrorToast(
-                                      "There can only be $maxPlayers number of Players in $game game");
-                                  return;
-                                }
-                                selectedUsers.add(user);
-                                user.checked = true;
-                              } else {
-                                selectedUsers.removeAt(selIndex);
-                                user.checked = false;
-                              }
-                            }
-                            setState(() {});
+                            toggleSelect(user);
                           },
                         );
-                        // return UserListItem(
-                        //   key: Key(user.user_id),
-                        //   user: user,
-                        //   onPressed: () async {
-                        //     FocusScope.of(context).unfocus();
-                        //     if (type == "oneonone") {
-                        //       Navigator.of(context)
-                        //           .pushReplacement(MaterialPageRoute(
-                        //               builder: (context) => GameRecordsPage(
-                        //                     id: user.user_id,
-                        //                     type: "",
-                        //                     game_id: "",
-                        //                   )));
-                        //     } else {
-                        //       final selIndex = selectedUsers.isEmpty
-                        //           ? -1
-                        //           : selectedUsers.indexWhere((element) =>
-                        //               user.user_id == element.user_id);
-                        //       if (selIndex == -1) {
-                        //         if (widget.gameId != null &&
-                        //             widget.type == "group" &&
-                        //             (await isAPlayerInGroup(user.user_id))) {
-                        //           showErrorToast(
-                        //               "${user.username} is already a player in the group");
-                        //           return;
-                        //         }
-                        //         if (selectedUsers.length == maxPlayers) {
-                        //           showErrorToast(
-                        //               "There can only be $maxPlayers number of Players in $game game");
-                        //           return;
-                        //         }
-                        //         selectedUsers.add(user);
-                        //         user.checked = true;
-                        //       } else {
-                        //         selectedUsers.removeAt(selIndex);
-                        //         user.checked = false;
-                        //       }
-                        //     }
-                        //     setState(() {});
-                        //   },
-                        // );
                       }),
                 ),
               ],
             ),
           ),
         ),
+        floatingActionButton: isAndroidAndIos
+            ? FloatingActionButton(
+                onPressed: gotoInviteContact,
+                child: const Icon(EvaIcons.person_add_outline),
+              )
+            : null,
+        // floatingActionButton: FloatingActionButton(
+        //   onPressed: gotoInviteContact,
+        //   child: const Icon(EvaIcons.person_add_outline),
+        // ),
         bottomNavigationBar: loading
             ? null
             : AppButton(

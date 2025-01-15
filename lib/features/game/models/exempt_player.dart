@@ -1,25 +1,25 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:convert';
 
-class ConcedeOrLeft {
+class ExemptPlayer {
   int index;
   String? playerId;
   String action;
   int time;
-  ConcedeOrLeft({
+  ExemptPlayer({
     required this.index,
     this.playerId,
     required this.action,
     required this.time,
   });
 
-  ConcedeOrLeft copyWith({
+  ExemptPlayer copyWith({
     int? index,
     String? playerId,
     String? action,
     int? time,
   }) {
-    return ConcedeOrLeft(
+    return ExemptPlayer(
       index: index ?? this.index,
       playerId: playerId ?? this.playerId,
       action: action ?? this.action,
@@ -36,8 +36,8 @@ class ConcedeOrLeft {
     };
   }
 
-  factory ConcedeOrLeft.fromMap(Map<String, dynamic> map) {
-    return ConcedeOrLeft(
+  factory ExemptPlayer.fromMap(Map<String, dynamic> map) {
+    return ExemptPlayer(
       index: map['index'] as int,
       playerId: map['playerId'] != null ? map['playerId'] as String : null,
       action: map['action'] as String,
@@ -47,16 +47,16 @@ class ConcedeOrLeft {
 
   String toJson() => json.encode(toMap());
 
-  factory ConcedeOrLeft.fromJson(String source) =>
-      ConcedeOrLeft.fromMap(json.decode(source) as Map<String, dynamic>);
+  factory ExemptPlayer.fromJson(String source) =>
+      ExemptPlayer.fromMap(json.decode(source) as Map<String, dynamic>);
 
   @override
   String toString() {
-    return 'ConcedeOrLeft(index: $index, playerId: $playerId, action: $action, time: $time)';
+    return 'ExemptPlayer(index: $index, playerId: $playerId, action: $action, time: $time)';
   }
 
   @override
-  bool operator ==(covariant ConcedeOrLeft other) {
+  bool operator ==(covariant ExemptPlayer other) {
     if (identical(this, other)) return true;
 
     return other.index == index &&

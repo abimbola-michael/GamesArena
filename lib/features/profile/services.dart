@@ -6,30 +6,47 @@ import '../user/services.dart';
 
 FirestoreMethods fm = FirestoreMethods();
 
-Future updateProfilePhoto(String url) async {
+Future updateProfilePhoto(String url, [String? time]) async {
+  time ??= timeNow;
+
   return fm.updateValue(["users", myId], value: {"profile_photo": url});
 }
 
-Future removeProfilePhoto() async {
-  return fm.updateValue(["users", myId], value: {"profile_photo": null});
+Future removeProfilePhoto([String? time]) async {
+  time ??= timeNow;
+
+  return fm.updateValue(["users", myId],
+      value: {"profile_photo": null, "time_modified": time});
 }
 
-Future updateGroupProfilePhoto(String gameId, String url) async {
-  return fm.updateValue(["games", gameId], value: {"profile_photo": url});
+Future updateGroupProfilePhoto(String gameId, String url,
+    [String? time]) async {
+  time ??= timeNow;
+
+  return fm.updateValue(["games", gameId],
+      value: {"profile_photo": url, "time_modified": time});
 }
 
-Future removeGroupProfilePhoto(String gameId) async {
-  return fm.updateValue(["games", gameId], value: {"profile_photo": null});
+Future removeGroupProfilePhoto(String gameId, [String? time]) async {
+  time ??= timeNow;
+
+  return fm.updateValue(["games", gameId],
+      value: {"profile_photo": null, "time_modified": time});
 }
 
-Future updateUserGames(List<String> games) async {
-  final value = {"games": games};
+Future updateUserGames(List<String> games, [String? time]) async {
+  time ??= timeNow;
+  final value = {"games": games, "time_modified": time};
   await fm.updateValue(["users", myId], value: value);
   saveUserProperty(myId, value);
 }
 
-Future updateGroupGames(String gameId, List<String> games) async {
-  return fm.updateValue(["games", gameId], value: {"games": games});
+Future updateGroupGames(String gameId, List<String> games,
+    [String? time]) async {
+  time ??= timeNow;
+
+  return fm.updateValue(["games", gameId],
+      value: {"games": games, "time_modified": time});
 }
 // Future updateUserGames(List<UserGame> userGames) async {
 //   final value = {

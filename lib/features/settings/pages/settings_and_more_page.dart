@@ -36,6 +36,10 @@ class _SettingsAndMorePageState extends State<SettingsAndMorePage> {
     if (newValue == null) return;
   }
 
+  void changePhoneNumber() {
+    gotoEditProfilePage("phone");
+  }
+
   void changeEmail() {
     gotoEditProfilePage("email");
   }
@@ -47,13 +51,13 @@ class _SettingsAndMorePageState extends State<SettingsAndMorePage> {
   Future logout() async {
     final comfirm = await context.showComfirmationDialog(
         title: "Logout", message: "Are you sure you want to logout?");
-    if (comfirm == null) return;
+    if (comfirm != true) return;
 
     try {
       showLoading(message: "Logging out...");
 
       await logoutUser();
-      await am.logOut();
+      am.logOut();
       gotoStartPage();
     } catch (e) {
       showErrorToast("Unable to logout");
@@ -63,12 +67,13 @@ class _SettingsAndMorePageState extends State<SettingsAndMorePage> {
   void deleteAccount() async {
     final comfirm = await context.showComfirmationDialog(
         title: "Delete Account",
-        message: "Are you sure you want to delete account?");
-    if (comfirm == null) return;
+        message:
+            "Are you sure you want to delete account?\nThis is an irreversible process and every would be deleted\nYou would no longer be able to play online games with this account\nYou cannot create a new account using the same email address");
+    if (comfirm != true) return;
     try {
       await deleteUser();
       await am.deleteAccount();
-      await am.logOut();
+      am.logOut();
       Hive.box<String>("details").delete("dailyLimit");
       Hive.box<String>("details").delete("dailyLimitDate");
 
@@ -80,10 +85,12 @@ class _SettingsAndMorePageState extends State<SettingsAndMorePage> {
   }
 
   void gotoStartPage() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: ((context) => const AuthPage())),
-      (Route<dynamic> route) => false, // Remove all routes
-    );
+    context.pushReplacement(const AuthPage());
+
+    // Navigator.of(context).pushAndRemoveUntil(
+    //   MaterialPageRoute(builder: ((context) => const AuthPage())),
+    //   (Route<dynamic> route) => false, // Remove all routes
+    // );
   }
 
   //void addAccount() {}
@@ -118,7 +125,7 @@ class _SettingsAndMorePageState extends State<SettingsAndMorePage> {
   }
 
   void gotoInviteContact() {
-    context.pushTo(const FindOrInvitePlayersPage());
+    context.pushTo(const FindOrInvitePlayersPage(isInvite: true));
   }
 
   @override
@@ -134,15 +141,22 @@ class _SettingsAndMorePageState extends State<SettingsAndMorePage> {
           children: [
             if (myId != "")
               SettingsCategoryItem(title: "Account", children: [
+                if (am.isPasswordAuthentication) ...[
+                  SettingsItem(
+                    title: "Change Email",
+                    icon: OctIcons.mail,
+                    onPressed: changeEmail,
+                  ),
+                  SettingsItem(
+                    title: "Change Password",
+                    icon: OctIcons.lock,
+                    onPressed: changePassword,
+                  ),
+                ],
                 SettingsItem(
-                  title: "Change Email",
-                  icon: OctIcons.mail,
-                  onPressed: changeEmail,
-                ),
-                SettingsItem(
-                  title: "Change Password",
-                  icon: OctIcons.lock,
-                  onPressed: changePassword,
+                  title: "Change Phone Number",
+                  icon: EvaIcons.phone_outline,
+                  onPressed: changePhoneNumber,
                 ),
                 SettingsItem(
                   title: "Logout",
@@ -158,7 +172,7 @@ class _SettingsAndMorePageState extends State<SettingsAndMorePage> {
               ]),
             SettingsCategoryItem(title: "More", children: [
               SettingsItem(
-                title: "About",
+                title: "About Us",
                 icon: OctIcons.info,
                 onPressed: gotoAbout,
               ),

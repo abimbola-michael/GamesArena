@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gamesarena/features/user/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
+import 'package:gamesarena/shared/utils/country_codes.dart';
 import 'package:gamesarena/theme/colors.dart';
 import 'package:icons_plus/icons_plus.dart';
 
@@ -44,6 +45,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   FirestoreMethods fm = FirestoreMethods();
 
   String type = "", name = "", value = "";
+  String countryCode = "";
+  String newValue = "";
   bool showPassword = false;
 
   @override
@@ -51,12 +54,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.initState();
     type = widget.type;
     value = widget.value;
+    newValue = value;
     name = type.toLowerCase();
     textController = TextEditingController(text: value);
 
     passwordComfirmed = widget.groupId != null;
-    if (widget.groupId == null) {
+    if (widget.groupId == null && am.isPasswordAuthentication) {
       passwordController = TextEditingController();
+    }
+    if (widget.groupId == null) {
+      readUser();
     }
     //controller.text = passwordComfirmed == null ? "" : value;
   }
@@ -68,8 +75,33 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.dispose();
   }
 
+  void readUser() async {
+    if (value.isNotEmpty) return;
+    final user = await getUser(myId);
+    if (user == null) return;
+    if (type == "phone") {
+      value = user.phone;
+      final codeMap = countryCodes.firstWhereNullable((map) =>
+          map["dial_code"] != null && value.startsWith(map["dial_code"]!));
+      if (codeMap == null) return;
+      countryCode = codeMap["alpha_2_code"] ?? codeMap["alpha_3_code"] ?? "";
+      if (countryCode.isEmpty) return;
+      final dialCode = codeMap["dial_code"];
+      if (dialCode == null) return;
+      textController.text = value.substring(dialCode.length);
+    } else if (type == "username") {
+      value = user.username;
+      textController.text = value;
+    } else if (type == "email") {
+      value = user.email;
+      textController.text = value;
+    }
+    setState(() {});
+  }
+
   Future comfirmPassword() async {
-    if (!(formFieldStateKey.currentState?.validate() ?? false)) return;
+    if (!(formFieldStateKey.currentState?.validate() ?? false) &&
+        am.isPasswordAuthentication) return;
 
     setState(() {
       showPassword = false;
@@ -84,7 +116,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         showErrorToast("Incorrect Password. Retry");
       }
     } catch (e) {
-      print("e = $e");
+      // print("e = $e");
       showErrorToast("${e.toString().split("]").second}");
       passwordController?.clear();
 
@@ -104,7 +136,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
       if (!passwordComfirmed! || !mounted) return;
     }
 
-    final text = textController.text;
+    // final text = textController.text;
+    final text = newValue;
 
     if (value == text) {
       context.pop();
@@ -127,6 +160,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       return;
     }
+    final time = timeNow;
+
     if (type == "email") {
       await am.updateEmail(text);
     } else if (type == "password") {
@@ -136,7 +171,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       await fm.removeValue(["usernames", value]);
     }
     if (type == "groupname" && widget.groupId != null) {
-      await updateGameGroupName(widget.groupId!, text);
+      await updateGameGroupName(widget.groupId!, text, time);
     }
     if (type.toLowerCase() != "password" && type != "groupname") {
       await updateUserDetails(type, text);
@@ -148,20 +183,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
       logout();
     } else {
       if (!mounted) return;
-      Navigator.of(context).pop(text);
+      Navigator.of(context).pop({"value": text, "time": time});
     }
   }
 
   Future logout() async {
     final comfirm = await context.showComfirmationDialog(
         title: "Logout", message: "Are you sure you want to logout?");
-    if (comfirm == null) return;
+    if (comfirm != true) return;
 
     try {
       showLoading(message: "Logging out...");
 
       await logoutUser();
-      await am.logOut();
+      am.logOut();
       gotoStartPage();
     } catch (e) {
       showErrorToast("Unable to logout");
@@ -169,10 +204,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   void gotoStartPage() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: ((context) => const AuthPage())),
-      (Route<dynamic> route) => false, // Remove all routes
-    );
+    context.pushReplacement(const AuthPage());
+
+    // Navigator.of(context).pushAndRemoveUntil(
+    //   MaterialPageRoute(builder: ((context) => const AuthPage())),
+    //   (Route<dynamic> route) => false, // Remove all routes
+    // );
   }
 
   @override
@@ -186,10 +223,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
           child: Column(
             children: [
               AppTextField(
-                  controller: textController,
-                  titleText: "New ${type.capitalize}",
-                  hintText: "Enter New ${type.capitalize}"),
-              if (widget.groupId == null) ...[
+                initialCountryCode: countryCode,
+                controller: textController,
+                titleText: "New ${type.capitalize}",
+                hintText: "Enter New ${type.capitalize}",
+                onChanged: (text) {
+                  newValue = text;
+                },
+              ),
+              if (widget.groupId == null && am.isPasswordAuthentication) ...[
                 const SizedBox(height: 10),
                 AppTextField(
                     controller: passwordController,
@@ -199,19 +241,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
               const SizedBox(height: 10),
               AppButton(
                 loading: loading,
-                title: passwordComfirmed != null && passwordComfirmed!
-                    ? "Saving..."
-                    : "Save",
+                title: loading ? "Saving..." : "Save",
 
                 onPressed: () {
                   if (loading) return;
                   saveDetail(type.toLowerCase());
 
-                  // if (passwordComfirmed != null && passwordComfirmed!) {
-                  //   saveDetail(type.toLowerCase(), value);
-                  // } else {
-                  //   comfirmPassword();
-                  // }
                   FocusScope.of(context).unfocus();
                 },
                 // height: 50,
@@ -223,121 +258,5 @@ class _EditProfilePageState extends State<EditProfilePage> {
         ),
       ),
     );
-    // return Container(
-    //     // decoration: BoxDecoration(
-    //     //     //  color: lightestTint,
-    //     //     borderRadius: BorderRadius.circular(20)
-    //     //     // borderRadius: const BorderRadius.only(
-    //     //     //     topLeft: Radius.circular(20), topRight: Radius.circular(20))
-    //     //     ),
-    //     padding: const EdgeInsets.all(16),
-    //     child: Column(
-    //       //mainAxisSize: MainAxisSize.min,
-    //       children: [
-    //         Padding(
-    //           padding: const EdgeInsets.all(16.0),
-    //           child: Text(
-    //             passwordComfirmed != null && passwordComfirmed!
-    //                 ? "Enter New $type"
-    //                 : "Enter Password",
-    //             style:
-    //                 const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-    //           ),
-    //         ),
-    //         Padding(
-    //           padding:
-    //               const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
-    //           child: TextFormField(
-    //             key: formFieldStateKey,
-    //             autofocus: true,
-    //             controller: controller,
-    //             validator: (string) {
-    //               return passwordComfirmed == null
-    //                   ? null
-    //                   : !passwordComfirmed!
-    //                       ? "Incorrect Password"
-    //                       : fm.checkValidity(
-    //                           string?.trim() ?? "",
-    //                           name,
-    //                           name == "username" || name == "groupname"
-    //                               ? 4
-    //                               : name == "phone" || name == "password"
-    //                                   ? 6
-    //                                   : 0,
-    //                           name == "username"
-    //                               ? 25
-    //                               : name == "phone"
-    //                                   ? 20
-    //                                   : name == "password"
-    //                                       ? 30
-    //                                       : 0,
-    //                           exists: name == "username" || name == "email"
-    //                               ? alreadyExist
-    //                               : false);
-    //             },
-    //             obscureText: (name == "password" ||
-    //                     (passwordComfirmed == null || !passwordComfirmed!)) &&
-    //                 !showPassword,
-    //             keyboardType: passwordComfirmed == null || !passwordComfirmed!
-    //                 ? TextInputType.text
-    //                 : name == "email"
-    //                     ? TextInputType.emailAddress
-    //                     : name == "phone"
-    //                         ? TextInputType.phone
-    //                         : TextInputType.text,
-    //             decoration: InputDecoration(
-    //               border: OutlineInputBorder(
-    //                   borderRadius: BorderRadius.circular(10),
-    //                   borderSide: BorderSide(color: lightTint)),
-    //               hintText: passwordComfirmed == null || !passwordComfirmed!
-    //                   ? "Password"
-    //                   : type,
-    //               suffixIcon: (name == "password" ||
-    //                       (passwordComfirmed == null || !passwordComfirmed!))
-    //                   ? SizedBox(
-    //                       width: 17,
-    //                       height: 17,
-    //                       child: IconButton(
-    //                         icon: Icon(
-    //                             showPassword ? IonIcons.eye : IonIcons.eye_off),
-    //                         onPressed: () {
-    //                           setState(() {
-    //                             showPassword = !showPassword;
-    //                           });
-    //                         },
-    //                         iconSize: 17,
-    //                       ),
-    //                     )
-    //                   : null,
-    //             ),
-    //           ),
-    //         ),
-    //         if (loading) ...[const Center(child: CircularProgressIndicator())],
-    //         if (myId != "") ...[
-    //           AppButton(
-//title:
-    //             passwordComfirmed != null && passwordComfirmed!
-    //                 ? loading
-    //                     ? "Saving..."
-    //                     : "Save"
-    //                 : loading
-    //                     ? "Comfirming..."
-    //                     : "Comfirm",
-    //             onPressed: () {
-    //               if (loading) return;
-    //               if (passwordComfirmed != null && passwordComfirmed!) {
-    //                 saveDetail(type.toLowerCase(), value);
-    //               } else {
-    //                 comfirmPassword();
-    //               }
-    //               FocusScope.of(context).unfocus();
-    //             },
-    //             height: 50,
-    //             color: loading ? tint : Colors.blue,
-    //             textColor: loading ? null : Colors.white,
-    //           ),
-    //         ],
-    //       ],
-    //     ));
   }
 }

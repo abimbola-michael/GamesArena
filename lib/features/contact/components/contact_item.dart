@@ -109,21 +109,6 @@ class ContactItem extends StatelessWidget {
                     options: availablePlatforms,
                     onSelected: onShare,
                     child: const AppButton(title: "Invite", wrapped: true))
-              // PopupMenuButton<String>(
-              //   itemBuilder: (context) {
-              //     return availablePlatforms.map((option) {
-              //       return PopupMenuItem(
-              //         value: option,
-              //         child: Text(
-              //           option,
-              //           style: context.bodySmall,
-              //         ),
-              //       );
-              //     }).toList();
-              //   },
-              //   onSelected: onShare,
-              //   child: const AppButton(title: "Invite", wrapped: true),
-              // )
               else
                 AppButton(
                   title: "Invite",
@@ -147,21 +132,6 @@ class ContactItem extends StatelessWidget {
                   options: availablePlatforms,
                   onSelected: onShare,
                   child: const Icon(EvaIcons.share_outline))
-            // PopupMenuButton<String>(
-            //   itemBuilder: (context) {
-            //     return availablePlatforms.map((option) {
-            //       return PopupMenuItem(
-            //         value: option,
-            //         child: Text(
-            //           option,
-            //           style: context.bodySmall,
-            //         ),
-            //       );
-            //     }).toList();
-            //   },
-            //   onSelected: onShare,
-            //   child: const Icon(EvaIcons.share_outline),
-            // )
           ],
         ),
       ),

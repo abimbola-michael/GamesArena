@@ -80,7 +80,7 @@ class FirestoreMethods {
         final ref = getDocumentRef(path);
         return ref.set(value, merge ? SetOptions(merge: true) : null);
       }
-    } on FirebaseException catch (e) {}
+    } on Exception catch (e) {}
   }
 
   Future<void> setValues(List<String> path,
@@ -99,7 +99,7 @@ class FirestoreMethods {
         }
       }
       return batch.commit();
-    } on FirebaseException catch (e) {}
+    } on Exception catch (e) {}
   }
 
   Future<void> setValueIfNotExist(List<String> path,
@@ -112,7 +112,7 @@ class FirestoreMethods {
           transaction.set(ref, value, merge ? SetOptions(merge: true) : null);
         }
       });
-    } on FirebaseException catch (e) {}
+    } on Exception catch (e) {}
   }
 
   Future<void> updateValue(List<String> path,
@@ -126,7 +126,7 @@ class FirestoreMethods {
         final ref = getDocumentRef(path);
         return ref.update(value);
       }
-    } on FirebaseException catch (e) {}
+    } on Exception catch (e) {}
   }
 
   Future<void> updateValues(List<String> path,
@@ -145,7 +145,7 @@ class FirestoreMethods {
         }
       }
       return batch.commit();
-    } on FirebaseException catch (e) {}
+    } on Exception catch (e) {}
   }
 
   Future<void> removeValue(List<String> path,
@@ -174,7 +174,7 @@ class FirestoreMethods {
         final ref = getDocumentRef(path);
         return ref.delete();
       }
-    } on FirebaseException catch (e) {}
+    } on Exception catch (e) {}
   }
 
   Future<void> removeValues(List<String> path, List<String> ids,
@@ -198,7 +198,7 @@ class FirestoreMethods {
         final ref = getDocumentRef(path);
         return ref.delete();
       }
-    } on FirebaseException catch (e) {}
+    } on Exception catch (e) {}
   }
 
   Future<T?> getValue<T>(
@@ -213,7 +213,7 @@ class FirestoreMethods {
         final snapshot = await ref.get();
         return snapshot.getValue(callback);
       }
-    } on FirebaseException catch (e) {
+    } on Exception catch (e) {
       return null;
     }
   }
@@ -244,6 +244,8 @@ class FirestoreMethods {
             : [];
       }
     } on Exception catch (e) {
+      // print("e = $e");
+
       return [];
     }
   }
@@ -319,7 +321,7 @@ class FirestoreMethods {
       bool isSubcollection = false}) async* {
     //  List<T> values = [];
 
-    print("path = $path");
+    // print("path = $path");
 
     try {
       if (path.length.isOdd) {
@@ -331,7 +333,7 @@ class FirestoreMethods {
         final snapshots = ref.snapshots();
         yield* snapshots.map((snapshot) => snapshot.getValuesChange(callback));
       }
-    } on FirebaseException catch (e) {
+    } on Exception catch (e) {
       yield [];
     }
   }
@@ -351,8 +353,9 @@ class FirestoreMethods {
           : getCollectionRef(path)
               .getQuery(queries, where, order, start, end, limit);
       return (await ref.count().get()).count ?? 0;
-    } on FirebaseException catch (e) {
-      return 0;
+    } on Exception catch (e) {
+      // print("exc = $e");
+      return -1;
     }
   }
 
@@ -372,8 +375,8 @@ class FirestoreMethods {
               .getQuery(queries, where, order, start, end, limit);
       final snapshots = ref.snapshots();
       yield* snapshots.map((snapshot) => snapshot.size);
-    } on FirebaseException catch (e) {
-      yield 0;
+    } on Exception catch (e) {
+      yield -1;
     }
   }
 
@@ -381,7 +384,7 @@ class FirestoreMethods {
     try {
       final ref = getCollectionRef(path);
       return ref.doc().id;
-    } on FirebaseException catch (e) {
+    } on Exception catch (e) {
       return "";
     }
   }

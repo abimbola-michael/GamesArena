@@ -14,19 +14,14 @@ import 'models/player.dart';
 import 'models/match.dart';
 
 Future<dynamic> gotoGamePage(
-    BuildContext context, String game, String gameId, String matchId,
+    BuildContext context, String? game, String gameId, String matchId,
     {Match? match,
     List<User?>? users,
     List<Player>? players,
     int playersSize = 2,
-    String? indices,
-    Map<int, List<Map<String, dynamic>>?>? recordGameDetails,
-    int gameDetailIndex = -1,
     bool isWatch = false,
-    int recordId = 0,
-    int roundId = 0,
-    String? currentPlayerId,
-    int adsTime = 0,
+    int? recordId,
+    int? roundId,
     bool isReplacement = true,
     Object? result}) async {
   if (match != null) {
@@ -41,16 +36,10 @@ Future<dynamic> gotoGamePage(
       users = match.users;
     }
     users ??= await playersToUsers(match.players!);
-
-    final playerIds = users.map((e) => e!.user_id).toList();
-    currentPlayerId ??= playerIds.last;
-
-    // updateMatchRecord(
-    //     match, recordId, game, players!, isWatch, currentPlayerId);
   }
 
   final args = {
-    "gameName": game,
+    "gameName": game ?? match?.games?.firstOrNull,
     "matchId": matchId,
     "gameId": gameId,
     "match": match,
@@ -59,17 +48,9 @@ Future<dynamic> gotoGamePage(
     "playersSize": playersSize,
     "recordId": recordId,
     "roundId": roundId,
-    "indices": indices,
-    "recordGameDetails": recordGameDetails,
-    "gameDetailIndex": gameDetailIndex,
     "isWatch": isWatch,
-    "adsTime": adsTime,
   };
   if (!context.mounted) return;
-  // context.pushReplacementNamed(
-  //     "/${game.endsWith("Quiz") ? "quiz" : game.replaceAll(" ", "").toLowerCase()}",
-  //     args: args,
-  //     result: result);
 
   if (isReplacement) {
     return context.pushReplacementNamed(GamePage.route,
@@ -365,16 +346,20 @@ String getGamesWonMessage(List<String> games) {
   for (var entry in gamesMap.entries) {
     messages.add("${entry.value} ${entry.key}");
   }
-  return "${messages.isEmpty ? "0" : messages.toStringWithCommaandAnd((t) => t.capitalize)} game${games.length == 1 ? "" : "s"}";
+  return messages.isEmpty
+      ? ""
+      : "${messages.toStringWithCommaandAnd((t) => t.capitalize)} game${games.length == 1 ? "" : "s"}";
+
+  // return "${messages.isEmpty ? "0" : messages.toStringWithCommaandAnd((t) => t.capitalize)} game${games.length == 1 ? "" : "s"}";
 }
 
 MatchOverallOutcome getMatchOverallOutcome(Match match) {
   List<List<String>> games =
       List.generate(match.players!.length, (index) => []);
 
-  List<int> scores = List.generate(
-      match.players!.length, (index) => match.records == null ? -1 : 0);
-  if (match.records == null) {
+  List<int> scores = List.generate(match.players!.length,
+      (index) => match.records == null || match.records!.isEmpty ? -1 : 0);
+  if (match.records == null || match.records!.isEmpty) {
     return MatchOverallOutcome(scores: scores, games: games);
   }
   for (int i = 0; i < match.records!.length; i++) {

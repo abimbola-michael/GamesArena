@@ -8,30 +8,29 @@ import 'package:gamesarena/features/games/board/ludo/widgets/ludo_tile.dart';
 import 'package:gamesarena/enums/emums.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import 'package:gamesarena/shared/services.dart';
 
+import '../../../../../shared/utils/call_utils.dart';
 import '../../../../game/models/game_action.dart';
 import '../../../../game/pages/base_game_page.dart';
 
 import '../../../../../shared/widgets/blinking_border_container.dart';
-import '../services.dart';
 import '../widgets/ludo_dice.dart';
 import '../widgets/ludo_triangle_paint.dart';
 import '../models/ludo.dart';
 import '../../../../../theme/colors.dart';
-import '../../../../../shared/utils/constants.dart';
 import '../../../../../shared/utils/utils.dart';
 
 class LudoGamePage extends BaseGamePage {
   static const route = "/ludo";
   final Map<String, dynamic> args;
+  final CallUtils callUtils;
   final void Function(GameAction gameAction) onActionPressed;
   const LudoGamePage(
     this.args,
+    this.callUtils,
     this.onActionPressed, {
     super.key,
-  }) : super(args, onActionPressed);
+  }) : super(args, callUtils, onActionPressed);
 
   @override
   ConsumerState<LudoGamePage> createState() => _LudoGamePageState();

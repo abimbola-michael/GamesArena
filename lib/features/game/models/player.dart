@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:gamesarena/features/user/models/user.dart';
 
+import 'game_list.dart';
+
 class Player {
   String id;
   String time;
@@ -17,6 +19,7 @@ class Player {
   bool? isAudioOn;
   bool? isFrontCamera;
   User? user;
+  GameList? gameList;
   Player({
     required this.id,
     required this.time,
@@ -30,6 +33,8 @@ class Player {
     this.callMode,
     this.isAudioOn,
     this.isFrontCamera,
+    this.user,
+    this.gameList,
   });
 
   Player copyWith({
@@ -45,6 +50,8 @@ class Player {
     String? callMode,
     bool? isAudioOn,
     bool? isFrontCamera,
+    User? user,
+    GameList? gameList,
   }) {
     return Player(
       id: id ?? this.id,
@@ -59,6 +66,8 @@ class Player {
       callMode: callMode ?? this.callMode,
       isAudioOn: isAudioOn ?? this.isAudioOn,
       isFrontCamera: isFrontCamera ?? this.isFrontCamera,
+      user: user ?? this.user,
+      gameList: gameList ?? this.gameList,
     );
   }
 
@@ -76,6 +85,8 @@ class Player {
       'callMode': callMode,
       'isAudioOn': isAudioOn,
       'isFrontCamera': isFrontCamera,
+      'user': user?.toMap(),
+      'gameList': gameList?.toMap(),
     };
   }
 
@@ -95,6 +106,12 @@ class Player {
       isAudioOn: map['isAudioOn'] != null ? map['isAudioOn'] as bool : null,
       isFrontCamera:
           map['isFrontCamera'] != null ? map['isFrontCamera'] as bool : null,
+      user: map['user'] != null
+          ? User.fromMap(map['user'] as Map<String, dynamic>)
+          : null,
+      gameList: map['gameList'] != null
+          ? GameList.fromMap(map['gameList'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -105,7 +122,7 @@ class Player {
 
   @override
   String toString() {
-    return 'Player(id: $id, time: $time, time_modified: $time_modified, role: $role, action: $action, order: $order, game: $game, gameId: $gameId, matchId: $matchId, callMode: $callMode, isAudioOn: $isAudioOn, isFrontCamera: $isFrontCamera)';
+    return 'Player(id: $id, time: $time, time_modified: $time_modified, role: $role, action: $action, order: $order, game: $game, gameId: $gameId, matchId: $matchId, callMode: $callMode, isAudioOn: $isAudioOn, isFrontCamera: $isFrontCamera, user: $user, gameList: $gameList)';
   }
 
   @override
@@ -123,7 +140,9 @@ class Player {
         other.matchId == matchId &&
         other.callMode == callMode &&
         other.isAudioOn == isAudioOn &&
-        other.isFrontCamera == isFrontCamera;
+        other.isFrontCamera == isFrontCamera &&
+        other.user == user &&
+        other.gameList == gameList;
   }
 
   @override
@@ -139,6 +158,8 @@ class Player {
         matchId.hashCode ^
         callMode.hashCode ^
         isAudioOn.hashCode ^
-        isFrontCamera.hashCode;
+        isFrontCamera.hashCode ^
+        user.hashCode ^
+        gameList.hashCode;
   }
 }

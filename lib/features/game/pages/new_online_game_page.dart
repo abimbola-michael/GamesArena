@@ -2,29 +2,27 @@
 
 import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamesarena/core/firebase/extensions/firestore_extensions.dart';
 import 'package:gamesarena/features/game/widgets/profile_photo.dart';
+import 'package:gamesarena/features/records/services.dart';
 import 'package:gamesarena/features/user/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:gamesarena/shared/extensions/special_context_extensions.dart';
-import 'package:gamesarena/theme/colors.dart';
-import '../../../shared/dialogs/comfirmation_dialog.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+
 import '../../../shared/widgets/app_appbar.dart';
 import '../../../shared/widgets/app_button.dart';
-import '../../group/services.dart';
+import '../../match/providers/match_provider.dart';
 import '../../user/widgets/user_item.dart';
-import '../../../shared/services.dart';
 import '../../../shared/models/models.dart';
-import '../../../shared/widgets/action_button.dart';
 import '../../../shared/utils/utils.dart';
-import '../models/player.dart';
 import '../services.dart';
 import '../utils.dart';
 import '../widgets/players_profile_photo.dart';
 
-class NewOnlineGamePage extends StatefulWidget {
+class NewOnlineGamePage extends ConsumerStatefulWidget {
   final String game;
   final String matchId;
   final String gameId;
@@ -32,13 +30,11 @@ class NewOnlineGamePage extends StatefulWidget {
   final String creatorName;
   final List<User> users;
   final List<Player> players;
-  final String indices;
   final Match? match;
   final bool isBottomSheet;
 
   const NewOnlineGamePage({
     super.key,
-    required this.indices,
     required this.users,
     required this.players,
     required this.gameId,
@@ -51,16 +47,16 @@ class NewOnlineGamePage extends StatefulWidget {
   });
 
   @override
-  State<NewOnlineGamePage> createState() => _NewOnlineGamePageState();
+  ConsumerState<NewOnlineGamePage> createState() => _NewOnlineGamePageState();
 }
 
-class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
+class _NewOnlineGamePageState extends ConsumerState<NewOnlineGamePage> {
   String matchId = "";
   String gameId = "";
   String game = "";
   String type = "";
   String profilePhoto = "";
-  String name = "" /*, creatorName = ""*/;
+  String name = "";
   String creatorId = "";
   bool creatorIsMe = false;
   List<Player> players = [];
@@ -69,35 +65,28 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
   Timer? timer;
   StreamSubscription? playingSub;
   int playersSize = 2;
-  String indices = "";
   bool loaded = false;
   late AudioPlayer audioPlayer;
   late StreamSubscription<PlayerState> audioPlayerStateSub;
-  // String comfirmationType = "";
   Match? match;
   bool addedAllPlayers = false;
+  bool isGroup = false;
 
   @override
   void initState() {
     super.initState();
-    audioPlayer = AudioPlayer();
-    audioPlayer.play(AssetSource("audios/game_ringtone.mp3"));
-    audioPlayerStateSub = audioPlayer.onPlayerStateChanged.listen((state) {
-      if (state == PlayerState.completed) {
-        audioPlayer.play(AssetSource("audios/game_ringtone.mp3"));
-      }
-    });
+    playRingTone();
     gameId = widget.gameId;
     matchId = widget.matchId;
-    creatorId = widget.creatorId;
     match = widget.match;
-    //creatorName = widget.creatorName;
+    creatorId = widget.creatorId;
     game = widget.game;
-    indices = widget.indices;
+
     if (widget.players.isNotEmpty) {
       players = widget.players;
       players.sortList((value) => value.order, false);
     }
+
     if (widget.users.isNotEmpty && widget.players.isNotEmpty) {
       users = widget.users.sortWithStringList(
           players.map((e) => e.id).toList(), (user) => user.user_id);
@@ -112,24 +101,9 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
         }
       });
     }
-    // List<User?> otherUsers =
-    //     users.where((user) => user != null && user.user_id != myId).toList();
-    // if (!creatorIsMe) {
-    //   otherUsers
-    //       .removeWhere((user) => user != null && user.user_id == creatorId);
-    // }
-    // otherUsernames = otherUsers.isEmpty
-    //     ? []
-    //     : otherUsers.map((e) => e?.username ?? "").toList();
-    // if (!creatorIsMe) {
-    //   otherUsernames.insert(0, "you");
-    // }
-    //readGame();
+
     getPlayersPlaying();
   }
-
-  User? get creator =>
-      users.firstWhereNullable((user) => user?.user_id == myId);
 
   @override
   void deactivate() {
@@ -144,24 +118,61 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
     audioPlayer.dispose();
 
     playingSub?.cancel();
-    //timer?.cancel();
+    timer?.cancel();
     super.dispose();
   }
 
+  User? get creator =>
+      users.firstWhereNullable((user) => user?.user_id == creatorId);
+
+  void playRingTone() {
+    audioPlayer = AudioPlayer();
+    audioPlayer.play(AssetSource("audios/game_ringtone.mp3"));
+    audioPlayerStateSub = audioPlayer.onPlayerStateChanged.listen((state) {
+      if (state == PlayerState.completed) {
+        audioPlayer.play(AssetSource("audios/game_ringtone.mp3"));
+      }
+    });
+  }
+
   void cancel() async {
-    await playingSub?.cancel();
-    cancelMatch(gameId, matchId, match, players);
+    if (match == null) return;
+
+    playingSub?.cancel();
+    playingSub = null;
+
+    match = await cancelMatch(match!, players);
+    // saveMatch(match!);
     context.pop();
   }
 
   void leave() async {
+    if (match == null) return;
     playingSub?.cancel();
-    await leaveMatch(gameId, matchId, match, players);
+    playingSub = null;
+
+    match = await leaveMatch(match!, players);
+    // saveMatch(match!);
     context.pop();
   }
 
   void join() async {
-    await joinMatch(gameId, matchId, game, players);
+    if (match == null) return;
+
+    match = await joinMatch(match!, game, players);
+    saveMatch(match!);
+    final index = players.indexWhere((element) => element.id == myId);
+    if (index != -1) {
+      players[index] = players[index].copyWith(action: "pause");
+    }
+    showToast("You joined");
+    gotoGameIfAllPlayersReady();
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  void saveMatch(Match match) {
+    ref.read(matchProvider.notifier).updateMatch(match);
   }
 
   void gotoGame() {
@@ -169,12 +180,9 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
       showToast("Need at least 2 players to play");
       return;
     }
+    players.sortList((player) => player.order ?? 0, false);
     gotoGamePage(context, game, gameId, matchId,
-        users: users,
-        players: players,
-        playersSize: playersSize,
-        indices: indices,
-        match: match);
+        users: users, players: players, playersSize: playersSize, match: match);
   }
 
   void gotoGameIfAllPlayersReady() {
@@ -200,7 +208,20 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
     match ??= await getMatch(gameId, matchId);
     readGame();
 
-    playingSub = getPlayersChange(gameId, matchId: matchId, excludingMe: false)
+    if (players.indexWhere((element) => element.id == myId) == -1) {
+      final myPlayer = await getPlayer(gameId, myId);
+      if (myPlayer != null) {
+        players.add(myPlayer);
+      }
+    }
+    if (users.indexWhere((element) => element?.user_id == myId) == -1) {
+      final user = await getUser(myId);
+      if (user != null) {
+        users.add(user);
+      }
+    }
+
+    playingSub = getPlayersChange(gameId, matchId: matchId)
         .listen((playersChanges) async {
       for (int i = 0; i < playersChanges.length; i++) {
         final playersChange = playersChanges[i];
@@ -230,18 +251,17 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
             players.add(value);
           }
           showToast(
-              "${user?.username} ${value.action == null || value.action == "" ? "added" : "accepted"}");
+              "${user?.username} ${value.action == null || value.action == "" ? "added" : "joined"}");
         }
       }
 
-      if (players.isEmpty ||
-          players.indexWhere((element) => element.id == myId) == -1) {
+      // if (addedAllPlayers && players.length < 2) {
+      //   context.pop();
+      //   return;
+      // }
+      if (addedAllPlayers && players.length == 1 && players.first.id == myId) {
         context.pop();
         return;
-      } else if (addedAllPlayers &&
-          players.length == 1 &&
-          players.first.id == myId) {
-        leave();
       }
       gotoGameIfAllPlayersReady();
       if (match?.players != null && players.length == match!.players!.length) {
@@ -251,62 +271,23 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
       if (!mounted) return;
       setState(() {});
     });
-    // playingSub = readPlayersStream(gameId, matchId).listen((players) async {
-    //   if (players.isEmpty ||
-    //       players.indexWhere((element) => element.id == myId) == -1) {
-    //     Navigator.of(context).pop();
-    //     return;
-    //   } else if (players.length == 1 && players.first.id == myId) {
-    //     leave();
-    //   }
-    //   //players.sortList((value) => value.order, false);
-    //   final playersToRemove = getPlayersToRemove(users, players);
-    //   if (playersToRemove.isNotEmpty) {
-    //     for (int i = 0; i < playersToRemove.length; i++) {
-    //       final index = playersToRemove[i];
-    //       final user = users[index];
-    //       Fluttertoast.showToast(msg: "${user?.username} left");
-    //       users.removeAt(index);
-    //     }
-    //   }
-    //   if (players.isNotEmpty) {
-    //     int playersRequested = 0;
-    //     for (int i = 0; i < players.length; i++) {
-    //       final player = players[i];
-    //       if (player.action == null) {
-    //         playersRequested++;
-    //       }
-    //     }
-    //     for (int i = 0; i < users.length; i++) {
-    //       final user = users[i];
-    //       final player = players[i];
-    //       user?.checked = player.action != null;
-    //     }
-
-    //     if (playersRequested == 0) {
-    //       gotoGame();
-    //     }
-    //     if (!mounted) return;
-    //     setState(() {});
-    //   }
-    // });
   }
 
   void readGame() async {
-    if (match == null) return;
+    if (match == null || match!.players == null) return;
+
     if (match!.users == null && match!.players != null) {
       List<User> users = await playersToUsers(match!.players!);
       match!.users = users;
-    } else if (match!.players == null || match!.players!.isEmpty) {
-      final game = await getGame(match!.game_id!);
-      match!.game = game;
     }
-    if (match!.users != null && match!.users!.isNotEmpty) {
+
+    if (match!.game_id == getGameId(match!.players!)) {
       name = getOtherPlayersUsernames(match!.users!);
-    } else if (match!.game != null) {
+    } else {
+      isGroup = true;
+      match!.game ??= await getGame(match!.game_id!);
       name = match!.game!.groupName!;
       profilePhoto = match!.game!.profilePhoto ?? "";
-      //game = match!.game ?? "";
     }
 
     if (!mounted) return;
@@ -314,15 +295,15 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
   }
 
   void goBack() async {
-    final comfirmationType = creatorIsMe ? "cancel" : "leave";
+    final comfirmationType = creatorIsMe ? "cancel" : "dismiss";
     final comfirm = await context.showComfirmationDialog(
         title: "${comfirmationType.capitalize} match",
         message: "Are you sure you want to $comfirmationType game?");
-    if (comfirm == null) return;
+    if (comfirm != true) return;
 
     if (comfirmationType == "cancel") {
       cancel();
-    } else if (comfirmationType == "leave") {
+    } else if (comfirmationType == "dismiss") {
       leave();
     }
   }
@@ -357,84 +338,60 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
             ? const Center(
                 child: CircularProgressIndicator(),
               )
-            //:
-            // comfirmationType.isNotEmpty
-            //     ? Center(
-            //         child: ComfirmationDialog(
-            //           title:
-            //               "Are you sure you want to $comfirmationType game?",
-            //           message: getMoreInfoOnComfirmation(),
-            //           onPressed: (positive) {
-            //             if (positive) {
-            //               if (comfirmationType == "cancel") {
-            //                 cancel();
-            //               } else if (comfirmationType == "leave") {
-            //                 leave();
-            //               }
-            //               context.pop();
-            //             }
-            //             if (!mounted) return;
-            //             setState(() {
-            //               comfirmationType = "";
-            //             });
-            //           },
-            //         ),
-            //       )
             : Center(
-                child: SingleChildScrollView(
-                  primary: true,
-                  scrollDirection: Axis.vertical,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 450),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 450),
+                  child: SingleChildScrollView(
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (match?.users != null)
-                              PlayersProfilePhoto(
-                                users: match!.users!,
-                                withoutMyId: true,
-                              )
-                            else
-                              ProfilePhoto(
-                                  profilePhoto: profilePhoto, name: name),
-                            Text(
-                              name,
-                              style: const TextStyle(fontSize: 18),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(
-                              height: 16,
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    "Online $game game",
-                                    style: context.bodyLarge
-                                        ?.copyWith(fontWeight: FontWeight.bold),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  Text(
-                                    "From ${creator?.username ?? ""}",
-                                    style: context.bodyMedium,
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isGroup)
+                                ProfilePhoto(
+                                    profilePhoto: profilePhoto,
+                                    name: name,
+                                    size: 100)
+                              else if (match?.users != null)
+                                PlayersProfilePhoto(
+                                  users: match!.users!,
+                                  withoutMyId: true,
+                                  size: 100,
+                                ),
+                              Text(
+                                name,
+                                style: const TextStyle(fontSize: 18),
+                                textAlign: TextAlign.center,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                "Online $game game",
+                                style: context.bodyLarge
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                              Text(
+                                "From ${creator?.username ?? ""}",
+                                style: context.bodyMedium,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(
                           height: 20,
                         ),
                         SizedBox(
                           height: 200,
-                          // width: double.infinity,
                           child: ListView.builder(
                               shrinkWrap: true,
                               scrollDirection: Axis.horizontal,
@@ -453,7 +410,7 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
         //    players.isEmpty || users.isEmpty
         // ? null
         // :
-        bottomNavigationBar: Container(
+        bottomNavigationBar: SizedBox(
           //height: 50,
           width: double.infinity,
           //margin: const EdgeInsets.only(bottom: 10),
@@ -472,10 +429,7 @@ class _NewOnlineGamePageState extends State<NewOnlineGamePage> {
                 //   width: 20,
                 // ),
                 Expanded(
-                  child: AppButton(
-                    title: "Join",
-                    onPressed: join,
-                  ),
+                  child: AppButton(title: "Join", onPressed: join),
                 ),
               ],
             ],

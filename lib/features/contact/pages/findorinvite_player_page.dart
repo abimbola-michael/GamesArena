@@ -17,11 +17,13 @@ import '../../../shared/widgets/app_search_bar.dart';
 import '../../../theme/colors.dart';
 import '../../game/models/match.dart';
 import '../../game/models/player.dart';
+import '../../game/services.dart';
 import '../../user/models/user.dart';
 import '../enums.dart';
 import '../models/phone_contact.dart';
 import '../providers/contacts_provider.dart';
 import '../providers/search_contacts_provider.dart';
+import '../services/services.dart';
 import '../utils/utils.dart';
 import '../views/contacts_listview.dart';
 
@@ -62,16 +64,12 @@ class _FindOrInvitePlayersPageState
   }
 
   void readContacts() async {
-    if (!isAndroidAndIos) return;
+    if (!isAndroidAndIos || !mounted) return;
     loading = true;
     setState(() {});
 
-    final dialCode1 = await getDialCode();
-    print("dialCode1 = $dialCode1");
+    final dialCode = await getDialCode();
 
-    String? dialCode = await getCurrentCountryDialingCode();
-    print("dialCode = $dialCode");
-    //final usersBox = Hive.box<String>("users");
     final phoneContactsBox = Hive.box<String>("contacts");
     //phoneContactsBox.clear();
 
@@ -93,9 +91,7 @@ class _FindOrInvitePlayersPageState
       final contact = contacts[i];
       for (var phone in contact.phones) {
         final phoneNumber = phone.number.toValidNumber(dialCode);
-        if (phoneNumber == null ||
-            contact.displayName.isEmpty ||
-            phone.number == contact.displayName) {
+        if (phoneNumber == null || contact.displayName.isEmpty) {
           continue;
         }
         final prevContactJson = phoneContactsBox.get(phoneNumber);
@@ -103,13 +99,12 @@ class _FindOrInvitePlayersPageState
         //ContactStatus contactStatus = ContactStatus.unadded;
 
         if (prevContactJson != null) {
-          final prevContact = PhoneContact.fromJson(prevContactJson);
+          final phoneContact = PhoneContact.fromJson(prevContactJson);
 
-          if (contact.displayName != prevContact.name) {
-            prevContact.name = contact.displayName;
-            prevContact.modifiedAt = time;
-            // modified = true;
-            await phoneContactsBox.put(phoneNumber, prevContact.toJson());
+          if (contact.displayName != phoneContact.name) {
+            phoneContact.name = contact.displayName;
+            phoneContact.modifiedAt = time;
+            await phoneContactsBox.put(phoneNumber, phoneContact.toJson());
           }
         } else {
           final phoneContact = PhoneContact(
@@ -133,6 +128,31 @@ class _FindOrInvitePlayersPageState
 
     loading = false;
     setState(() {});
+  }
+
+  void addContact(PhoneContact contact, WidgetRef ref) async {
+    final users = await getUsersWithNumber(contact.phone);
+    final phoneContactsBox = Hive.box<String>("contacts");
+    if (users.isNotEmpty) {
+      final usersBox = Hive.box<String>("users");
+      final playersBox = Hive.box<String>("players");
+
+      contact.contactStatus = ContactStatus.added;
+      contact.userIds = [];
+      for (final user in users) {
+        contact.userIds!.add(user.user_id);
+        usersBox.put(user.user_id, user.toJson());
+
+        final player = await addPlayer(user.user_id);
+        playersBox.put(player.id, player.toJson());
+        newlyAddedPlayers.add(player);
+      }
+    } else {
+      contact.contactStatus = ContactStatus.requested;
+      await sendPlayerRequest(contact.phone);
+    }
+    phoneContactsBox.put(contact.phone, contact.toJson());
+    ref.read(contactsProvider.notifier).updatePhoneContacts(contact);
   }
 
   void copyLink(String link) {

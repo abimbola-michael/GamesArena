@@ -52,17 +52,12 @@ class WatchGameControlsView extends StatefulWidget {
   State<WatchGameControlsView> createState() => _WatchGameControlsViewState();
 }
 
-class _WatchGameControlsViewState extends State<WatchGameControlsView>
-// with SingleTickerProviderStateMixin
-{
+class _WatchGameControlsViewState extends State<WatchGameControlsView> {
   bool isRemaining = false;
-  //late AnimationController animationController;
 
   @override
   void initState() {
     super.initState();
-    // animationController =
-    //     AnimationController(vsync: this, duration: const Duration(seconds: 1));
   }
 
   @override
@@ -70,11 +65,6 @@ class _WatchGameControlsViewState extends State<WatchGameControlsView>
     // animationController.dispose();
     super.dispose();
   }
-
-  // void startAnimation() {
-
-  //   animationController.forward(from: 0);
-  // }
 
   @override
   Widget build(BuildContext context) {
@@ -146,12 +136,6 @@ class _WatchGameControlsViewState extends State<WatchGameControlsView>
                       stream: widget.watchTimerController.stream,
                       builder: (context, snapshot) {
                         final duration = snapshot.data ?? widget.duration;
-                        // startAnimation();
-                        // return AnimatedBuilder(
-                        //     animation: animationController,
-                        //     builder: (context, child) {
-                        //       final value = animationController.value;
-                        //       final duration = durationValue + value;
 
                         return Padding(
                           // padding: const EdgeInsets.only(
@@ -198,8 +182,7 @@ class _WatchGameControlsViewState extends State<WatchGameControlsView>
                                         color: !widget.finishedRound
                                             ? Colors.red
                                             : Colors.white),
-                                            textAlign: TextAlign.end,
-                                            
+                                    textAlign: TextAlign.end,
                                   ),
                                 ),
                               ),

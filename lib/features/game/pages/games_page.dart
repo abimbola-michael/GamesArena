@@ -1,22 +1,26 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamesarena/features/game/utils.dart';
-import 'package:gamesarena/features/home/providers/search_games_provider.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/features/game/pages/new_offline_game_page.dart';
 import 'package:flutter/material.dart';
 import 'package:gamesarena/shared/extensions/special_context_extensions.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:icons_plus/icons_plus.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/widgets/app_appbar.dart';
 import '../../../shared/widgets/game_card.dart';
 import '../../../theme/colors.dart';
-import '../../game/services.dart';
-import '../../game/widgets/game_item.dart';
+import '../../match/providers/match_provider.dart';
+import '../models/game_list.dart';
+import '../providers/search_games_provider.dart';
+import '../services.dart';
+import '../widgets/game_item.dart';
 import '../../../shared/utils/constants.dart';
 import '../../games/pages.dart';
 import '../../onboarding/pages/auth_page.dart';
 import '../../user/models/user.dart';
 import '../../user/services.dart';
+import '../models/match.dart';
 
 class GamesPage extends ConsumerStatefulWidget {
   final bool isTab;
@@ -49,9 +53,7 @@ class GamesPage extends ConsumerStatefulWidget {
 }
 
 class GamesPageState extends ConsumerState<GamesPage>
-    with SingleTickerProviderStateMixin {
-  // int mode = -1;
-  //int game = -1;
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   String game = "";
   String current = "game";
   List<String>? players;
@@ -73,7 +75,10 @@ class GamesPageState extends ConsumerState<GamesPage>
   void initState() {
     super.initState();
 
-    players = widget.players;
+    if (widget.players != null) {
+      players = [...widget.players!];
+    }
+
     gameCallback = widget.gameCallback;
 
     if (widget.playersSize != null) {
@@ -134,12 +139,170 @@ class GamesPageState extends ConsumerState<GamesPage>
     super.dispose();
   }
 
-  // void tabListener() {
-  //   currentTab = tabController?.index ?? 0;
-  // }
+  void goBackToGames() {
+    if (creating) return;
+
+    if (gameCallback != null) {
+      gameCallback!("");
+    }
+    game = "";
+    current = "game";
+    setState(() {});
+  }
+
+  void createNewMatch() async {
+    if (creating) return;
+    // setState(() {
+    //   creating = true;
+    // });
+    showLoading(message: "Creating match...");
+    try {
+      final match = await createMatch(game, widget.gameId, [...players!]);
+      if (!mounted || match == null) return;
+      if (match.users == null && match.players != null) {
+        List<User> users = await playersToUsers(match.players!);
+        match.users = users;
+      } else if (match.players == null || match.players!.isEmpty) {
+        final game = await getGame(match.game_id!);
+        match.game = game;
+      }
+
+      saveMatch(match);
+
+      await hideDialog();
+
+      if (!mounted) return;
+      final page = NewOnlineGamePage(
+        players: const [],
+        users: const [],
+        game: match.games?.firstOrNull ?? "",
+        matchId: match.match_id!,
+        gameId: match.game_id!,
+        creatorId: match.creator_id!,
+        match: match,
+        creatorName: "",
+      );
+
+      creating = false;
+      if (!mounted) return;
+      setState(() {});
+
+      if (widget.isTab) {
+        context.pushTo(page);
+      } else {
+        context.pushReplacement(page);
+      }
+
+      players!.clear();
+      players = null;
+      if (!mounted) return;
+      setState(() {});
+    } catch (e) {
+      // print("error = $e");
+      hideDialog();
+    } finally {}
+  }
+
+  void saveMatch(Match match) {
+    ref.read(matchProvider.notifier).updateMatch(match);
+  }
+
+  void gotoOfflineGame() async {
+    if (!widget.isTab) {
+      await Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+              builder: (context) => NewOfflineGamePage(game: game)),
+          result: true);
+    } else {
+      final result = await Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => NewOfflineGamePage(game: game)));
+      if (!mounted) return;
+      if (result == true) {
+        goBackToGames();
+      }
+    }
+  }
+
+  void gotoSelectPlayers() async {
+    final players = (await Navigator.of(context).push(MaterialPageRoute(
+        builder: (context) => myId.isEmpty
+            ? const AuthPage()
+            : PlayersSelectionPage(
+                type: "",
+                game: game,
+                gameId: widget.gameId,
+                groupName: widget.groupName,
+              ))) as List<String>?);
+    if (players != null) {
+      this.players = players;
+      if (creating) return;
+
+      createNewMatch();
+      goBackToGames();
+    }
+  }
+
+  void gotoGame() {
+    gotoGamePage(context, game, "", "", playersSize: playersSize, result: true);
+  }
+
+  void gotoNext(String game) async {
+    if (game == yourTopicQuizGame) {
+      final topicName = await context.showTextInputDialog(
+        title: "Quiz Topic",
+        hintText: "Topic",
+        message:
+            "Enter your quiz topic without ending with quiz and should be between 1 to 3 words",
+        actions: ["Cancel", "Start"],
+      );
+      if (topicName == null) {
+        return;
+      }
+      String name = (topicName as String).trim();
+      if (name.isEmpty || name.split(" ").length > 3) {
+        showErrorToast(
+            "Please enter a valid topic. Your topic should be between 1 to 3 words");
+        return;
+      }
+      if (name.toLowerCase().endsWith("quiz")) {
+        name = name.substring(0, name.length - 4);
+      }
+      game = "${name.capitalize} Quiz";
+    }
+    if (gameCallback != null) {
+      gameCallback!(game);
+      if (widget.isChangeGame) {
+        return;
+      }
+    }
+    this.game = game;
+
+    if (!mounted) return;
+
+    if (widget.isCallback) {
+      Navigator.of(context).pop(game);
+    } else {
+      if (widget.isTab) {
+        setState(() {
+          current = "mode";
+        });
+      } else {
+        if (players != null && players!.isNotEmpty) {
+          createNewMatch();
+        } else if (widget.gameId != null) {
+          gotoSelectPlayers();
+        } else if (widget.playersSize != null) {
+          gotoGame();
+        } else {
+          gotoOfflineGame();
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     gridSize = context.screenWidth < context.screenHeight ? 2 : 4;
     final searchString = ref.watch(searchGamesProvider);
     return PopScope(
@@ -224,10 +387,12 @@ class GamesPageState extends ConsumerState<GamesPage>
                                       : category == "Quiz"
                                           ? quizGames
                                           : [];
-                          final games = foundGames
-                              .where((game) =>
-                                  game.toLowerCase().contains(searchString))
-                              .toList();
+                          final games = searchString.isEmpty
+                              ? foundGames
+                              : foundGames
+                                  .where((game) =>
+                                      game.toLowerCase().contains(searchString))
+                                  .toList();
                           return SingleChildScrollView(
                             primary: true,
                             scrollDirection: Axis.vertical,
@@ -239,63 +404,7 @@ class GamesPageState extends ConsumerState<GamesPage>
                                   width: (context.screenWidth - 32) / gridSize,
                                   game: game,
                                   onPressed: () async {
-                                    if (game == yourTopicQuizGame) {
-                                      final topicName =
-                                          await context.showTextInputDialog(
-                                        title: "Quiz Topic",
-                                        hintText: "Topic",
-                                        message:
-                                            "Enter your quiz topic without ending with quiz and should be between 1 to 3 words",
-                                        actions: ["Cancel", "Start"],
-                                      );
-                                      if (topicName == null) {
-                                        return;
-                                      }
-                                      String name =
-                                          (topicName as String).trim();
-                                      if (name.isEmpty ||
-                                          name.split(" ").length > 3) {
-                                        showErrorToast(
-                                            "Please enter a valid topic. Your topic should be between 1 to 3 words");
-                                        return;
-                                      }
-                                      if (name.toLowerCase().isQuiz) {
-                                        name =
-                                            name.substring(0, name.length - 4);
-                                      }
-                                      game = "${name.capitalize} Quiz";
-                                    }
-                                    if (gameCallback != null) {
-                                      gameCallback!(game);
-                                      if (widget.isChangeGame) {
-                                        return;
-                                      }
-                                    }
-                                    //this.game = index;
-                                    this.game = game;
-
-                                    if (!context.mounted) return;
-
-                                    if (widget.isCallback) {
-                                      Navigator.of(context).pop(games[index]);
-                                    } else {
-                                      if (widget.isTab) {
-                                        setState(() {
-                                          current = "mode";
-                                        });
-                                      } else {
-                                        if (players != null &&
-                                            players!.isNotEmpty) {
-                                          createNewMatch();
-                                        } else if (widget.gameId != null) {
-                                          gotoSelectPlayers();
-                                        } else if (widget.playersSize != null) {
-                                          gotoGame();
-                                        } else {
-                                          gotoOfflineGame();
-                                        }
-                                      }
-                                    }
+                                    gotoNext(game);
                                   },
                                 );
                               }),
@@ -353,102 +462,6 @@ class GamesPageState extends ConsumerState<GamesPage>
     );
   }
 
-  void goBackToGames() {
-    if (creating) return;
-
-    if (gameCallback != null) {
-      gameCallback!("");
-    }
-    //game = -1;
-    game = "";
-    current = "game";
-    setState(() {});
-  }
-
-  void createNewMatch() async {
-    if (creating) return;
-    // setState(() {
-    //   creating = true;
-    // });
-    showLoading(message: "Creating match...");
-    try {
-      final match = await createMatch(game, widget.gameId, List.from(players!));
-      if (!mounted || match == null) return;
-      if (match.users == null && match.players != null) {
-        List<User> users = await playersToUsers(match.players!);
-        match.users = users;
-      } else if (match.players == null || match.players!.isEmpty) {
-        final game = await getGame(match.game_id!);
-        match.game = game;
-      }
-      await hideDialog();
-
-      if (!mounted) return;
-      final page = NewOnlineGamePage(
-        indices: "",
-        players: const [],
-        users: const [],
-        game: match.games?.firstOrNull ?? "",
-        matchId: match.match_id!,
-        gameId: match.game_id!,
-        creatorId: match.creator_id!,
-        match: match,
-        creatorName: "",
-      );
-      if (widget.isTab) {
-        context.pushTo(page);
-      } else {
-        context.pushReplacement(page);
-      }
-    } catch (e) {
-      hideDialog();
-    } finally {
-      if (mounted) {
-        setState(() {
-          players!.clear();
-          players = null;
-          creating = false;
-        });
-      }
-    }
-  }
-
-  void gotoOfflineGame() async {
-    if (!widget.isTab) {
-      await Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-              builder: (context) => NewOfflineGamePage(game: game)),
-          result: true);
-    } else {
-      final result = await Navigator.of(context).push(MaterialPageRoute(
-          builder: (context) => NewOfflineGamePage(game: game)));
-      if (!mounted) return;
-      if (result == true) {
-        goBackToGames();
-      }
-    }
-  }
-
-  void gotoSelectPlayers() async {
-    final players = (await Navigator.of(context).push(MaterialPageRoute(
-        builder: (context) => myId.isEmpty
-            ? const AuthPage()
-            : PlayersSelectionPage(
-                type: "",
-                game: game,
-                gameId: widget.gameId,
-                groupName: widget.groupName,
-              ))) as List<String>?);
-    if (players != null) {
-      this.players = players;
-      if (creating) return;
-
-      createNewMatch();
-      goBackToGames();
-    }
-  }
-
-  void gotoGame() {
-    gotoGamePage(context, game, "", "", playersSize: playersSize, result: true);
-  }
+  @override
+  bool get wantKeepAlive => true;
 }

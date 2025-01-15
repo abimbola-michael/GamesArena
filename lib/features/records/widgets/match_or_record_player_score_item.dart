@@ -6,6 +6,8 @@ import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/theme/colors.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import '../../../shared/utils/utils.dart';
+import '../../profile/pages/profile_page.dart';
 import '../../user/models/user.dart';
 
 class MatchOrRecordPlayerScoreItem extends StatelessWidget {
@@ -28,49 +30,60 @@ class MatchOrRecordPlayerScoreItem extends StatelessWidget {
     final name = user?.username ?? "Player $playerId";
     final profilePhoto = user?.profile_photo;
     final win = winners?.contains(playerId) ?? false;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          ProfilePhoto(
-            profilePhoto: profilePhoto,
-            name: name,
-            size: 30,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: context.bodyMedium,
-                ),
-                if (message.isNotEmpty) ...[
-                  // const SizedBox(height: 2),
-                  Text(
-                    message,
-                    style: context.bodySmall?.copyWith(color: lighterTint),
-                  ),
-                ]
-              ],
+
+    void gotoProfilePage() {
+      context.pushTo(ProfilePage(id: playerId));
+    }
+
+    return InkWell(
+      onTap: gotoProfilePage,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            ProfilePhoto(
+              profilePhoto: profilePhoto,
+              name: name,
+              size: 35,
             ),
-          ),
-          if (win) ...[
-            const SizedBox(width: 4),
-            const Icon(
-              EvaIcons.checkmark_circle,
-              color: primaryColor,
-              size: 14,
-            )
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: context.bodyMedium,
+                  ),
+                  if (message.isNotEmpty) ...[
+                    // const SizedBox(height: 2),
+                    Text(
+                      message,
+                      style: context.bodySmall?.copyWith(color: lighterTint),
+                    ),
+                  ]
+                ],
+              ),
+            ),
+            if (win) ...[
+              const SizedBox(width: 4),
+              const Icon(
+                EvaIcons.checkmark_circle,
+                color: primaryColor,
+                size: 14,
+              )
+            ],
+            if (score != -1) ...[
+              const SizedBox(width: 10),
+              Text(
+                "$score",
+                style:
+                    context.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ],
           ],
-          const SizedBox(width: 10),
-          Text(
-            "$score",
-            style: context.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-          ),
-        ],
+        ),
       ),
     );
   }

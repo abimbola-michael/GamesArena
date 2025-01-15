@@ -45,8 +45,8 @@ List<User> playersToUsersLocal(List<String> players) {
   for (int i = 0; i < players.length; i++) {
     final player = players[i];
     final userJson = usersBox.get(player);
-    print("userJson = $userJson");
-    if (userJson != null) {
+    // print("userJson = $userJson");
+    if (userJson != null && userJson.isNotEmpty) {
       users.add(User.fromJson(userJson));
     }
   }
@@ -88,8 +88,9 @@ Future<List<User>> getPlayersFromGame(String gameId) async {
 Future<User?> getUser(String userId, {bool useCache = true}) async {
   if (useCache) {
     if (usersMap.containsKey(userId)) {
-      final mapValue = usersMap[userId];
-      return mapValue;
+      final userValue = usersMap[userId];
+      userValue?.checked = false;
+      return userValue;
     }
   }
   final usersBox = Hive.box<String>("users");
@@ -97,8 +98,12 @@ Future<User?> getUser(String userId, {bool useCache = true}) async {
   try {
     final user =
         await fm.getValue((map) => User.fromMap(map), ["users", userId]);
-    usersBox.put(userId, user?.toJson() ?? "");
-    usersMap[userId] = user;
+    user?.checked = false;
+    if (isConnectedToInternet) {
+      usersBox.put(userId, user?.toJson() ?? "");
+      usersMap[userId] = user;
+    }
+
     return user;
   } catch (e) {
     String? userJson = usersBox.get(userId);

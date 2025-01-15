@@ -81,6 +81,12 @@ Future<PrivateKey?> getPrivateKey() async {
   return fm.getValue((map) => PrivateKey.fromMap(map), ["admin", "keys"]);
 }
 
+void updateUserToken(String userId, List<String> tokens) async {
+  final value = {"tokens": tokens, "time_modified": timeNow};
+  await fm.updateValue(["users", myId], value: value);
+  saveUserProperty(userId, value);
+}
+
 void updateToken(String token) async {
   if (!kIsWeb && Platform.isWindows) return;
   if (myId.isEmpty) return;

@@ -1,3 +1,4 @@
+import 'package:country_code_picker_plus/country_code_picker_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -6,6 +7,7 @@ import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/shared/utils/utils.dart';
 
 import '../../theme/colors.dart';
+import '../utils/country_code_utils.dart';
 import 'svg_button.dart';
 
 class AppTextField extends StatefulWidget {
@@ -20,6 +22,8 @@ class AppTextField extends StatefulWidget {
   final double? height;
   final double? width;
   final TextEditingController? controller;
+  final void Function(String code)? onChangedCountryCode;
+  final String? initialCountryCode;
   final void Function(String)? onChanged;
   final void Function(String)? onSubmit;
   final int? maxLines;
@@ -51,6 +55,7 @@ class AppTextField extends StatefulWidget {
       this.height,
       this.width,
       this.controller,
+      this.onChangedCountryCode,
       this.onChanged,
       this.onSubmit,
       this.maxLines,
@@ -75,7 +80,8 @@ class AppTextField extends StatefulWidget {
       this.onTap,
       this.hasError,
       this.focused,
-      this.isCard = false});
+      this.isCard = false,
+      this.initialCountryCode});
 
   @override
   State<AppTextField> createState() => _AppTextFieldState();
@@ -88,6 +94,9 @@ class _AppTextFieldState extends State<AppTextField> {
   FocusNode _focusNode = FocusNode();
   String hintText = "";
   String? errorText = "";
+  String text = "";
+  String countryDialCode = "";
+  String countryCode = "US";
 
   @override
   void initState() {
@@ -98,6 +107,13 @@ class _AppTextFieldState extends State<AppTextField> {
     //   _focusNode = widget.focusNode!;
     // }
     //_focusNode.addListener(_onFocusChange);
+
+    // print("isPhoneNumber");
+    // getDialCode().then((value) {
+    //   countryDialCode = dialCode;
+    //   print("countryCode = $countryCode, dialCode = $dialCode");
+    //   setState(() {});
+    // });
   }
 
   @override
@@ -141,15 +157,18 @@ class _AppTextFieldState extends State<AppTextField> {
     if (value == null || value.isEmpty) {
       return "$hintText is required";
     }
-    if (hintText.contains("Email")) {
+    if (hintText.toLowerCase().contains("email")) {
       if (!isValidEmail(value)) {
         return "Invalid Email";
       }
-    } else if (hintText.contains("Phone") ||
-        hintText.contains("Mobile") ||
-        hintText.contains("Number")) {
+    } else if (hintText.toLowerCase().contains("phone") ||
+        hintText.toLowerCase().contains("Mobile") ||
+        hintText.toLowerCase().contains("Number")) {
       if (!isValidPhoneNumber(value)) {
         return "Invalid Phone Number";
+      }
+      if (value.startsWith("+")) {
+        return "Select Country dial code and just input the rest of your number";
       }
     } else if (hintText.toLowerCase().contains("password")) {
       if (value.length < 6 || value.length > 30) {
@@ -179,6 +198,10 @@ class _AppTextFieldState extends State<AppTextField> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.hintText.toLowerCase().contains("phone") &&
+        countryDialCode.isEmpty) {
+      countryDialCode = "+1";
+    }
     hintText = widget.titleText.isNotEmpty ? widget.titleText : widget.hintText;
     if (widget.focusNode != null) {
       _focusNode = widget.focusNode!;
@@ -264,7 +287,10 @@ class _AppTextFieldState extends State<AppTextField> {
                     _isFieldValid = true;
                   });
                 }
-                widget.onChanged?.call(value);
+                text = value;
+                if (widget.onChanged != null) {
+                  widget.onChanged!("$countryDialCode$text");
+                }
               },
               maxLines: widget.maxLines ?? 1,
               keyboardType: widget.inputType ?? getTextInputType(),
@@ -284,15 +310,40 @@ class _AppTextFieldState extends State<AppTextField> {
               textAlignVertical:
                   widget.centered ? TextAlignVertical.center : null,
               decoration: InputDecoration(
-                  // prefix: widget.prefix,
-                  // prefixIconConstraints:
-                  //     const BoxConstraints.tightFor(width: 40, height: 18),
-                  // suffixIconConstraints:
-                  //     const BoxConstraints.tightFor(width: 40, height: 30),
                   fillColor: widget.color ?? lightestTint,
                   filled: true,
-                  prefixIcon: widget.prefix,
-                  suffixIcon: hintText.contains("Password")
+                  // prefixIconConstraints: const BoxConstraints(
+                  //   minWidth: 60, // Adjust width
+                  //   minHeight: 30, // Adjust height
+                  // ),
+                  prefixIcon: hintText.toLowerCase().contains("phone")
+                      ? SizedBox(
+                          width: 60,
+                          height: 20,
+                          child: CountryCodePicker(
+                            textStyle:
+                                widget.style ?? context.bodyMedium?.copyWith(),
+                            padding:
+                                const EdgeInsets.only(left: 20, bottom: 1.5),
+                            mode: CountryCodePickerMode.bottomSheet,
+                            initialSelection:
+                                widget.initialCountryCode ?? countryCode,
+                            showFlag: false,
+                            showDropDownButton: false,
+                            dialogBackgroundColor: offtint,
+                            onChanged: (country) {
+                              countryDialCode = country.dialCode;
+                              if (widget.onChangedCountryCode != null) {
+                                widget.onChangedCountryCode!(country.dialCode);
+                              }
+                              if (widget.onChanged != null) {
+                                widget.onChanged!("$countryDialCode$text");
+                              }
+                            },
+                          ),
+                        )
+                      : widget.prefix,
+                  suffixIcon: hintText.toLowerCase().contains("password")
                       ? SizedBox(
                           width: 17,
                           height: 17,

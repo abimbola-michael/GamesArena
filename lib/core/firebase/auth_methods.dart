@@ -61,14 +61,20 @@ class AuthMethods {
     }
   }
 
+  bool get isPasswordAuthentication =>
+      _auth.currentUser?.providerData.first.providerId == "password";
+
   Future<void> logOut() async {
     try {
+      final provider = _auth.currentUser?.providerData.first.providerId;
       await _auth.signOut();
       // Sign out and disconnect Google account session
       if (!kIsWeb && Platform.isWindows) return;
-      if (await _googleSignIn.isSignedIn()) {
-        await _googleSignIn.signOut(); // Sign out
-        await _googleSignIn.disconnect(); // Disconnect the account
+      if (provider != null && provider.contains("google")) {
+        if (await _googleSignIn.isSignedIn()) {
+          await _googleSignIn.signOut(); // Sign out
+          await _googleSignIn.disconnect(); // Disconnect the account
+        }
       }
     } on FirebaseException catch (e) {}
   }
@@ -87,7 +93,11 @@ class AuthMethods {
 
   Future<bool> isEmailVerified() async {
     final user = _auth.currentUser;
-    await user?.reload();
+    try {
+      if (user != null && !user.emailVerified) {
+        await user.reload();
+      }
+    } catch (e) {}
     return user?.emailVerified ?? false;
   }
 
@@ -118,11 +128,34 @@ class AuthMethods {
     final user = _auth.currentUser;
     if (user == null) return false;
     try {
-      final credential =
-          EmailAuthProvider.credential(email: user.email!, password: password);
-      final credentialresult =
-          await user.reauthenticateWithCredential(credential);
-      return credentialresult.user != null;
+      final provider = user.providerData.first.providerId;
+
+      if (provider == 'password') {
+        // Re-authenticate with password
+        final credential = EmailAuthProvider.credential(
+            email: user.email!, password: password);
+        final credentialresult =
+            await user.reauthenticateWithCredential(credential);
+        return credentialresult.user != null;
+      } else if (provider == 'google.com') {
+        // Re-authenticate with Google
+        final googleUser = await GoogleSignIn().signIn();
+        final googleAuth = await googleUser?.authentication;
+        if (googleAuth != null) {
+          final credential = GoogleAuthProvider.credential(
+            accessToken: googleAuth.accessToken,
+            idToken: googleAuth.idToken,
+          );
+          final credentialresult =
+              await user.reauthenticateWithCredential(credential);
+          return credentialresult.user != null;
+        } else {
+          return false;
+        }
+      } else {
+        print("Provider not supported for re-authentication");
+        return false;
+      }
     } on FirebaseException catch (e) {
       return false;
     }

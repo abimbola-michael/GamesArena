@@ -8,6 +8,8 @@ class GameStat {
   int wins;
   int draws;
   int losses;
+  int incompletes;
+  int misseds;
   GameStat({
     required this.players,
     required this.allMatches,
@@ -15,6 +17,8 @@ class GameStat {
     required this.wins,
     required this.draws,
     required this.losses,
+    required this.incompletes,
+    required this.misseds,
   });
 
   GameStat copyWith({
@@ -24,6 +28,8 @@ class GameStat {
     int? wins,
     int? draws,
     int? losses,
+    int? incompletes,
+    int? misseds,
   }) {
     return GameStat(
       players: players ?? this.players,
@@ -32,6 +38,8 @@ class GameStat {
       wins: wins ?? this.wins,
       draws: draws ?? this.draws,
       losses: losses ?? this.losses,
+      incompletes: incompletes ?? this.incompletes,
+      misseds: misseds ?? this.misseds,
     );
   }
 
@@ -43,6 +51,8 @@ class GameStat {
       'wins': wins,
       'draws': draws,
       'losses': losses,
+      'incompletes': incompletes,
+      'misseds': misseds,
     };
   }
 
@@ -54,6 +64,8 @@ class GameStat {
       wins: map['wins'] as int,
       draws: map['draws'] as int,
       losses: map['losses'] as int,
+      incompletes: map['incompletes'] as int,
+      misseds: map['misseds'] as int,
     );
   }
 
@@ -64,7 +76,7 @@ class GameStat {
 
   @override
   String toString() {
-    return 'GameStat(players: $players, allMatches: $allMatches, playedMatches: $playedMatches, wins: $wins, draws: $draws, losses: $losses)';
+    return 'GameStat(players: $players, allMatches: $allMatches, playedMatches: $playedMatches, wins: $wins, draws: $draws, losses: $losses, incompletes: $incompletes, misseds: $misseds)';
   }
 
   @override
@@ -76,7 +88,9 @@ class GameStat {
         other.playedMatches == playedMatches &&
         other.wins == wins &&
         other.draws == draws &&
-        other.losses == losses;
+        other.losses == losses &&
+        other.incompletes == incompletes &&
+        other.misseds == misseds;
   }
 
   @override
@@ -86,6 +100,8 @@ class GameStat {
         playedMatches.hashCode ^
         wins.hashCode ^
         draws.hashCode ^
-        losses.hashCode;
+        losses.hashCode ^
+        incompletes.hashCode ^
+        misseds.hashCode;
   }
 }

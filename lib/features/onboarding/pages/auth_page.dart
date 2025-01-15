@@ -60,8 +60,9 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
       passwordController,
       phoneController;
 
-  String countryDialCode = "";
-  String countryCode = "";
+  // String countryDialCode = "";
+  // String countryCode = "";
+  String fullNumber = "";
   bool sentEmail = false;
   Timer? timer;
   int? emailExpiryTime;
@@ -79,7 +80,6 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     emailController = TextEditingController();
     phoneController = TextEditingController();
     passwordController = TextEditingController();
-    getCountryCode();
     WidgetsBinding.instance.addObserver(this);
 
     if (mode == AuthMode.verifyEmail) {
@@ -126,20 +126,11 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     return false;
   }
 
-  void getCountryCode() async {
-    final code = await getCurrentCountryCode();
-    countryDialCode = await getCurrentCountryDialingCode(code) ?? "";
-    countryCode = code ?? "";
-    setState(() {});
-  }
-
   Future<User> createUser(auth.User authUser) async {
     final userId = authUser.uid;
     final time = timeNow;
 
-    print("user.phoneNumber = ${authUser.phoneNumber}");
     final phone = authUser.phoneNumber?.toValidNumber() ?? "";
-    print("phone = $phone");
 
     final newUser = User(
       email: authUser.email ?? "",
@@ -166,7 +157,6 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
       context.pop();
       return;
     }
-    print("user = $user");
 
     if (!authMethods.emailVerified) {
       mode = AuthMode.verifyEmail;
@@ -327,14 +317,13 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
         return;
       }
     }
-    final phone =
-        phoneController.text.trim().toValidNumber(countryDialCode) ?? "";
+
+    final phone = fullNumber;
 
     final value = {
       if (username.isNotEmpty) ...{"username": username},
       if (phone.isNotEmpty) ...{"phone": phone}
     };
-    print("value = $value");
     showLoading(message: "Saving...");
 
     if (username.isNotEmpty || phone.isNotEmpty) {
@@ -529,31 +518,28 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
                         AppTextField(
                           controller: phoneController,
                           hintText: "Phone",
-                          validator: (value) {
-                            if (value!.startsWith("+")) {
-                              return "Select Country dial code and just input the rest of your number";
-                            }
-                            return null;
+                          onChanged: (text) {
+                            fullNumber = text;
                           },
-                          prefix: SizedBox(
-                            width: 50,
-                            child: CountryCodePicker(
-                              textStyle:
-                                  context.bodyMedium?.copyWith(color: tint),
-                              padding: const EdgeInsets.only(left: 10),
-                              mode: CountryCodePickerMode.bottomSheet,
-                              initialSelection:
-                                  countryCode.isNotEmpty ? countryCode : "US",
-                              showFlag: false,
-                              showDropDownButton: false,
-                              dialogBackgroundColor: offtint,
-                              onChanged: (country) {
-                                setState(() {
-                                  countryDialCode = country.dialCode;
-                                });
-                              },
-                            ),
-                          ),
+                          // prefix: SizedBox(
+                          //   width: 50,
+                          //   child: CountryCodePicker(
+                          //     textStyle:
+                          //         context.bodyMedium?.copyWith(color: tint),
+                          //     padding: const EdgeInsets.only(left: 10),
+                          //     mode: CountryCodePickerMode.bottomSheet,
+                          //     initialSelection:
+                          //         countryCode.isNotEmpty ? countryCode : "US",
+                          //     showFlag: false,
+                          //     showDropDownButton: false,
+                          //     dialogBackgroundColor: offtint,
+                          //     onChanged: (country) {
+                          //       setState(() {
+                          //         countryDialCode = country.dialCode;
+                          //       });
+                          //     },
+                          //   ),
+                          // ),
                         ),
                       if (mode == AuthMode.signUp)
                         Row(

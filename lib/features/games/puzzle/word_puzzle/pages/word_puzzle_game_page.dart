@@ -7,7 +7,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamesarena/features/games/puzzle/word_puzzle/widgets/match_lines_paint.dart';
 import 'package:gamesarena/features/games/puzzle/word_puzzle/widgets/word_puzzle_tile.dart';
-import 'package:gamesarena/shared/services.dart';
 import 'package:gamesarena/shared/widgets/app_container.dart';
 import 'package:gamesarena/features/games/puzzle/word_puzzle/models/match_line.dart';
 import 'package:gamesarena/features/games/puzzle/word_puzzle/models/word_puzzle.dart';
@@ -18,15 +17,17 @@ import 'package:gamesarena/shared/utils/utils.dart';
 import 'package:word_generator/word_generator.dart';
 
 import '../../../../../enums/emums.dart';
-import '../../../../../shared/utils/constants.dart';
+import '../../../../../shared/utils/call_utils.dart';
 import '../../../../game/models/game_action.dart';
 
 class WordPuzzleGamePage extends BaseGamePage {
   static const route = "/wordpuzzle";
   final Map<String, dynamic> args;
+  final CallUtils callUtils;
   final void Function(GameAction gameAction) onActionPressed;
-  const WordPuzzleGamePage(this.args, this.onActionPressed, {super.key})
-      : super(args, onActionPressed);
+  const WordPuzzleGamePage(this.args, this.callUtils, this.onActionPressed,
+      {super.key})
+      : super(args, callUtils, onActionPressed);
 
   @override
   ConsumerState<BaseGamePage> createState() => WordPuzzleGamePageState();

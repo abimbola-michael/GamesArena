@@ -65,7 +65,8 @@ extension ContextExtensions on BuildContext {
   Future pushNamedTo(String routeName, {Object? args}) =>
       Navigator.of(this).pushNamed(routeName, arguments: args);
   Future pushReplacement(Widget page, [result]) => Navigator.of(this)
-      .pushReplacement(MaterialPageRoute(builder: (context) => page));
+      .pushReplacement(MaterialPageRoute(builder: (context) => page),
+          result: result);
   Future pushReplacementNamed(String routeName,
           {Object? args, Object? result}) =>
       Navigator.of(this)
@@ -425,6 +426,7 @@ extension StringExtensions on String {
   String get toPng => "assets/images/png/$this.png";
   String get toSvg => "assets/images/svg/$this.svg";
   String get toImage => "assets/images/$this";
+  String get toIcon => "assets/icons/$this";
 
   DateTime get toDateTime => DateTime.fromMillisecondsSinceEpoch(toInt);
   String lastChars(int n) => substring(length - n);

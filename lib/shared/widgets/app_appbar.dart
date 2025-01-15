@@ -47,7 +47,7 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
               Align(
                 alignment: Alignment.center,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  padding: const EdgeInsets.only(left: 40, right: 70),
                   child: middle!,
                 ),
               )
@@ -55,7 +55,7 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
               Align(
                 alignment: Alignment.center,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 70),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -65,7 +65,7 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
                             context.headlineSmall
                                 ?.copyWith(color: color, fontSize: 18),
                         textAlign: TextAlign.center,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (subtitle != null) ...[

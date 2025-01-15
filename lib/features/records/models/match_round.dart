@@ -10,6 +10,7 @@ class MatchRound {
   String time_start;
   String? time_end;
   List<String> players;
+  List<int>? closed_players;
   List<int>? winners;
   Map<String, dynamic> scores;
   int detailsLength;
@@ -20,6 +21,7 @@ class MatchRound {
     required this.time_start,
     this.time_end,
     required this.players,
+    this.closed_players,
     this.winners,
     required this.scores,
     required this.detailsLength,
@@ -32,6 +34,7 @@ class MatchRound {
     String? time_start,
     String? time_end,
     List<String>? players,
+    List<int>? closed_players,
     List<int>? winners,
     Map<String, dynamic>? scores,
     int? detailsLength,
@@ -43,6 +46,7 @@ class MatchRound {
       time_start: time_start ?? this.time_start,
       time_end: time_end ?? this.time_end,
       players: players ?? this.players,
+      closed_players: closed_players ?? this.closed_players,
       winners: winners ?? this.winners,
       scores: scores ?? this.scores,
       detailsLength: detailsLength ?? this.detailsLength,
@@ -57,6 +61,7 @@ class MatchRound {
       'time_start': time_start,
       'time_end': time_end,
       'players': players,
+      'closed_players': closed_players,
       'winners': winners,
       'scores': scores,
       'detailsLength': detailsLength,
@@ -71,6 +76,9 @@ class MatchRound {
       time_start: map['time_start'] as String,
       time_end: map['time_end'] != null ? map['time_end'] as String : null,
       players: List<String>.from((map['players'] as List<dynamic>)),
+      closed_players: map['closed_players'] != null
+          ? List<int>.from((map['closed_players'] as List<dynamic>))
+          : null,
       winners: map['winners'] != null
           ? List<int>.from((map['winners'] as List<dynamic>))
           : null,
@@ -88,7 +96,7 @@ class MatchRound {
 
   @override
   String toString() {
-    return 'MatchRound(id: $id, game: $game, time_start: $time_start, time_end: $time_end, players: $players, winners: $winners, scores: $scores, detailsLength: $detailsLength, duration: $duration)';
+    return 'MatchRound(id: $id, game: $game, time_start: $time_start, time_end: $time_end, players: $players, closed_players: $closed_players, winners: $winners, scores: $scores, detailsLength: $detailsLength, duration: $duration)';
   }
 
   @override
@@ -100,6 +108,7 @@ class MatchRound {
         other.time_start == time_start &&
         other.time_end == time_end &&
         listEquals(other.players, players) &&
+        listEquals(other.closed_players, closed_players) &&
         listEquals(other.winners, winners) &&
         mapEquals(other.scores, scores) &&
         other.detailsLength == detailsLength &&
@@ -113,6 +122,7 @@ class MatchRound {
         time_start.hashCode ^
         time_end.hashCode ^
         players.hashCode ^
+        closed_players.hashCode ^
         winners.hashCode ^
         scores.hashCode ^
         detailsLength.hashCode ^

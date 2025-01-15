@@ -3,33 +3,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamesarena/features/game/pages/base_game_page.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import 'package:gamesarena/shared/services.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../../shared/extensions/special_context_extensions.dart';
+import '../../../../../shared/utils/call_utils.dart';
 import '../../../../../shared/widgets/custom_grid.dart';
 import '../../../../game/models/game_action.dart';
-import '../services.dart';
-import '../utils.dart';
+
 import '../widgets/chess_tile.dart';
 import '../../../../../enums/emums.dart';
 import '../models/chess.dart';
 import '../../../../../shared/models/models.dart';
 import '../../../../../theme/colors.dart';
-import '../../../../../shared/utils/constants.dart';
 import '../../../../../shared/utils/utils.dart';
 
 class ChessGamePage extends BaseGamePage {
   static const route = "/chess";
   final Map<String, dynamic>? args;
+  final CallUtils callUtils;
   final void Function(GameAction gameAction) onActionPressed;
   const ChessGamePage(
     this.args,
+    this.callUtils,
     this.onActionPressed, {
     super.key,
-  }) : super(args, onActionPressed);
+  }) : super(args, callUtils, onActionPressed);
 
   @override
   ConsumerState<ChessGamePage> createState() => _ChessGamePageState();
@@ -37,7 +36,6 @@ class ChessGamePage extends BaseGamePage {
 
 class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
   bool played = false;
-  // ChessDetails? prevDetails;
   int gridSize = 8;
   double size = 0;
   ChessTile? selectedChessTile, pawnPositionChessTile;
@@ -1278,7 +1276,6 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
   }
 
   void checkIfCanMove() {
-    //final next = nextIndex(2, currentPlayer);
     final next = getNextPlayerIndex();
     final chesses = playersChesses[next];
     int moveCount = 0;
@@ -1304,7 +1301,6 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
     final playerChesses = playersChesses[nextIndex(2, currentPlayer)];
     if (playerChesses.isEmpty) {
       updateWin(currentPlayer);
-      //updateWingame(false);
     }
   }
 

@@ -6,25 +6,26 @@ import 'package:gamesarena/enums/emums.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../../shared/utils/call_utils.dart';
 import '../../../../game/models/game_action.dart';
 import '../../../../game/pages/base_game_page.dart';
 
-import '../../../../../shared/services.dart';
 import '../../../../../shared/widgets/custom_grid.dart';
 import '../models/draught.dart';
 import '../../../../../theme/colors.dart';
-import '../../../../../shared/utils/constants.dart';
 import '../../../../../shared/utils/utils.dart';
 
 class DraughtGamePage extends BaseGamePage {
   static const route = "/draught";
   final Map<String, dynamic> args;
+  final CallUtils callUtils;
   final void Function(GameAction gameAction) onActionPressed;
   const DraughtGamePage(
     this.args,
+    this.callUtils,
     this.onActionPressed, {
     super.key,
-  }) : super(args, onActionPressed);
+  }) : super(args, callUtils, onActionPressed);
 
   @override
   ConsumerState<DraughtGamePage> createState() => _DraughtGamePageState();

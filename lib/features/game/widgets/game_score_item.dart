@@ -1,8 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
 import 'package:icons_plus/icons_plus.dart';
-import '../../../theme/colors.dart';
 import '../../../shared/utils/utils.dart';
 import 'profile_photo.dart';
 

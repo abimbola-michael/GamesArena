@@ -21,7 +21,6 @@ class Game {
   List<String>? games;
   List<String>? players;
   List<User>? users;
-  // List<UserGame>? user_games;
 
   Game({
     required this.game_id,

@@ -190,7 +190,7 @@ String getMatchOutcomeMessageFromScores(
 String getMatchOutcomeMessageFromWinners(
     List<int>? winners, List<String> players,
     {List<User?>? users}) {
-  if (winners == null) return "Uncompleted";
+  if (winners == null) return "Incomplete";
   if (winners.isEmpty) return "It's a draw";
 
   final winnersUsernames = users != null
@@ -280,19 +280,42 @@ String getActionMessage(List<Player> prevPlaying, List<Player> newPlaying,
 }
 
 String getAction(List<Player> players) {
-  String action = "";
-  for (int i = 0; i < players.length; i++) {
+  if (players.isEmpty) return "pause";
+  if (players.length == 1) return players.first.action ?? "pause";
+
+  String action = players.first.action ?? "pause";
+  int playersCount = 1;
+
+  if (action == "ad") {
+    return "pause";
+  }
+
+  for (int i = 1; i < players.length; i++) {
     final player = players[i];
-    final playerAction = player.action ?? "";
-    if (action == "" && playerAction.isNotEmpty) {
-      action = playerAction;
-    } else {
-      if (action != playerAction) {
-        return "pause";
-      }
+    final playerAction = player.action ?? "pause";
+
+    if (playerAction == "ad") {
+      return "pause";
+    }
+
+    if (playerAction == "close" ||
+        playerAction == "unclose" ||
+        playerAction == "concede" ||
+        playerAction == "leave") {
+      continue;
+    }
+
+    playersCount++;
+
+    if (action != playerAction) {
+      return "pause";
     }
   }
-  return action.isEmpty ? "pause" : action;
+  final outputAction = playersCount == 1 ? "pause" : action;
+  // print("outputAction = $outputAction");
+
+  // print("players = $players");
+  return outputAction;
 }
 
 Player? getMyPlayer(List<Player> players) {
@@ -451,7 +474,7 @@ bool isValidName(String name) {
   }
 
   // Check if the name contains only alphabetic characters, spaces, or hyphens
-  final RegExp nameRegex = RegExp(r'^[a-zA-Z\- ]+$');
+  final RegExp nameRegex = RegExp(r'^[a-zA-Z0-9\- ]+$');
   return nameRegex.hasMatch(name);
 }
 

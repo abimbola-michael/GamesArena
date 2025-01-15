@@ -126,8 +126,8 @@ class _HomeDrawerState extends ConsumerState<HomeDrawer> {
                   if (myId != "")
                     DrawerTile(title: "Profile", onPressed: gotoProfilePage),
                   DrawerTile(title: "Settings", onPressed: gotoSettingPage),
-                  DrawerTile(
-                      title: "Subscription", onPressed: gotoSubscriptionPage),
+                  // DrawerTile(
+                  //     title: "Subscription", onPressed: gotoSubscriptionPage),
                   DrawerTile(
                       title: "Terms and Conditions",
                       onPressed: () => gotoAppInfoPage("Terms and Conditions")),

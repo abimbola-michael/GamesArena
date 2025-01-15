@@ -24,7 +24,7 @@ class MessageText extends StatelessWidget {
           TextSpan(
               text: "$title: ",
               style: TextStyle(fontWeight: FontWeight.bold, color: tint)),
-        TextSpan(text: text, style: TextStyle(fontSize: 16, color: tint))
+        TextSpan(text: text, style: TextStyle(fontSize: 14, color: tint))
       ])),
     );
   }

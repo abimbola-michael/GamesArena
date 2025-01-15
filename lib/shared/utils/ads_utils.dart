@@ -5,49 +5,38 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:gamesarena/main.dart';
+import 'package:gamesarena/shared/extensions/extensions.dart';
+import 'package:gamesarena/shared/utils/utils.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../../features/subscription/pages/subscription_page.dart';
 import '../services.dart';
 
 InterstitialAd? _interstitialAd;
 
 class AdUtils {
-  Timer? adTimer;
-  int adTime = 5;
-  int startTimeRange = 15;
-  int endTimeRange = 25;
-  Random random = Random();
+  //Timer? adTimer;
+  int adTime = 0;
+  // int maxAdTime = 600;
+  int maxAdTime = 300;
 
-  void initializeAd() {
-    _startTimer();
-  }
+  int adRetryCount = 0;
+  int maxAdRetryCount = 3;
+  int adsCount = 0;
+  bool isSubscribed = false;
 
-  // void _getAdTime() {
-  //   adTime = startTimeRange + random.nextInt(endTimeRange - startTimeRange + 1);
-  //   print("adTime = $adTime");
-  // }
+  bool get isReadyToLoad => adTime >= maxAdTime;
 
-  void _startTimer() {
-    //_getAdTime();
-    adTimer?.cancel();
-    adTimer = Timer(Duration(minutes: adTime), () {
-      loadAd();
-    });
-  }
-
-  void _stopTimer() {
-    adTimer?.cancel();
-    adTimer = null;
-  }
-
-  void loadAd() async {
+  void loadAd(
+      {VoidCallback? onShow,
+      VoidCallback? onHide,
+      VoidCallback? onFail}) async {
     privateKey ??= await getPrivateKey();
     if (privateKey == null) return;
     await _interstitialAd?.dispose();
     _interstitialAd = null;
-    // final key = await getPrivateKey();
-    //|| key == null
-    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
+
+    if (kIsWeb || !isAndroidAndIos) {
       return;
     }
     //String mobileAdUnit = dotenv.get("ADUNITID");
@@ -62,7 +51,12 @@ class AdUtils {
             ad.fullScreenContentCallback = FullScreenContentCallback(
                 // Called when the ad showed the full screen content.
                 onAdShowedFullScreenContent: (ad) {
-                  _stopTimer();
+                  adsCount++;
+                  // if (adsCount % 3 == 0 && isSubscribed == false) {
+                  //   gotoSubscription();
+                  // }
+                  // _stopTimer();
+                  onShow?.call();
                 },
                 // Called when an impression occurs on the ad.
                 onAdImpression: (ad) {},
@@ -70,13 +64,26 @@ class AdUtils {
                 onAdFailedToShowFullScreenContent: (ad, err) {
                   // Dispose the ad here to free resources.
                   ad.dispose();
-                  _startTimer();
+                  if (!isConnectedToInternet ||
+                      adRetryCount == maxAdRetryCount) {
+                    adRetryCount = 0;
+                    onFail?.call();
+
+                    return;
+                  }
+
+                  if (isConnectedToInternet) {
+                    loadAd(onShow: onShow, onHide: onHide, onFail: onFail);
+                    adRetryCount++;
+                  }
+                  //_startTimer();
                 },
                 // Called when the ad dismissed full screen content.
                 onAdDismissedFullScreenContent: (ad) {
                   // Dispose the ad here to free resources.
                   ad.dispose();
-                  _startTimer();
+                  onHide?.call();
+                  //_startTimer();
                 },
                 // Called when a click is recorded for an ad.
                 onAdClicked: (ad) {});
@@ -87,9 +94,23 @@ class AdUtils {
           },
           // Called when an ad request failed.
           onAdFailedToLoad: (LoadAdError error) {
+            if (!isConnectedToInternet || adRetryCount == maxAdRetryCount) {
+              adRetryCount = 0;
+              return;
+            }
+
+            if (isConnectedToInternet) {
+              loadAd(onShow: onShow, onHide: onHide, onFail: onFail);
+              adRetryCount++;
+            }
+
             // startTimer();
           },
         ));
+  }
+
+  void gotoSubscription() {
+    navigatorKey.currentContext?.pushTo(const SubscriptionPage());
   }
 
   void disposeAd() {
