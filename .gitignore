@@ -43,3 +43,5 @@ app.*.map.json
 /android/app/release
 build/
 keystore.properties
+service_account.json
+.env

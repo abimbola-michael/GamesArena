@@ -1,0 +1,59 @@
+import 'package:gamesarena/enums/emums.dart';
+import 'package:flutter/material.dart';
+
+class XandOLinePainter extends CustomPainter {
+  final LineDirection direction;
+  final int index;
+  final XandOChar xandOChar;
+  XandOLinePainter(
+      {required this.direction, required this.index, required this.xandOChar});
+  @override
+  void paint(Canvas canvas, Size size) {
+    Color color = xandOChar == XandOChar.x ? Colors.blue : Colors.red;
+    Paint paint = Paint()
+      ..color = color
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+    canvas.drawPath(getPath(size), paint);
+  }
+
+  Path getPath(Size size) {
+    final width = size.width;
+    final height = size.height;
+    final offset = width / 6;
+    Path path = Path();
+    if (direction == LineDirection.vertical) {
+      final x = index == 0
+          ? offset
+          : index == 1
+              ? width / 2
+              : width - offset;
+      return Path()
+        ..moveTo(x, 0)
+        ..lineTo(x, height);
+    } else if (direction == LineDirection.horizontal) {
+      final y = index == 0
+          ? offset
+          : index == 1
+              ? height / 2
+              : height - offset;
+      return Path()
+        ..moveTo(0, y)
+        ..lineTo(width, y);
+    } else if (direction == LineDirection.lowerDiagonal) {
+      return Path()
+        ..moveTo(0, height)
+        ..lineTo(width, 0);
+    } else if (direction == LineDirection.upperDiagonal) {
+      return Path()
+        ..moveTo(width, height)
+        ..lineTo(0, 0);
+    }
+    return path;
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return true;
+  }
+}

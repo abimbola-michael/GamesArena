@@ -1,0 +1,132 @@
+[
+  {
+    "question": "Who built the ark to survive the great flood?",
+    "options": ["Abraham", "Moses", "Noah", "David"],
+    "answer": 2,
+    "durationInSecs": 30
+  },
+  {
+    "question": "What is the first book of the Bible?",
+    "options": ["Exodus", "Genesis", "Leviticus", "Numbers"],
+    "answer": 1,
+    "durationInSecs": 30
+  },
+  {
+    "question": "Who was swallowed by a great fish?",
+    "options": ["Elijah", "Jonah", "Job", "Daniel"],
+    "answer": 1,
+    "durationInSecs": 30
+  },
+  {
+    "question": "Where was Jesus born?",
+    "options": ["Nazareth", "Jerusalem", "Bethlehem", "Galilee"],
+    "answer": 2,
+    "durationInSecs": 30
+  },
+  {
+    "question": "Who was the first king of Israel?",
+    "options": ["David", "Saul", "Solomon", "Samuel"],
+    "answer": 1,
+    "durationInSecs": 45
+  },
+  {
+    "question": "What was the name of the sea that Moses parted?",
+    "options": ["Dead Sea", "Sea of Galilee", "Red Sea", "Mediterranean Sea"],
+    "answer": 2,
+    "durationInSecs": 45
+  },
+  {
+    "question": "Who betrayed Jesus for 30 pieces of silver?",
+    "options": ["Peter", "Judas", "John", "Andrew"],
+    "answer": 1,
+    "durationInSecs": 30
+  },
+  {
+    "question": "How many days did God take to create the world?",
+    "options": ["5", "6", "7", "8"],
+    "answer": 1,
+    "durationInSecs": 30
+  },
+  {
+    "question": "Who led the Israelites out of Egypt?",
+    "options": ["Moses", "Aaron", "Joshua", "Caleb"],
+    "answer": 0,
+    "durationInSecs": 30
+  },
+  {
+    "question": "What is the last book of the Bible?",
+    "options": ["Revelation", "Jude", "Hebrews", "James"],
+    "answer": 0,
+    "durationInSecs": 30
+  },
+  {
+    "question": "Who is known as the father of faith?",
+    "options": ["Isaac", "Jacob", "Abraham", "Joseph"],
+    "answer": 2,
+    "durationInSecs": 30
+  },
+  {
+    "question": "What was the first miracle Jesus performed?",
+    "options": [
+      "Healing a leper",
+      "Turning water into wine",
+      "Feeding 5,000",
+      "Walking on water"
+    ],
+    "answer": 1,
+    "durationInSecs": 45
+  },
+  {
+    "question": "How many disciples did Jesus have?",
+    "options": ["10", "11", "12", "13"],
+    "answer": 2,
+    "durationInSecs": 30
+  },
+  {
+    "question": "What was the name of the garden where Adam and Eve lived?",
+    "options": ["Eden", "Gethsemane", "Paradise", "Hebron"],
+    "answer": 0,
+    "durationInSecs": 30
+  },
+  {
+    "question": "Who was thrown into the lion's den?",
+    "options": ["Daniel", "Joseph", "Elijah", "Samuel"],
+    "answer": 0,
+    "durationInSecs": 30
+  },
+  {
+    "question": "What was the name of Abraham's wife?",
+    "options": ["Sarah", "Rebekah", "Leah", "Rachel"],
+    "answer": 0,
+    "durationInSecs": 30
+  },
+  {
+    "question": "Who was the strongest man in the Bible?",
+    "options": ["David", "Samson", "Goliath", "Solomon"],
+    "answer": 1,
+    "durationInSecs": 30
+  },
+  {
+    "question": "How many plagues did God send on Egypt?",
+    "options": ["7", "9", "10", "12"],
+    "answer": 2,
+    "durationInSecs": 45
+  },
+  {
+    "question": "What did God give Moses on Mount Sinai?",
+    "options": [
+      "The Ark",
+      "The Tabernacle",
+      "The Ten Commandments",
+      "The Covenant"
+    ],
+    "answer": 2,
+    "durationInSecs": 45
+  },
+  {
+    "question": "What was David's occupation before he became king?",
+    "options": ["Shepherd", "Fisherman", "Carpenter", "Farmer"],
+    "answer": 0,
+    "durationInSecs": 45
+  }
+]

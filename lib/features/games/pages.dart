@@ -1,0 +1,13 @@
+export '../onboarding/pages/login_page.dart';
+export '../home/pages/home_page.dart';
+export '../group/pages/new_group_page.dart';
+export '../game/pages/new_online_game_page.dart';
+export '../profile/pages/profile_page.dart';
+export '../players/pages/players_selection_page.dart';
+export 'card/whot/pages/whot_game_page.dart';
+export 'board/batball/pages/batball_game_page.dart';
+export 'board/ludo/pages/ludo_game_page.dart';
+export 'board/draught/pages/draught_game_page.dart';
+export 'board/chess/pages/chess_game_page.dart';
+export 'board/xando/pages/xando_game_page.dart';
+export 'puzzle/word_puzzle/pages/word_puzzle_game_page.dart';

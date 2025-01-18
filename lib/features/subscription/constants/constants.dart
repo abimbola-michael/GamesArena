@@ -1,0 +1,1 @@
+const MAX_DAILY_LIMIT = 30 * 60;
