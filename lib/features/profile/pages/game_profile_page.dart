@@ -9,10 +9,13 @@ import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/shared/widgets/app_appbar.dart';
 import 'package:hive/hive.dart';
 
+import '../../../main.dart';
+import '../../../shared/constants.dart';
 import '../../../shared/extensions/special_context_extensions.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/views/loading_view.dart';
 import '../../../shared/widgets/app_popup_menu_button.dart';
+import '../../../shared/widgets/hinting_widget.dart';
 import '../../../theme/colors.dart';
 import '../../game/models/game.dart';
 import '../../game/models/player.dart';
@@ -40,6 +43,7 @@ class _GameProfilePageState extends ConsumerState<GameProfilePage>
   late TabController tabController;
   List<String> tabs = [
     "Players",
+    "Matches",
     "Plays",
     "Wins",
     "Draws",
@@ -53,8 +57,9 @@ class _GameProfilePageState extends ConsumerState<GameProfilePage>
   Game? game;
   String gameId = "";
   List<Player> players = [];
-  int matchesCount = 0;
+  //int matchesCount = 0;
   List<int> visitedTabs = [];
+  Map<int, int> tabCounts = {};
 
   @override
   void initState() {
@@ -81,6 +86,8 @@ class _GameProfilePageState extends ConsumerState<GameProfilePage>
       tab = tab.split(" ").last;
     }
     switch (tab) {
+      case "Matches":
+        return "";
       case "Plays":
         return "play";
       case "Wins":
@@ -119,18 +126,25 @@ class _GameProfilePageState extends ConsumerState<GameProfilePage>
         tabs[index] = "$value ${tabs[index]}";
       } else {
         getPlayersCount(gameId).then((value) {
+          tabCounts[index] = value;
+
           if (value != -1) {
             tabs[index] = "$value ${tabs[index]}";
-            setState(() {});
           }
+          if (!mounted) return;
+          setState(() {});
         });
       }
     } else {
       getPlayedMatchesCount(gameId, getTabMatchType(tab)).then((value) {
+        tabCounts[index] = value;
+
         if (value != -1) {
           tabs[index] = "$value ${tabs[index]}";
-          setState(() {});
         }
+        if (!mounted) return;
+
+        setState(() {});
       });
     }
 
@@ -164,7 +178,8 @@ class _GameProfilePageState extends ConsumerState<GameProfilePage>
     final game = this.game;
     if (game == null) return;
 
-    matchesCount = await getPlayedMatchesCount(gameId, "");
+    // matchesCount = await getPlayedMatchesCount(gameId, "");
+    // tabCounts[0] = matchesCount;
 
     if (game.creatorId != null && game.creatorId != myId) {
       final creatorPlayer = await getPlayer(game.game_id, game.creatorId!);
@@ -320,8 +335,25 @@ class _GameProfilePageState extends ConsumerState<GameProfilePage>
           mainAxisSize: MainAxisSize.min,
           children: [
             if (game?.groupName != null)
-              AppPopupMenuButton(
-                  options: options, onSelected: executeGroupOptions)
+              HintingWidget(
+                showHint: sharedPref.getBool(TAPPED_GAME_PROFILE_MORE) == null,
+                hintText: "Tap for more",
+                bottom: 0,
+                right: 0,
+                child: AppPopupMenuButton(
+                  options: options,
+                  onSelected: executeGroupOptions,
+                  onOpened: () {
+                    if (sharedPref.getBool(TAPPED_GAME_PROFILE_MORE) != true) {
+                      sharedPref
+                          .setBool(TAPPED_GAME_PROFILE_MORE, true)
+                          .then((value) {
+                        setState(() {});
+                      });
+                    }
+                  },
+                ),
+              )
           ],
         ),
       ),
@@ -344,7 +376,7 @@ class _GameProfilePageState extends ConsumerState<GameProfilePage>
                         name: game!.groupName!,
                         size: 100,
                       ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 4),
                     Text(
                       game?.users != null
                           ? getOtherPlayersUsernames(game!.users!)
@@ -366,27 +398,27 @@ class _GameProfilePageState extends ConsumerState<GameProfilePage>
                         style: context.bodySmall?.copyWith(color: lighterTint),
                       ),
                     ],
-                    const SizedBox(height: 5),
-                    if (matchesCount > 0)
-                      InkWell(
-                        onTap: () => context.pop(),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              "$matchesCount",
-                              style: context.bodyLarge?.copyWith(
-                                  color: primaryColor,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              "Matches",
-                              style: context.bodyLarge?.copyWith(),
-                            ),
-                          ],
-                        ),
-                      )
+                    // const SizedBox(height: 5),
+                    // if (matchesCount > 0)
+                    //   InkWell(
+                    //     onTap: () => context.pop(),
+                    //     child: Row(
+                    //       mainAxisSize: MainAxisSize.min,
+                    //       children: [
+                    //         Text(
+                    //           "$matchesCount",
+                    //           style: context.bodyLarge?.copyWith(
+                    //               color: primaryColor,
+                    //               fontWeight: FontWeight.bold),
+                    //         ),
+                    //         const SizedBox(width: 4),
+                    //         Text(
+                    //           "Matches",
+                    //           style: context.bodyLarge?.copyWith(),
+                    //         ),
+                    //       ],
+                    //     ),
+                    //   )
                     // if (loadingStat)
                     //   const SizedBox(
                     //     height: 60,
@@ -480,6 +512,7 @@ class _GameProfilePageState extends ConsumerState<GameProfilePage>
                     controller: tabController,
                     children: List.generate(tabs.length, (index) {
                       final tab = tabs[index];
+                      final count = tabCounts[index];
                       if (index == 0) {
                         if (game != null && players.isNotEmpty) {
                           return PlayersListView(game: game!, players: players);
@@ -487,21 +520,17 @@ class _GameProfilePageState extends ConsumerState<GameProfilePage>
                           return Container();
                         }
                       } else {
+                        if (count == null) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
                         return GameMatchesPage(
-                            game_id: gameId, type: getTabMatchType(tab));
-                        // return MatchesListView(
-                        //     gameId: gameId, type: getTabMatchType(tab));
+                            game_id: gameId,
+                            type: getTabMatchType(tab),
+                            totalSize: count == -1 ? null : count);
                       }
                     }),
-                    // children: [
-
-                    //   MatchesListView(gameId: gameId),
-                    //   MatchesListView(gameId: gameId, type: "win"),
-                    //   MatchesListView(gameId: gameId, type: "draw"),
-                    //   MatchesListView(gameId: gameId, type: "loss"),
-                    //   MatchesListView(gameId: gameId, type: "incomplete"),
-                    //   MatchesListView(gameId: gameId, type: "missed"),
-                    // ],
                   ),
                 )
               ],

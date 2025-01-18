@@ -63,6 +63,8 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
   // String countryDialCode = "";
   // String countryCode = "";
   String fullNumber = "";
+  String selectedCountryCode = "";
+
   bool sentEmail = false;
   Timer? timer;
   int? emailExpiryTime;
@@ -184,11 +186,14 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
         showErrorToast("Google Sign in Failed");
         return;
       }
+      await Future.delayed(const Duration(seconds: 1));
       final userId = authUser.uid;
       User? user = await getUser(userId);
       user ??= await createUser(authUser);
       showSuccessToast("Sign in Successfully");
-
+      if (isAndroidAndIos || kIsWeb) {
+        analytics.logLogin(loginMethod: 'google');
+      }
       gotoNext(user);
     }).onError((error, stackTrace) {
       showErrorSnackbar(error.toString().onlyErrorMessage,
@@ -237,6 +242,9 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
       user ??= await createUser(userCred!.user!);
       gotoNext(user);
       showSuccessToast("Login Successfully");
+      if (isAndroidAndIos || kIsWeb) {
+        analytics.logLogin(loginMethod: 'password');
+      }
     }).onError((error, stackTrace) {
       showErrorSnackbar(error.toString().onlyErrorMessage, onPressed: login);
     }).whenComplete(() => context.hideDialog);
@@ -322,7 +330,10 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
 
     final value = {
       if (username.isNotEmpty) ...{"username": username},
-      if (phone.isNotEmpty) ...{"phone": phone}
+      if (phone.isNotEmpty) ...{
+        "phone": phone,
+        "country_code": selectedCountryCode
+      }
     };
     showLoading(message: "Saving...");
 
@@ -518,6 +529,9 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
                         AppTextField(
                           controller: phoneController,
                           hintText: "Phone",
+                          onChangedCountryCode: (code) {
+                            selectedCountryCode = code;
+                          },
                           onChanged: (text) {
                             fullNumber = text;
                           },

@@ -108,11 +108,13 @@ class ContactItem extends StatelessWidget {
                 AppPopupMenuButton(
                     options: availablePlatforms,
                     onSelected: onShare,
-                    child: const AppButton(title: "Invite", wrapped: true))
+                    child: const AppButton(
+                        title: "Invite", wrapped: true, outlined: true))
               else
                 AppButton(
                   title: "Invite",
                   wrapped: true,
+                  outlined: true,
                   onPressed: onPressed,
                   margin: EdgeInsets.zero,
                   padding:
@@ -122,6 +124,7 @@ class ContactItem extends StatelessWidget {
               AppButton(
                 title: "Add",
                 wrapped: true,
+                outlined: true,
                 onPressed: onPressed,
                 margin: EdgeInsets.zero,
                 padding:

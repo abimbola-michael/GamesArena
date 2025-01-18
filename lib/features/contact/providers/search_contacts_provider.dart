@@ -6,6 +6,12 @@ class SearchContactsNotifier extends StateNotifier<String> {
   void updateSearch(String text) {
     state = text;
   }
+
+  @override
+  void dispose() {
+    state = "";
+    super.dispose();
+  }
 }
 
 final searchContactsProvider =

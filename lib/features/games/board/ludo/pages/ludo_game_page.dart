@@ -611,8 +611,8 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
     if (ludoTile.ludos.isNotEmpty) {
       int player = getPlayerFromHouseIndex(ludoTile.ludos.first.houseIndex);
       if (player != currentPlayer &&
-          // selectedLudoTile == null &&
-          // selectedLudo == null &&
+          selectedLudoTile == null &&
+          selectedLudo == null &&
           isClick) {
         final houses = playersHouseIndices[currentPlayer];
         List<String> playerColors = [];
@@ -638,6 +638,7 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
         selectedLudoTile = ludoTile;
         if (selectedLudo != null) selectedLudo = null;
         getHintPositions(index, pos);
+        setState(() {});
       }
       //selectedLudo = null;
     } else {

@@ -12,7 +12,7 @@ import '../../../theme/colors.dart';
 import '../../user/services.dart';
 import '../../game/services.dart';
 import 'match_arrow_signal.dart';
-import 'match_scores_item.dart';
+import 'match_summary_item.dart';
 
 class GameListItem extends StatelessWidget {
   final GameList gameList;
@@ -118,7 +118,7 @@ class GameListItem extends StatelessWidget {
                                         "You ${gameList.game?.groupName != null ? "left" : "blocked"}",
                                         style: context.bodySmall)
                                     : gameList.match != null
-                                        ? MatchScoresItem(
+                                        ? MatchSummaryItem(
                                             match: gameList.match!)
                                         : Container()),
                             if ((gameList.unseen ?? 0) != 0) ...[

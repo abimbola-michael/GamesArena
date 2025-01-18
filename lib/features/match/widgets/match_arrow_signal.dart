@@ -39,7 +39,9 @@ class MatchArrowSignal extends StatelessWidget {
             width: 15,
             decoration: BoxDecoration(shape: BoxShape.circle, color: offtint),
           ),
-          if (match.time_start == null && (timeDelayEnd > timeNow.toInt))
+          if (match.time_start == null &&
+              match.time_end == null &&
+              (timeDelayEnd > timeNow.toInt))
             FutureBuilder(
                 future: Future.delayed(
                     Duration(milliseconds: timeDelayEnd - timeNow.toInt)),
@@ -49,10 +51,10 @@ class MatchArrowSignal extends StatelessWidget {
                   return arrowWidget(ended ? Colors.red : Colors.yellow);
                 })
           else
-            arrowWidget(match.time_end != null
-                ? lighterTint
-                : match.time_start == null
-                    ? Colors.red
+            arrowWidget(match.time_start == null
+                ? Colors.red
+                : match.time_end != null
+                    ? lighterTint
                     : primaryColor)
         ],
       ),

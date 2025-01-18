@@ -9,6 +9,7 @@ import 'package:hive_flutter/adapters.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:gamesarena/features/game/models/match.dart';
 
+import '../../../shared/constants.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/views/empty_listview.dart';
 import '../../../shared/views/loading_view.dart';
@@ -16,6 +17,7 @@ import '../../../shared/widgets/app_appbar.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_popup_menu_button.dart';
 import '../../../shared/widgets/app_search_bar.dart';
+import '../../../shared/widgets/hinting_widget.dart';
 import '../../../theme/colors.dart';
 import '../providers/gamelist_provider.dart';
 import '../providers/match_provider.dart';
@@ -34,8 +36,13 @@ class GameMatchesPage extends ConsumerStatefulWidget {
   final GameList? gameList;
   final String game_id;
   final String type;
+  final int? totalSize;
   const GameMatchesPage(
-      {super.key, required this.game_id, this.type = "", this.gameList});
+      {super.key,
+      required this.game_id,
+      this.type = "",
+      this.gameList,
+      this.totalSize});
 
   @override
   ConsumerState<GameMatchesPage> createState() => _GameMatchesPageState();
@@ -68,7 +75,7 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
     gameList = widget.gameList;
 
     loadMatches();
-    getDetails();
+    if (gameList != null) getDetails();
   }
 
   @override
@@ -78,12 +85,11 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
   }
 
   Future getDetails() async {
-    if (widget.type.isNotEmpty) return;
+    if (gameList == null) return;
     final gameListJson = gameListsBox.get(game_id);
     final prevGameList =
         gameListJson == null ? null : GameList.fromJson(gameListJson);
 
-    if (prevGameList == null) return;
     gameList ??= prevGameList;
     if (gameList == null) return;
 
@@ -134,7 +140,9 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
             .where((match) =>
                 match.game_id == game_id &&
                 match.outcome == "win" &&
-                match.winners!.contains(myId))
+                match.winners!.contains(myId) &&
+                match.time_start != null &&
+                match.time_end != null)
             .toList();
         break;
 
@@ -143,7 +151,9 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
             .where((match) =>
                 match.game_id == game_id &&
                 match.outcome == "draw" &&
-                match.others!.contains(myId))
+                match.others!.contains(myId) &&
+                match.time_start != null &&
+                match.time_end != null)
             .toList();
         break;
 
@@ -152,7 +162,9 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
             .where((match) =>
                 match.game_id == game_id &&
                 match.outcome == "win" &&
-                match.others!.contains(myId))
+                match.others!.contains(myId) &&
+                match.time_start != null &&
+                match.time_end != null)
             .toList();
         break;
 
@@ -179,14 +191,15 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
 
     matches.sortList((match) => match.time_created, true);
 
-    // if (gameList != null && (gameList!.unseen ?? 0) != 0) {
-    //   gameList?.unseen = 0;
-    //   gameListsBox.put(game_id, gameList!.toJson());
-    //   ref.read(gamelistProvider.notifier).updateGameList(gameList);
-    // }
-
-    if (widget.type.isEmpty && matches.isNotEmpty) {
+    if (gameList == null && matches.isNotEmpty) {
       final firstMatch = matches.first;
+      bool changed = false;
+      if (gameList != null && (gameList!.unseen ?? 0) > 0) {
+        gameList!.unseen = 0;
+        gameList!.time_modified = timeNow;
+        gameList!.user_id = myId;
+        changed = true;
+      }
       if (gameList != null &&
           firstMatch.time_created != null &&
           (gameList!.time_seen == null ||
@@ -197,37 +210,45 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
         gameList!.unseen = 0;
         gameList!.time_modified = time;
         gameList!.user_id = myId;
-        gameListsBox.put(game_id, gameList!.toJson());
+        changed = true;
 
         updateGameListTime(game_id,
             timeSeen: firstMatch.time_created!, time: time);
+      }
+      if (changed) {
+        gameListsBox.put(game_id, gameList!.toJson());
+
         Future.delayed(const Duration(milliseconds: 300)).then((value) {
           ref.read(gamelistProvider.notifier).updateGameList(gameList);
         });
       }
     }
     setState(() {});
-    if (widget.type.isNotEmpty && matches.length < limit) {
-      loadPreviousMatches(
-          matches.firstOrNull?.time_created ?? gameList?.time_end);
+    if (gameList == null &&
+        (widget.totalSize != null
+            ? matches.length < widget.totalSize!
+            : matches.length < limit)) {
+      loadPreviousMatches(matches.lastOrNull?.time_created);
     }
   }
 
-  void loadPreviousMatches([String? lastTime]) async {
+  void loadPreviousMatches([String? timeEnd]) async {
     setState(() {
       loading = true;
     });
     final matches = await getPreviousMatches(game_id,
         type: type,
-        timeEnd: lastTime,
+        timeEnd: timeEnd ?? gameList?.time_end,
         timeStart: gameList?.time_start,
         limit: limit);
 
-    if (!reachedEnd && matches.length < limit) {
+    if (!reachedEnd &&
+        ((widget.totalSize != null && matches.length >= widget.totalSize!) ||
+            matches.length < limit)) {
       reachedEnd = true;
     }
 
-    if (widget.type.isEmpty) {
+    if (gameList == null || type.isEmpty) {
       Map<String, String> matchesMap = {};
       for (int i = 0; i < matches.length; i++) {
         final match = matches[i];
@@ -251,6 +272,11 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
   void startSearch() {
     isSearch = true;
     setState(() {});
+    if (sharedPref.getBool(TAPPED_SEARCH_MATCHES) != true) {
+      sharedPref.setBool(TAPPED_SEARCH_MATCHES, true).then((value) {
+        setState(() {});
+      });
+    }
   }
 
   void updateSearch(String value) {
@@ -270,7 +296,8 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
   void clearMatches() async {
     final comfirm = await context.showComfirmationDialog(
         title: "Clear Matches",
-        message: "Are you sure you want to clear all matches");
+        message:
+            "Are you sure you want to clear all matches? You would no longer be able to see all these matches you cleared only new matches going forward. Do you still want to go ahead?");
     if (comfirm != true) return;
 
     if (matches.isEmpty) return;
@@ -350,9 +377,10 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
             match.time_modified != currentMatch.time_modified) {
           this.matches[matchIndex] = currentMatch;
         }
-      } else {
-        this.matches.insert(0, currentMatch);
       }
+      //  else {
+      //   this.matches.insert(0, currentMatch);
+      // }
     }
 
     final matches = searchString.isEmpty
@@ -372,7 +400,7 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
             .toList();
 
     return Scaffold(
-      appBar: widget.type.isNotEmpty
+      appBar: gameList == null
           ? null
           : (isSearch
               ? AppSearchBar(
@@ -425,15 +453,43 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        onPressed: startSearch,
-                        icon: const Icon(EvaIcons.search),
-                        color: tint,
+                      HintingWidget(
+                        showHint:
+                            sharedPref.getBool(TAPPED_SEARCH_MATCHES) == null,
+                        hintText: "Tap to search players and games",
+                        bottom: 0,
+                        right: 0,
+                        child: IconButton(
+                          onPressed: startSearch,
+                          icon: const Icon(EvaIcons.search),
+                          color: tint,
+                        ),
                       ),
                       if (gameList?.time_end == null)
-                        AppPopupMenuButton(
+                        HintingWidget(
+                          showHint:
+                              sharedPref.getBool(TAPPED_MATCHES_MORE) == null,
+                          hintText: "Tap for more",
+                          bottom:
+                              sharedPref.getBool(TAPPED_SEARCH_MATCHES) == true
+                                  ? 0
+                                  : 40,
+                          right: 0,
+                          child: AppPopupMenuButton(
                             options: menuOptions,
-                            onSelected: executeMenuOptions)
+                            onSelected: executeMenuOptions,
+                            onOpened: () {
+                              if (sharedPref.getBool(TAPPED_MATCHES_MORE) !=
+                                  true) {
+                                sharedPref
+                                    .setBool(TAPPED_MATCHES_MORE, true)
+                                    .then((value) {
+                                  setState(() {});
+                                });
+                              }
+                            },
+                          ),
+                        )
                     ],
                   ),
                 )) as PreferredSizeWidget?,
@@ -496,7 +552,7 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
                 ),
               ],
             ),
-      bottomNavigationBar: widget.type.isNotEmpty
+      bottomNavigationBar: gameList == null
           ? null
           : AppButton(title: "Play", onPressed: playMatch),
     );

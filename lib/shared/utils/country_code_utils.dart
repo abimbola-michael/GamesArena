@@ -8,6 +8,7 @@ import 'package:sim_card_info/sim_card_info.dart';
 import 'package:sim_card_info/sim_info.dart';
 
 import 'country_codes.dart';
+import 'utils.dart';
 
 String dialCode = "";
 String countryCode = "";
@@ -136,6 +137,7 @@ Future<String?> getDialCode() async {
     return code;
   } on Exception {
     simCardInfo = [];
+    if (isAndroidAndIos) return null;
     countryCode = await getCurrentCountryCode() ?? "";
     if (countryCode.isEmpty) return null;
 

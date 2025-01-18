@@ -2,6 +2,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:gamesarena/features/game/views/watch_game_controls_view.dart';
 import 'package:gamesarena/features/game/widgets/profile_photo.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:hive/hive.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import 'package:gamesarena/core/firebase/extensions/firebase_extensions.dart';
@@ -20,6 +22,7 @@ import 'package:gamesarena/shared/utils/constants.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../shared/utils/call_utils.dart';
+import '../../match/providers/gamelist_provider.dart';
 import '../../records/models/match_round.dart';
 import '../models/exempt_player.dart';
 import '../models/game_action.dart';
@@ -754,9 +757,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     int length = gameId.isNotEmpty ? players.length : playersSize;
 
     for (int i = 0; i < length; i++) {
-      if (exemptPlayers.indexWhere((element) =>
-              element.index == i &&
-              (element.action == "leave" || element.action == "close")) !=
+      if (exemptPlayers.indexWhere(
+              (element) => element.index == i && (element.action == "leave")) !=
           -1) {
         continue;
       }
@@ -914,7 +916,15 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   String executeAction() {
-    String action = getAction(getAvailablePlayers());
+    // final availablePlayers = getAvailablePlayers();
+    final activePlayers = getActivePlayers();
+    if (activePlayers.length < 2) {
+      showToast(
+          "You are the only player in this match. Please wait for others to continue");
+      return "pause";
+    }
+
+    String action = getAction(activePlayers);
     if (action == "pause") {
       if (!paused) {
         pause(false);
@@ -1094,7 +1104,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     }
 
     setState(() {});
-    if (finishedRound) {
+
+    if (match?.time_end != null) {
       return;
     }
     final lastTime = players
@@ -1152,6 +1163,16 @@ abstract class BaseGamePageState<T extends BaseGamePage>
             final title =
                 "$username $action${action.endsWith("e") ? "d" : "ed"}";
 
+            // if(action == "start" && getEx)
+
+            if (action == "start") {
+              if ((match!.available_players == null ||
+                      match!.available_players!.contains(playerId)) &&
+                  (getExemptPlayer(playerIndex)?.action == "close")) {
+                unclose(playerId, false);
+              }
+            }
+
             if (action == "ad") {
               loadAd();
             } else if (action == "concede") {
@@ -1171,15 +1192,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                 context.pop();
               }
               if (myPlayer?.action != "ad") {
-                if (action == "start") {
-                  if (startingRound &&
-                      !finishedRound &&
-                      (match!.available_players == null ||
-                          match!.available_players!.contains(playerId)) &&
-                      (getExemptPlayer(playerIndex)?.action == "close")) {
-                    unclose(playerId, false);
-                  }
-                }
                 alertShown = true;
                 final result = await context.showComfirmationDialog(
                     title: title, message: "Do you also want to $action game?");
@@ -1529,6 +1541,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
           }
         }
       }
+      if (!mounted) {
+        return;
+      }
 
       setState(() {});
 
@@ -1723,6 +1738,15 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       getExemptPlayer(player) != null;
 
   bool itsMyTurnToPlay(bool isClick, [int? player]) {
+    if (isClick &&
+        gameId.isNotEmpty &&
+        !finishedRound &&
+        (match?.available_players ?? [])
+                .indexWhere((player) => player == myId) ==
+            -1) {
+      showToast("You are not a pleyer in this game");
+      return false;
+    }
     if (isClick) toggleLayoutPressed();
 
     if (seeking) return true;
@@ -1947,13 +1971,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   int convertToPosition(List<int> grids, int gridSize) {
     return grids[0] + (grids[1] * gridSize);
   }
-
-  // Future startOrRestart(bool start) async {
-  //   if (gameId != "" && matchId != "") {
-  //     await updateAction(context, players, users!, gameId, matchId,
-  //         start ? "start" : "restart", gameName);
-  //   }
-  // }
 
   void previous() {
     if (isFirstPage) return;
@@ -2261,7 +2278,12 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
     getCurrentPlayer();
 
-    if (startingRound &&
+    //trying to check for the index that has the init of the details if its the last
+
+    final initIndex =
+        gameDetails.indexWhere((detail) => detail["action"] == null);
+
+    if ((startingRound || initIndex == gameDetails.length - 1) &&
         !finishedRound &&
         (gameId.isEmpty ||
             (myPlayer == playersSize - 1 &&
@@ -2340,6 +2362,16 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     } else {
       onResume();
     }
+    if (isAndroidAndIos || kIsWeb) {
+      analytics.logEvent(
+        name: 'match',
+        parameters: {
+          "game": gameName,
+          "type": gameId.isEmpty ? "offline" : "online",
+          "datetime": DateTime.now().datetime,
+        },
+      );
+    }
 
     startTimer();
   }
@@ -2387,6 +2419,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       return;
     }
     if (isClick && gameId.isNotEmpty) {
+      if (isPuzzle) {
+        setGatheredDetails();
+      }
       if (startingRound || finishedRound) {
         try {
           await updateMyAction("close");
@@ -2463,15 +2498,19 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     }
 
     if (gameId.isEmpty) {
-      showAllPlayersToast("${getPlayerUsername(playerIndex: index)} continued");
+      showAllPlayersToast(
+          "${getPlayerUsername(playerIndex: index)} resumed game");
     } else {
-      showToast("${getPlayerUsername(playerId: playerId)} continued");
+      showToast("${getPlayerUsername(playerId: playerId)} resumed game");
     }
     setState(() {});
   }
 
   void concede([String? playerId, bool isClick = true]) async {
     if (isClick && gameId.isNotEmpty) {
+      if (isPuzzle) {
+        setGatheredDetails();
+      }
       setActionDetails("concede");
 
       concede(myId, false);
@@ -2522,9 +2561,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   void leave([String? playerId, bool isClick = true]) async {
     if (isClick && gameId.isNotEmpty) {
-      if (loadingDetails) {
-        showToast("Can't leave now, still loading details");
-        return;
+      if (isPuzzle) {
+        setGatheredDetails();
       }
 
       if (startingRound || finishedRound) {
@@ -2536,7 +2574,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         setActionDetails("leave");
       }
 
-      // leaveMatch(gameId, matchId, match, players, false);
       leave(myId, false);
 
       if (!mounted) return;
@@ -2545,9 +2582,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     }
 
     final index = playerId != null ? getPlayerIndex(playerId) : pauseIndex;
-    if (exemptPlayers.indexWhere((element) => element.index == index) != -1) {
-      return;
-    }
+    // if (exemptPlayers.indexWhere((element) => element.index == index) != -1) {
+    //   return;
+    // }
 
     onLeave(index);
     if (gameId.isEmpty && !isWatch) setActionDetails("leave");
@@ -2580,9 +2617,11 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       match?.available_players?.remove(playerId);
     }
 
-    if (startingRound) {
+    if (startingRound || finishedRound) {
       if (activePlayersCount < 2) {
-        if (match != null) uploadMatch(match!);
+        if (match != null) {
+          uploadMatch(match!);
+        }
         updateGameAction("close");
       }
     } else {
@@ -2673,6 +2712,15 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   void saveMatch(Match match) {
+    // final gameListBox = Hive.box<String>("gamelists");
+    // final prevGameListJson = gameListBox.get(gameId);
+    // if (prevGameListJson != null) {
+    //   final prevGameList = GameList.fromJson(prevGameListJson);
+    //   prevGameList.match = match;
+    //   prevGameList.time_modified = match.time_modified;
+    //   prevGameList.user_id = myId;
+    //   ref.read(gamelistProvider.notifier).updateGameList(prevGameList);
+    // }
     ref.read(matchProvider.notifier).updateMatch(match);
   }
 
@@ -2689,6 +2737,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     if (match.records?["$recordId"]?["rounds"]?["$roundId"] != null) return;
 
     // Match prevMatch = match.copyWith();
+    bool started = match.time_start == null;
 
     match.time_start ??= time;
     if (!match.games!.contains(gameName)) {
@@ -2728,23 +2777,41 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       match.winners = matchOutcome.winners;
       match.others = matchOutcome.others;
       uploadMatch(match, time);
+      // if (started) {
+      //   analytics.logEvent(
+      //     name: 'online_match_started',
+      //     parameters: match.toMap().removeNull().cast(),
+      //   );
+      // }
     }
   }
 
   void uploadMatch(Match match, [String? time]) {
     time ??= timeNow;
+    bool ended = false;
     if ((match.available_players?.length ?? 0) < 2) {
       match.time_end = time;
+      ended = true;
     }
+    final availablePlayers = getAvailablePlayersIndices();
+
     if (gameId.isNotEmpty &&
-        // !isWatch &&
-        (winners != null && winners!.isNotEmpty
+        ((winners ?? []).isNotEmpty
             ? myPlayer == winners!.first
-            : myPlayer == 0)) {
+            : availablePlayers.isNotEmpty
+                ? myPlayer == availablePlayers.first
+                : currentPlayerId == myId)) {
       match.time_modified = time;
       match.user_id = myId;
+
       updateMatch(match);
       saveMatch(match);
+      // if (ended) {
+      //   analytics.logEvent(
+      //     name: 'match_ended',
+      //     parameters: match.toMap().removeNull().cast(),
+      //   );
+      // }
     }
   }
 
@@ -3377,10 +3444,11 @@ abstract class BaseGamePageState<T extends BaseGamePage>
             }
           },
           child: Container(
-            //height: 60,
-            padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 10),
+            height: 30,
+            width: double.infinity,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 35),
             child: Row(
-              // mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ProfilePhoto(
@@ -3393,16 +3461,19 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                   child: Text(
                     getPlayerUsername(playerIndex: index),
                     style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 12,
                         color: currentPlayer == index ? Colors.blue : tint),
                     textAlign: TextAlign.center,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (playersCounts.isNotEmpty &&
                     index < playersCounts.length &&
-                    playersCounts[index] != -1)
-                  CountWidget(count: playersCounts[index])
+                    playersCounts[index] != -1) ...[
+                  const SizedBox(width: 4),
+                  CountWidget(count: playersCounts[index]),
+                ]
               ],
             ),
           ),
@@ -3415,18 +3486,34 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     if (paused && pauseIndex == index) return Container();
     if (gameId.isNotEmpty && index != myPlayer) return Container();
 
-    return IconButton(
-      style: IconButton.styleFrom(
-        padding: const EdgeInsets.all(2),
-      ),
-      onPressed: () {
+    return GestureDetector(
+      onTap: () {
         toggleMenu(index);
         if (!paused) {
           pause();
         }
       },
-      icon: Icon(EvaIcons.menu_outline, color: tint),
+      child: Container(
+        height: 20,
+        width: 20,
+        margin: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+            color: primaryColor, borderRadius: BorderRadius.circular(5)),
+        child: Icon(EvaIcons.menu_outline, color: tint, size: 15),
+      ),
     );
+    // return IconButton(
+    //   style: IconButton.styleFrom(
+    //     padding: const EdgeInsets.all(2),
+    //   ),
+    //   onPressed: () {
+    //     toggleMenu(index);
+    //     if (!paused) {
+    //       pause();
+    //     }
+    //   },
+    //   icon: Icon(EvaIcons.menu_outline, color: tint),
+    // );
   }
 
   @override
@@ -3434,6 +3521,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     super.build(context);
     // print("hasVideo = ${widget.gameCallUtils.getMyRenderer()}");
     updateGamePageInfos();
+    // print("match = $match");
+    // print("gameDetails = $gameDetails");
     // print("players = $players");
     // print("exemptPlayers = $exemptPlayers");
 
@@ -3447,6 +3536,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       // setState(() {});
       // print("updatedMatch = $match");
     }
+    // print("currentMatch = $currentMatch");
 
     double padding = (context.screenHeight - context.screenWidth).abs() / 2;
     bool landScape = context.isLandscape;

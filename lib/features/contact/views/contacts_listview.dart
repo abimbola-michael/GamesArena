@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamesarena/features/contact/services/services.dart';
 import 'package:gamesarena/features/game/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
+import 'package:gamesarena/shared/extensions/special_context_extensions.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -50,7 +51,9 @@ class ContactsListView extends ConsumerWidget {
           newlyAddedPlayers!.add(player);
         }
       }
+      showToast("${contact.name} added to your players");
     } else {
+      showToast("${contact.name} requested. Go to Requested tab to invite");
       contact.contactStatus = ContactStatus.requested;
       await sendPlayerRequest(contact.phone);
     }

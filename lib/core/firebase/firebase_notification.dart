@@ -176,10 +176,18 @@ Future<String?> getAccessToken() async {
 
   // final serviceAccount = ServiceAccountCredentials.fromJson(
   //     json.decode(File(serviceAccountPath).readAsStringSync()));
+  privateKey ??= await getPrivateKey();
+  if (privateKey == null) return null;
+  final clientId = privateKey!.clientId;
+  final clientEmail = privateKey!.clientEmail;
+  final key = privateKey!.privateKey;
+  // dotenv.env['CLIENT_EMAIL']!
+  //dotenv.env['CLIENT_ID']!
+  //dotenv.env['PRIVATE_KEY']!
   final serviceAccount = ServiceAccountCredentials(
-    dotenv.env['CLIENT_EMAIL']!,
-    ClientId(dotenv.env['CLIENT_ID']!),
-    dotenv.env['PRIVATE_KEY']!.replaceAll(r'\n', '\n'),
+    clientEmail,
+    ClientId(clientId),
+    key.replaceAll(r'\n', '\n'),
   );
 
   final authClient = await clientViaServiceAccount(

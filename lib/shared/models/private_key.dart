@@ -7,12 +7,22 @@ class PrivateKey {
   String firebaseAuthKey;
   String vapidKey;
   String chatGptApiKey;
+  String geminiApiKey;
+  String clientEmail;
+  String clientId;
+  String privateKey;
+  String projectId;
   PrivateKey({
     required this.mobileAdUnit,
     required this.webAdUnit,
     required this.firebaseAuthKey,
     required this.vapidKey,
     required this.chatGptApiKey,
+    required this.geminiApiKey,
+    required this.clientEmail,
+    required this.clientId,
+    required this.privateKey,
+    required this.projectId,
   });
 
   PrivateKey copyWith({
@@ -21,6 +31,11 @@ class PrivateKey {
     String? firebaseAuthKey,
     String? vapidKey,
     String? chatGptApiKey,
+    String? geminiApiKey,
+    String? clientEmail,
+    String? clientId,
+    String? privateKey,
+    String? projectId,
   }) {
     return PrivateKey(
       mobileAdUnit: mobileAdUnit ?? this.mobileAdUnit,
@@ -28,6 +43,11 @@ class PrivateKey {
       firebaseAuthKey: firebaseAuthKey ?? this.firebaseAuthKey,
       vapidKey: vapidKey ?? this.vapidKey,
       chatGptApiKey: chatGptApiKey ?? this.chatGptApiKey,
+      geminiApiKey: geminiApiKey ?? this.geminiApiKey,
+      clientEmail: clientEmail ?? this.clientEmail,
+      clientId: clientId ?? this.clientId,
+      privateKey: privateKey ?? this.privateKey,
+      projectId: projectId ?? this.projectId,
     );
   }
 
@@ -38,6 +58,11 @@ class PrivateKey {
       'firebaseAuthKey': firebaseAuthKey,
       'vapidKey': vapidKey,
       'chatGptApiKey': chatGptApiKey,
+      'geminiApiKey': geminiApiKey,
+      'clientEmail': clientEmail,
+      'clientId': clientId,
+      'privateKey': privateKey,
+      'projectId': projectId,
     };
   }
 
@@ -48,6 +73,11 @@ class PrivateKey {
       firebaseAuthKey: map['firebaseAuthKey'] as String,
       vapidKey: map['vapidKey'] as String,
       chatGptApiKey: map['chatGptApiKey'] as String,
+      geminiApiKey: map['geminiApiKey'] as String,
+      clientEmail: map['clientEmail'] as String,
+      clientId: map['clientId'] as String,
+      privateKey: map['privateKey'] as String,
+      projectId: map['projectId'] as String,
     );
   }
 
@@ -58,7 +88,7 @@ class PrivateKey {
 
   @override
   String toString() {
-    return 'PrivateKey(mobileAdUnit: $mobileAdUnit, webAdUnit: $webAdUnit, firebaseAuthKey: $firebaseAuthKey, vapidKey: $vapidKey, chatGptApiKey: $chatGptApiKey)';
+    return 'PrivateKey(mobileAdUnit: $mobileAdUnit, webAdUnit: $webAdUnit, firebaseAuthKey: $firebaseAuthKey, vapidKey: $vapidKey, chatGptApiKey: $chatGptApiKey, geminiApiKey: $geminiApiKey, clientEmail: $clientEmail, clientId: $clientId, privateKey: $privateKey, projectId: $projectId)';
   }
 
   @override
@@ -69,7 +99,12 @@ class PrivateKey {
         other.webAdUnit == webAdUnit &&
         other.firebaseAuthKey == firebaseAuthKey &&
         other.vapidKey == vapidKey &&
-        other.chatGptApiKey == chatGptApiKey;
+        other.chatGptApiKey == chatGptApiKey &&
+        other.geminiApiKey == geminiApiKey &&
+        other.clientEmail == clientEmail &&
+        other.clientId == clientId &&
+        other.privateKey == privateKey &&
+        other.projectId == projectId;
   }
 
   @override
@@ -78,6 +113,11 @@ class PrivateKey {
         webAdUnit.hashCode ^
         firebaseAuthKey.hashCode ^
         vapidKey.hashCode ^
-        chatGptApiKey.hashCode;
+        chatGptApiKey.hashCode ^
+        geminiApiKey.hashCode ^
+        clientEmail.hashCode ^
+        clientId.hashCode ^
+        privateKey.hashCode ^
+        projectId.hashCode;
   }
 }

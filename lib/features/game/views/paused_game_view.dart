@@ -15,6 +15,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/call_action_button.dart';
 import '../../../theme/colors.dart';
 import '../../about/utils/about_game_words.dart';
+import '../../tutorials/pages/tutorials_page.dart';
 import '../pages/games_page.dart';
 import '../../user/models/user.dart';
 import '../models/exempt_player.dart';
@@ -727,13 +728,37 @@ class _PausedGameViewState extends State<PausedGameView> {
                                                 ),
                                             ],
                                           ),
-                                          TextButton(
-                                            onPressed: () {
-                                              setState(() {
-                                                aboutGameMode = true;
-                                              });
-                                            },
-                                            child: const Text("About Game"),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              TextButton(
+                                                onPressed: () {
+                                                  setState(() {
+                                                    aboutGameMode = true;
+                                                  });
+                                                },
+                                                child: const Text(
+                                                  "About Game",
+                                                  // style: context.bodyMedium
+                                                  //     ?.copyWith(
+                                                  //         fontWeight:
+                                                  //             FontWeight.bold),
+                                                ),
+                                              ),
+                                              // const SizedBox(width: 10),
+                                              TextButton(
+                                                onPressed: () {
+                                                  context.pushTo(TutorialsPage(
+                                                    type: widget.game.isQuiz
+                                                        ? "quiz"
+                                                        : widget.game
+                                                            .toLowerCase(),
+                                                  ));
+                                                },
+                                                child: const Text(
+                                                    "Watch Tutorial"),
+                                              ),
+                                            ],
                                           ),
                                           // const SizedBox(height: 100),
                                         ]),

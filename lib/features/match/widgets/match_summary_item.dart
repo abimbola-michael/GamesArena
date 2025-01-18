@@ -6,10 +6,10 @@ import '../../../shared/models/models.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../theme/colors.dart';
 
-class MatchScoresItem extends StatelessWidget {
+class MatchSummaryItem extends StatelessWidget {
   final Match match;
   final double fontSize;
-  const MatchScoresItem({super.key, required this.match, this.fontSize = 14});
+  const MatchSummaryItem({super.key, required this.match, this.fontSize = 14});
 
   int get timeDelayEnd => match.time_created!.toInt + (2 * 60 * 1000);
 
@@ -69,7 +69,9 @@ class MatchScoresItem extends StatelessWidget {
           }),
         ),
         if ((match.games ?? []).isNotEmpty)
-          if (match.time_start == null && (timeDelayEnd > timeNow.toInt))
+          if (match.time_start == null &&
+              match.time_end == null &&
+              (timeDelayEnd > timeNow.toInt))
             FutureBuilder(
                 future: Future.delayed(
                     Duration(milliseconds: timeDelayEnd - timeNow.toInt)),
@@ -82,17 +84,17 @@ class MatchScoresItem extends StatelessWidget {
           else
             textWidget(
                 context,
-                match.time_end != null
-                    ? lighterTint
-                    : match.time_start == null
-                        ? Colors.red
+                match.time_start == null
+                    ? Colors.red
+                    : match.time_end != null
+                        ? lighterTint
                         : primaryColor,
-                match.time_end != null
-                    ? getMatchOutcomeMessageFromScores(
-                        overallOutcome.scores, match.players ?? [],
-                        users: match.users)
-                    : match.time_start == null
-                        ? "Missed"
+                match.time_start == null
+                    ? "Missed"
+                    : match.time_end != null
+                        ? getMatchOutcomeMessageFromScores(
+                            overallOutcome.scores, match.players ?? [],
+                            users: match.users)
                         : "Live")
       ],
     );

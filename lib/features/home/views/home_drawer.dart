@@ -3,18 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamesarena/features/onboarding/pages/auth_page.dart';
 import 'package:gamesarena/features/settings/pages/settings_and_more_page.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
-import 'package:gamesarena/theme/colors.dart';
 
 import '../../../main.dart';
 import '../../../shared/utils/constants.dart';
 import '../../../shared/utils/utils.dart';
-import '../../../shared/widgets/action_button.dart';
 import '../../../shared/widgets/app_button.dart';
+import '../../../theme/colors.dart';
 import '../../about/pages/about_game_page.dart';
 import '../../app_info/pages/app_info_page.dart';
 import '../../game/widgets/profile_photo.dart';
 import '../../profile/pages/profile_page.dart';
 import '../../subscription/pages/subscription_page.dart';
+import '../../tutorials/pages/tutorials_page.dart';
 import '../../user/services.dart';
 import '../widgets/drawer_tile.dart';
 
@@ -32,7 +32,6 @@ class _HomeDrawerState extends ConsumerState<HomeDrawer> {
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     readUser();
   }
@@ -48,6 +47,13 @@ class _HomeDrawerState extends ConsumerState<HomeDrawer> {
   void gotoLoginPage() {
     //context.pop();
     context.pushTo(const AuthPage());
+  }
+
+  void gotoSignUpPage() {
+    //context.pop();
+    context.pushTo(const AuthPage(
+      mode: AuthMode.signUp,
+    ));
   }
 
   void gotoAppInfoPage(String type) {
@@ -75,6 +81,11 @@ class _HomeDrawerState extends ConsumerState<HomeDrawer> {
     context.pushTo(const SubscriptionPage());
   }
 
+  void gotoTutorialsPage() {
+    //context.pop();
+    context.pushTo(const TutorialsPage());
+  }
+
   void updateTheme(bool value) {
     themeValue = value ? 0 : 1;
     sharedPref.setInt("theme", themeValue);
@@ -95,12 +106,22 @@ class _HomeDrawerState extends ConsumerState<HomeDrawer> {
                 children: [
                   DrawerHeader(
                       child: myId.isEmpty
-                          ? Center(
-                              child: AppButton(
-                                title: "Login",
-                                onPressed: gotoLoginPage,
-                                wrapped: true,
-                              ),
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                AppButton(
+                                  title: "Sign Up",
+                                  onPressed: gotoSignUpPage,
+                                  wrapped: true,
+                                  bgColor: lightestTint,
+                                  color: tint,
+                                ),
+                                AppButton(
+                                  title: "Login",
+                                  onPressed: gotoLoginPage,
+                                  wrapped: true,
+                                ),
+                              ],
                             )
                           : GestureDetector(
                               onTap: gotoProfilePage,
@@ -137,6 +158,8 @@ class _HomeDrawerState extends ConsumerState<HomeDrawer> {
                   DrawerTile(
                       title: "About Us",
                       onPressed: () => gotoAppInfoPage("About Us")),
+                  DrawerTile(
+                      title: "App Tutorials", onPressed: gotoTutorialsPage),
                 ],
               ),
             ),

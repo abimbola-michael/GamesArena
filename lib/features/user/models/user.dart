@@ -10,6 +10,7 @@ class User {
   String username;
   String email;
   String phone;
+  String? country_code;
   List<String>? tokens;
   String time;
   String? time_modified;
@@ -21,6 +22,8 @@ class User {
   String? subExpiryTime;
   String? sub;
   String? phoneName;
+
+  String? announcement;
   bool? checked;
 
   User({
@@ -28,6 +31,7 @@ class User {
     required this.username,
     required this.email,
     required this.phone,
+    this.country_code,
     this.tokens,
     required this.time,
     this.time_modified,
@@ -39,6 +43,7 @@ class User {
     this.subExpiryTime,
     this.sub,
     this.phoneName,
+    this.announcement,
     this.checked,
   });
 
@@ -47,6 +52,7 @@ class User {
     String? username,
     String? email,
     String? phone,
+    String? country_code,
     List<String>? tokens,
     String? time,
     String? time_modified,
@@ -58,6 +64,7 @@ class User {
     String? subExpiryTime,
     String? sub,
     String? phoneName,
+    String? announcement,
     bool? checked,
   }) {
     return User(
@@ -65,6 +72,7 @@ class User {
       username: username ?? this.username,
       email: email ?? this.email,
       phone: phone ?? this.phone,
+      country_code: country_code ?? this.country_code,
       tokens: tokens ?? this.tokens,
       time: time ?? this.time,
       time_modified: time_modified ?? this.time_modified,
@@ -76,6 +84,7 @@ class User {
       subExpiryTime: subExpiryTime ?? this.subExpiryTime,
       sub: sub ?? this.sub,
       phoneName: phoneName ?? this.phoneName,
+      announcement: announcement ?? this.announcement,
       checked: checked ?? this.checked,
     );
   }
@@ -86,6 +95,7 @@ class User {
       'username': username,
       'email': email,
       'phone': phone,
+      'country_code': country_code,
       'tokens': tokens,
       'time': time,
       'time_modified': time_modified,
@@ -97,6 +107,7 @@ class User {
       'subExpiryTime': subExpiryTime,
       'sub': sub,
       'phoneName': phoneName,
+      'announcement': announcement,
       'checked': checked,
     };
   }
@@ -107,6 +118,8 @@ class User {
       username: map['username'] as String,
       email: map['email'] as String,
       phone: map['phone'] as String,
+      country_code:
+          map['country_code'] != null ? map['country_code'] as String : null,
       tokens: map['tokens'] != null
           ? List<String>.from((map['tokens'] as List<dynamic>))
           : null,
@@ -128,6 +141,8 @@ class User {
           map['subExpiryTime'] != null ? map['subExpiryTime'] as String : null,
       sub: map['sub'] != null ? map['sub'] as String : null,
       phoneName: map['phoneName'] != null ? map['phoneName'] as String : null,
+      announcement:
+          map['announcement'] != null ? map['announcement'] as String : null,
       checked: map['checked'] != null ? map['checked'] as bool : null,
     );
   }
@@ -139,7 +154,7 @@ class User {
 
   @override
   String toString() {
-    return 'User(user_id: $user_id, username: $username, email: $email, phone: $phone, tokens: $tokens, time: $time, time_modified: $time_modified, time_deleted: $time_deleted, last_seen: $last_seen, profile_photo: $profile_photo, games: $games, answeredRequests: $answeredRequests, subExpiryTime: $subExpiryTime, sub: $sub, phoneName: $phoneName, checked: $checked)';
+    return 'User(user_id: $user_id, username: $username, email: $email, phone: $phone, country_code: $country_code, tokens: $tokens, time: $time, time_modified: $time_modified, time_deleted: $time_deleted, last_seen: $last_seen, profile_photo: $profile_photo, games: $games, answeredRequests: $answeredRequests, subExpiryTime: $subExpiryTime, sub: $sub, phoneName: $phoneName, announcement: $announcement, checked: $checked)';
   }
 
   @override
@@ -150,6 +165,7 @@ class User {
         other.username == username &&
         other.email == email &&
         other.phone == phone &&
+        other.country_code == country_code &&
         listEquals(other.tokens, tokens) &&
         other.time == time &&
         other.time_modified == time_modified &&
@@ -161,6 +177,7 @@ class User {
         other.subExpiryTime == subExpiryTime &&
         other.sub == sub &&
         other.phoneName == phoneName &&
+        other.announcement == announcement &&
         other.checked == checked;
   }
 
@@ -170,6 +187,7 @@ class User {
         username.hashCode ^
         email.hashCode ^
         phone.hashCode ^
+        country_code.hashCode ^
         tokens.hashCode ^
         time.hashCode ^
         time_modified.hashCode ^
@@ -181,6 +199,7 @@ class User {
         subExpiryTime.hashCode ^
         sub.hashCode ^
         phoneName.hashCode ^
+        announcement.hashCode ^
         checked.hashCode;
   }
 }

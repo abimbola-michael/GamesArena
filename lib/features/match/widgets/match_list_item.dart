@@ -1,5 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:gamesarena/features/match/widgets/match_scores_item.dart';
+import 'package:gamesarena/features/match/widgets/match_summary_item.dart';
 import 'package:gamesarena/shared/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
@@ -118,7 +118,7 @@ class MatchListItem extends StatelessWidget {
                               ],
                             ),
                             //const SizedBox(height: 2),
-                            MatchScoresItem(match: match),
+                            MatchSummaryItem(match: match),
                             // Row(
                             //   children: [
                             //     Expanded(

@@ -1,11 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:gamesarena/core/firebase/auth_methods.dart';
 import 'package:gamesarena/core/firebase/extensions/firebase_extensions.dart';
 import 'package:gamesarena/core/firebase/extensions/firestore_extensions.dart';
@@ -20,24 +20,29 @@ import 'package:gamesarena/features/match/pages/matches_page.dart';
 import 'package:gamesarena/features/game/pages/games_page.dart';
 import 'package:flutter/material.dart';
 import 'package:gamesarena/shared/providers/internet_connection_provider.dart';
-import 'package:gamesarena/shared/utils/country_code_utils.dart';
 import 'package:gamesarena/shared/widgets/app_appbar.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:hive/hive.dart';
 import 'package:icons_plus/icons_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../shared/constants.dart';
+import '../../../shared/dialogs/infos_dialog.dart';
 import '../../../shared/extensions/special_context_extensions.dart';
+import '../../../shared/models/app_message.dart';
 import '../../../shared/models/models.dart';
 
 import '../../../shared/utils/utils.dart';
 import '../../../shared/widgets/app_search_bar.dart';
+import '../../../shared/widgets/hinting_widget.dart';
 import '../../../theme/colors.dart';
+import '../../contact/constants.dart';
 import '../../contact/services/services.dart';
 import '../../game/providers/search_games_provider.dart';
 import '../../game/services.dart';
 import '../../onboarding/services.dart';
 import '../../user/services.dart';
 import '../../match/providers/search_matches_provider.dart';
+import '../services.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -64,8 +69,9 @@ class _HomePageState extends ConsumerState<HomePage> {
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
   AuthMethods am = AuthMethods();
   bool loading = false;
-  StreamSubscription? connectivitySub;
+  StreamSubscription? connectivitySub, appMessageSub;
   final Connectivity _connectivity = Connectivity();
+  int maxVersionCheckCount = 5;
 
   @override
   void initState() {
@@ -81,7 +87,81 @@ class _HomePageState extends ConsumerState<HomePage> {
     subscription?.cancel();
     searchController.dispose();
     connectivitySub?.cancel();
+    appMessageSub?.cancel();
+    appMessageSub = null;
     super.dispose();
+  }
+
+  void subscribeForGamesArenaNotification() async {
+    appMessageSub = getAppMessageStream().listen((appMessage) {
+      showAppMessage(appMessage);
+    });
+  }
+
+  void showAppMessage(AppMessages? appMessages) async {
+    if (appMessages == null || user == null) return;
+
+    String announcement = "";
+    final appMessage = appMessages.appMessage;
+    final generalAppMessage = appMessages.generalAppMessage;
+
+    if (appMessage != null && generalAppMessage != null) {
+      announcement = appMessage.time.toInt > generalAppMessage.time.toInt
+          ? appMessage.announcement!
+          : generalAppMessage.announcement!;
+    } else if (appMessage != null) {
+      announcement = appMessage.announcement!;
+    } else if (generalAppMessage != null) {
+      announcement = generalAppMessage.announcement!;
+    }
+    if (announcement.isEmpty) return;
+    // final announcement = appMessages.general != null && AppMessage.fromMap(appMessages.general!).time.toInt >
+
+    if (announcement != user!.announcement) {
+      user!.announcement = announcement;
+      saveUserProperty(myId, user!.toMap());
+      updateSeenAnnouncement(announcement);
+      await showDialog(
+          context: context,
+          builder: (context) {
+            return InfosDialog(
+                title: "Hi ${user!.username}", message: announcement);
+          });
+    }
+    if (!mounted) return;
+
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (!mounted || appMessage == null) return;
+
+    String appVersion = packageInfo.version;
+    final lastVersion = sharedPref.getString("appVersion");
+    // int? lastVersionCount = sharedPref.getInt("appVersionCount") ;
+    // if (lastVersionCount == null || lastVersionCount == maxVersionCheckCount) {
+    //   lastVersionCount = 0;
+    // } else {
+    //   lastVersionCount++;
+    //   sharedPref.setInt("appVersionCount", lastVersionCount);
+    // }
+
+    if (appMessage.version != null &&
+        appMessage.version != appVersion &&
+        appMessage.version != lastVersion) {
+      sharedPref.setString("appVersion", appMessage.version!);
+
+      final result = await showDialog(
+          context: context,
+          builder: (context) {
+            return InfosDialog(
+                title: "Update App",
+                message:
+                    "Hi ${user!.username}, A new verison of Games Arena is now available on Play Store",
+                messages: appMessage.features,
+                actions: const ["Close", "Update"]);
+          });
+      if (result == true) {
+        launchUrlIfCan(PLAYSTORELINK);
+      }
+    }
   }
 
   void updateTheme(int value) async {
@@ -120,19 +200,23 @@ class _HomePageState extends ConsumerState<HomePage> {
         final playersBox = Hive.box<String>("players");
         final contactsBox = Hive.box<String>("contacts");
 
-        final gameLists = gameListsBox.values.toList();
-
-        for (int i = 0; i < gameLists.length; i++) {
-          final value = gameLists[i];
-          final gamelist = GameList.fromJson(value);
-          firebaseNotification.unsubscribeFromTopic(gamelist.game_id);
-        }
-
         gameListsBox.clear();
         matchesBox.clear();
         usersBox.clear();
         playersBox.clear();
         contactsBox.clear();
+
+        sharedPref.remove(TAPPED_LOGIN);
+        sharedPref.remove(TAPPED_PLAY);
+        sharedPref.remove(TAPPED_SEARCH_USER);
+        sharedPref.remove(TAPPED_SHARE);
+        sharedPref.remove(TAPPED_CREATE_GROUP);
+        sharedPref.remove(TAPPED_FIND_PLAYERS);
+        sharedPref.remove(TAPPED_SEARCH_GAMES_AND_MATCHES);
+        sharedPref.remove(TAPPED_SEARCH_CONTACTS);
+        sharedPref.remove(TAPPED_SEARCH_MATCHES);
+        sharedPref.remove(TAPPED_MATCHES_MORE);
+        sharedPref.remove(TAPPED_GAME_PROFILE_MORE);
       }
       sharedPref.setString("currentUserId", currentUserId);
       if (!mounted) return;
@@ -146,6 +230,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     loading = true;
 
     user ??= await getUser(myId, useCache: false);
+    subscribeForGamesArenaNotification();
+
     if (user == null) {
       am.logOut();
       return;
@@ -197,6 +283,16 @@ class _HomePageState extends ConsumerState<HomePage> {
       showToast("Account Deleted");
       logout();
       return;
+    }
+    if (isAndroidAndIos || kIsWeb) {
+      analytics.logEvent(
+        name: 'active',
+        parameters: {
+          'id': user.user_id,
+          'country': user.country_code ?? "",
+          "datetime": DateTime.now().datetime,
+        },
+      );
     }
 
     name = user.username;
@@ -286,11 +382,21 @@ class _HomePageState extends ConsumerState<HomePage> {
     } else {
       context.pushTo(const PlayersSelectionPage(type: "user"));
     }
+    if (sharedPref.getBool(TAPPED_PLAY) != true) {
+      sharedPref.setBool(TAPPED_PLAY, true).then((value) {
+        setState(() {});
+      });
+    }
   }
 
   void startSearch() {
     isSearch = true;
     setState(() {});
+    if (sharedPref.getBool(TAPPED_SEARCH_GAMES_AND_MATCHES) != true) {
+      sharedPref.setBool(TAPPED_SEARCH_GAMES_AND_MATCHES, true).then((value) {
+        setState(() {});
+      });
+    }
   }
 
   void updateSearch(String value) {
@@ -317,6 +423,18 @@ class _HomePageState extends ConsumerState<HomePage> {
     setState(() {});
   }
 
+  // void showAnnouncement() {
+  //   showAppMessage(
+  //       AppMessage(announcement: "Welcome to Games Arena 2", time: timeNow));
+  // }
+
+  // void showVersionUpdate() {
+  //   showAppMessage(AppMessage(
+  //       version: "3.1.2",
+  //       features: ["Calling", "Video Call", "Live call", "More Games"],
+  //       time: timeNow));
+  // }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -340,61 +458,42 @@ class _HomePageState extends ConsumerState<HomePage> {
               )
             : AppAppBar(
                 title: "Games Arena",
-                //subtitle: currentIndex == 0 ? "Games" : "Matches",
-                // style: GoogleFonts.merienda(
-                //   fontWeight: FontWeight.bold,
-                //   fontSize: 24,
-                //   color: tint,
-                // ),
-                leading: IconButton(
-                  onPressed: () {
-                    if (selectedGame && currentIndex == 0) {
-                      gamesPageKey.currentState?.goBackToGames();
-                    } else {
-                      scaffoldKey.currentState?.openDrawer();
-                    }
-                  },
-                  icon: Icon(selectedGame && currentIndex == 0
-                      ? EvaIcons.arrow_back
-                      : EvaIcons.menu_outline),
-                  color: tint,
+                leading: HintingWidget(
+                  showHint: sharedPref.getBool(TAPPED_LOGIN) == null,
+                  hintText: "Tap to login, view profile and more",
+                  bottom: 0,
+                  left: 0,
+                  child: IconButton(
+                    onPressed: () {
+                      if (selectedGame && currentIndex == 0) {
+                        gamesPageKey.currentState?.goBackToGames();
+                      } else {
+                        if (sharedPref.getBool(TAPPED_LOGIN) != true) {
+                          sharedPref.setBool(TAPPED_LOGIN, true).then((value) {
+                            setState(() {});
+                          });
+                        }
+                        scaffoldKey.currentState?.openDrawer();
+                      }
+                    },
+                    icon: Icon(selectedGame && currentIndex == 0
+                        ? EvaIcons.arrow_back
+                        : EvaIcons.menu_outline),
+                    color: tint,
+                  ),
                 ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      onPressed: startSearch,
-                      icon: const Icon(EvaIcons.search),
-                      color: tint,
-                    ),
-                    // if (myId.isNotEmpty)
-                    //   IconButton(
-                    //     onPressed: gotoNewGroup,
-                    //     icon: SizedBox(
-                    //       height: 30,
-                    //       width: 30,
-                    //       child: Stack(
-                    //         // alignment: Alignment.topRight,
-                    //         children: [
-                    //           const Positioned(
-                    //               left: 0,
-                    //               bottom: 0,
-                    //               child: Icon(OctIcons.people, size: 24)),
-                    //           // Icon(OctIcons.plus, size: 10),
-                    //           Positioned(
-                    //             right: 0,
-                    //             top: 0,
-                    //             child: Text("+",
-                    //                 style: context.bodySmall?.copyWith(
-                    //                     fontWeight: FontWeight.bold,
-                    //                     fontSize: 16)),
-                    //           )
-                    //         ],
-                    //       ),
-                    //     ),
-                    //     color: tint,
-                    //   ),
-                  ],
+                trailing: HintingWidget(
+                  showHint:
+                      sharedPref.getBool(TAPPED_SEARCH_GAMES_AND_MATCHES) ==
+                          null,
+                  hintText: "Tap to search games and matches",
+                  bottom: sharedPref.getBool(TAPPED_LOGIN) == true ? 0 : 40,
+                  right: 0,
+                  child: IconButton(
+                    onPressed: startSearch,
+                    icon: const Icon(EvaIcons.search),
+                    color: tint,
+                  ),
                 ),
               )) as PreferredSizeWidget?,
         drawer:
@@ -413,11 +512,19 @@ class _HomePageState extends ConsumerState<HomePage> {
             const MatchesPage()
           ],
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: gotoSelectPlayers,
-          child: const Icon(EvaIcons.play_circle_outline),
-          // child: const Icon(IonIcons.play),
-        ),
+        floatingActionButton: myId.isEmpty
+            ? null
+            : HintingWidget(
+                showHint: sharedPref.getBool(TAPPED_PLAY) == null,
+                hintText: "Tap to play with someone",
+                top: 0,
+                right: 0,
+                child: FloatingActionButton(
+                  onPressed: gotoSelectPlayers,
+                  child: const Icon(EvaIcons.play_circle_outline),
+                  // child: const Icon(IonIcons.play),
+                ),
+              ),
         bottomNavigationBar: SizedBox(
           height: 50,
           child: Row(

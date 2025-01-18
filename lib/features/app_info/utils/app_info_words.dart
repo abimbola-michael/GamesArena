@@ -1,6 +1,6 @@
 import 'package:gamesarena/features/app_info/models/app_info.dart';
 
-Map<String, AppInfo> appInfos = {
+Map<String, AppInfo> AppMessage = {
   "Terms and Conditions": AppInfo(
       name: "Terms and Conditions",
       intro:

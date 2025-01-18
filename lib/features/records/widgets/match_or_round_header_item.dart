@@ -98,6 +98,7 @@ class MatchOrRoundHeaderItem extends StatelessWidget {
                     Expanded(
                         child: timeCreated != null &&
                                 (timeStart == null &&
+                                    timeEnd == null &&
                                     (timeDelayEnd > timeNow.toInt))
                             ? FutureBuilder(
                                 future: Future.delayed(Duration(
@@ -113,15 +114,15 @@ class MatchOrRoundHeaderItem extends StatelessWidget {
                                 })
                             : textWidget(
                                 context,
-                                timeEnd != null
-                                    ? lighterTint
-                                    : timeStart == null
-                                        ? Colors.red
+                                timeStart == null
+                                    ? Colors.red
+                                    : timeEnd != null
+                                        ? lighterTint
                                         : primaryColor,
-                                timeEnd != null
-                                    ? outcome
-                                    : timeStart == null
-                                        ? "Missed"
+                                timeStart == null
+                                    ? "Missed"
+                                    : timeEnd != null
+                                        ? outcome
                                         : "Live")),
                     if (timeStart != null) ...[
                       const SizedBox(width: 10),

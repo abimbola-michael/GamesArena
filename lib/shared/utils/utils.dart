@@ -2,8 +2,7 @@ import 'dart:ui';
 
 import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:flutter/foundation.dart';
-import 'package:gamesarena/core/firebase/extensions/firebase_extensions.dart';
-import 'package:gamesarena/core/firebase/firebase_methods.dart';
+
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
 
@@ -11,13 +10,12 @@ import 'dart:io';
 import 'package:gamesarena/main.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/adapters.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-import '../../../enums/emums.dart';
 import '../../features/game/models/match_outcome.dart';
 import '../../features/game/models/player.dart';
 import '../../features/game/services.dart';
 
-import '../../features/game/models/player.dart';
 import '../../features/user/models/user.dart';
 import '../extensions/special_context_extensions.dart';
 
@@ -91,6 +89,13 @@ List<String> alphabets = [
 List<String> numbers = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 List<String> alphanumeric = [...alphabets, ...capsalphabets, ...numbers];
 
+Future launchUrlIfCan(String url) async {
+  final uri = Uri.parse(url);
+  if (await canLaunchUrl(uri)) {
+    return launchUrl(uri);
+  }
+}
+
 List<String> getRandomIndex(int size) {
   List<String> indices = List.generate(size, (index) => "$index");
   for (int i = 0; i < 10; i++) {
@@ -148,10 +153,10 @@ MatchOutcome getMatchOutcome(List<int> playersScores, List<String> playerIds) {
 
 List<String> getPlayersNames(List<Player> players,
     {List<User?>? users, int playersSize = 2}) {
-  final usernames = users != null && players.isNotEmpty
+  final usernames = (users ?? []).isNotEmpty && players.isNotEmpty
       ? players
           .map((player) =>
-              users
+              users!
                   .firstWhereNullable((user) => user?.user_id == player.id)
                   ?.username ??
               "")
@@ -163,13 +168,13 @@ List<String> getPlayersNames(List<Player> players,
 String getMatchOutcomeMessageFromScores(
     List<int> playersScores, List<String> players,
     {List<User?>? users}) {
-  final playerIds = users != null && players.isNotEmpty
+  final playerIds = (users ?? []).isNotEmpty && players.isNotEmpty
       ? players
       : List.generate(playersScores.length, (index) => "$index");
-  final usernames = users != null && players.isNotEmpty
+  final usernames = (users ?? []).isNotEmpty && players.isNotEmpty
       ? players
           .map((player) =>
-              users
+              users!
                   .firstWhereNullable((user) => user?.user_id == player)
                   ?.username ??
               "")
@@ -190,13 +195,13 @@ String getMatchOutcomeMessageFromScores(
 String getMatchOutcomeMessageFromWinners(
     List<int>? winners, List<String> players,
     {List<User?>? users}) {
-  if (winners == null) return "Incomplete";
+  if (winners == null) return "Incomplete Round";
   if (winners.isEmpty) return "It's a draw";
 
-  final winnersUsernames = users != null
+  final winnersUsernames = (users ?? []).isNotEmpty
       ? winners
           .map((index) =>
-              users
+              users!
                   .firstWhereNullable((user) => user?.user_id == players[index])
                   ?.username ??
               "")
@@ -229,9 +234,9 @@ String getWinnerMessage(List<int> playersScores, List<User?>? users) {
       message = "It's a draw";
     } else {
       String tiePlayers = "";
-      if (users != null) {
+      if ((users ?? []).isNotEmpty) {
         tiePlayers =
-            users.toStringWithCommaandAnd((user) => user?.username ?? "");
+            users!.toStringWithCommaandAnd((user) => user?.username ?? "");
       } else {
         tiePlayers = resultMap[highestScore]!
             .toStringWithCommaandAnd((value) => "${value + 1}", "Player ");
@@ -240,8 +245,8 @@ String getWinnerMessage(List<int> playersScores, List<User?>? users) {
     }
   } else {
     final player = players.first;
-    message = users != null
-        ? "${users[player]?.username} won"
+    message = (users ?? []).isNotEmpty
+        ? "${users![player]?.username} won"
         : "Player ${player + 1} won";
   }
 

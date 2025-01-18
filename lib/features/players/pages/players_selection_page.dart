@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:gamesarena/shared/utils/constants.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:icons_plus/icons_plus.dart';
+import '../../../main.dart';
+import '../../../shared/constants.dart';
 import '../../../shared/extensions/special_context_extensions.dart';
 import '../../../shared/utils/country_code_utils.dart';
 import '../../../shared/utils/utils.dart';
@@ -15,6 +17,7 @@ import '../../../shared/views/loading_overlay.dart';
 import '../../../shared/widgets/app_appbar.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_search_bar.dart';
+import '../../../shared/widgets/hinting_widget.dart';
 import '../../contact/pages/findorinvite_player_page.dart';
 import '../../game/services.dart';
 import '../../game/pages/games_page.dart';
@@ -271,6 +274,11 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
   void startSearch() {
     isSearch = true;
     setState(() {});
+    if (sharedPref.getBool(TAPPED_SEARCH_USER) != true) {
+      sharedPref.setBool(TAPPED_SEARCH_USER, true).then((value) {
+        setState(() {});
+      });
+    }
   }
 
   void updateSearch(String value) {
@@ -363,10 +371,20 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
 
   void gotoNewGroup() {
     context.pushReplacement(const PlayersSelectionPage(type: "group"));
+    if (sharedPref.getBool(TAPPED_CREATE_GROUP) != true) {
+      sharedPref.setBool(TAPPED_CREATE_GROUP, true).then((value) {
+        setState(() {});
+      });
+    }
   }
 
   void gotoInviteContact() {
     context.pushTo(const FindOrInvitePlayersPage());
+    if (sharedPref.getBool(TAPPED_FIND_PLAYERS) != true) {
+      sharedPref.setBool(TAPPED_FIND_PLAYERS, true).then((value) {
+        setState(() {});
+      });
+    }
   }
 
   void toggleSelect(User user) async {
@@ -449,35 +467,50 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                        onPressed: startSearch,
-                        icon: const Icon(EvaIcons.search),
-                        color: tint),
+                    HintingWidget(
+                      showHint: sharedPref.getBool(TAPPED_SEARCH_USER) == null,
+                      hintText: "Tap to search for a user",
+                      bottom: 0,
+                      right: 0,
+                      child: IconButton(
+                          onPressed: startSearch,
+                          icon: const Icon(EvaIcons.search),
+                          color: tint),
+                    ),
                     if (type != "group" && widget.game == null)
-                      IconButton(
-                        onPressed: gotoNewGroup,
-                        icon: SizedBox(
-                          height: 30,
-                          width: 30,
-                          child: Stack(
-                            // alignment: Alignment.topRight,
-                            children: [
-                              const Positioned(
-                                  left: 0,
-                                  bottom: 0,
-                                  child: Icon(OctIcons.people, size: 24)),
-                              Positioned(
-                                right: 0,
-                                top: 0,
-                                child: Text("+",
-                                    style: context.bodySmall?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16)),
-                              )
-                            ],
+                      HintingWidget(
+                        showHint:
+                            sharedPref.getBool(TAPPED_CREATE_GROUP) == null,
+                        hintText: "Tap to create game group",
+                        bottom: sharedPref.getBool(TAPPED_SEARCH_USER) == true
+                            ? 0
+                            : 40,
+                        right: 0,
+                        child: IconButton(
+                          onPressed: gotoNewGroup,
+                          icon: SizedBox(
+                            height: 30,
+                            width: 30,
+                            child: Stack(
+                              // alignment: Alignment.topRight,
+                              children: [
+                                const Positioned(
+                                    left: 0,
+                                    bottom: 0,
+                                    child: Icon(OctIcons.people, size: 24)),
+                                Positioned(
+                                  right: 0,
+                                  top: 0,
+                                  child: Text("+",
+                                      style: context.bodySmall?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16)),
+                                )
+                              ],
+                            ),
                           ),
+                          color: tint,
                         ),
-                        color: tint,
                       ),
                   ],
                 ),
@@ -553,9 +586,15 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
           ),
         ),
         floatingActionButton: isAndroidAndIos
-            ? FloatingActionButton(
-                onPressed: gotoInviteContact,
-                child: const Icon(EvaIcons.person_add_outline),
+            ? HintingWidget(
+                showHint: sharedPref.getBool(TAPPED_FIND_PLAYERS) == null,
+                hintText: "Tap to find a player from contacts",
+                top: 0,
+                right: 0,
+                child: FloatingActionButton(
+                  onPressed: gotoInviteContact,
+                  child: const Icon(EvaIcons.person_add_outline),
+                ),
               )
             : null,
         // floatingActionButton: FloatingActionButton(

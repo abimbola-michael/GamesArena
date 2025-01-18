@@ -105,6 +105,9 @@ class _BlinkingBorderContainerState extends State<BlinkingBorderContainer>
             decoration: !widget.blink
                 ? null
                 : BoxDecoration(
+                    shape: widget.decoration != null
+                        ? widget.decoration!.shape
+                        : BoxShape.rectangle,
                     borderRadius: widget.decoration != null
                         ? widget.decoration!.borderRadius
                         : widget.radius == null

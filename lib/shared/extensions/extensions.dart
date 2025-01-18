@@ -177,6 +177,8 @@ extension IntExtensions on int {
 extension DateTimeExtensions on DateTime {
   String get time => DateFormat.jm().format(this);
   String get date => DateFormat.yMMMd().format(this);
+  String get datetime => "$date $time";
+
   String get hour => DateFormat("hh").format(this);
   String timeAgo({bool numericDates = true}) {
     final date2 = DateTime.now();
@@ -260,7 +262,9 @@ extension StringExtensions on String {
         .replaceAll("+", "")
         .trim();
 
-    if (trim().startsWith("+")) {
+    if (trim().startsWith("+") ||
+        (dialCode ?? "").isNotEmpty &&
+            refinedNumber.startsWith(dialCode!.replaceAll("+", ""))) {
       return "+$refinedNumber";
     } else {
       return "${dialCode ?? ""}${refinedNumber.startsWith("0") ? refinedNumber.substring(1) : refinedNumber}";

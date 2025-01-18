@@ -5,7 +5,7 @@ class MatchNotifier extends StateNotifier<Match?> {
   MatchNotifier(super.state);
 
   void updateMatch(Match? match) {
-    state = match;
+    state = match?.copyWith();
   }
 }
 

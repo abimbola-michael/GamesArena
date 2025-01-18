@@ -10,15 +10,17 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../main.dart';
+import '../../../shared/constants.dart';
 import '../../../shared/utils/country_code_utils.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/widgets/app_appbar.dart';
 import '../../../shared/widgets/app_search_bar.dart';
+import '../../../shared/widgets/hinting_widget.dart';
 import '../../../theme/colors.dart';
 import '../../game/models/match.dart';
 import '../../game/models/player.dart';
 import '../../game/services.dart';
-import '../../user/models/user.dart';
 import '../enums.dart';
 import '../models/phone_contact.dart';
 import '../providers/contacts_provider.dart';
@@ -55,6 +57,7 @@ class _FindOrInvitePlayersPageState
     isInvite = widget.isInvite;
     match = widget.match;
     readContacts();
+    getPlatforms();
   }
 
   @override
@@ -63,15 +66,20 @@ class _FindOrInvitePlayersPageState
     super.dispose();
   }
 
+  void getPlatforms() {
+    getAvailablePlatforms().then((value) {
+      availablePlatforms = value;
+      setState(() {});
+    });
+  }
+
   void readContacts() async {
     if (!isAndroidAndIos || !mounted) return;
     loading = true;
     setState(() {});
-
     final dialCode = await getDialCode();
 
     final phoneContactsBox = Hive.box<String>("contacts");
-    //phoneContactsBox.clear();
 
     List<PhoneContact> phoneContacts =
         phoneContactsBox.values.map((e) => PhoneContact.fromJson(e)).toList();
@@ -117,14 +125,13 @@ class _FindOrInvitePlayersPageState
         }
       }
     }
+    if (!mounted) return;
     phoneContacts =
         phoneContactsBox.values.map((e) => PhoneContact.fromJson(e)).toList();
     phoneContacts
         .sort((a, b) => (a.name ?? a.phone).compareTo((b.name ?? b.phone)));
 
     ref.read(contactsProvider.notifier).setPhoneContacts(phoneContacts);
-    availablePlatforms =
-        await getAvailablePlatforms(phoneContacts.firstOrNull?.phone);
 
     loading = false;
     setState(() {});
@@ -169,6 +176,11 @@ class _FindOrInvitePlayersPageState
   void startSearch() {
     isSearch = true;
     setState(() {});
+    if (sharedPref.getBool(TAPPED_SEARCH_CONTACTS) != true) {
+      sharedPref.setBool(TAPPED_SEARCH_CONTACTS, true).then((value) {
+        setState(() {});
+      });
+    }
   }
 
   void updateSearch(String value) {
@@ -178,6 +190,8 @@ class _FindOrInvitePlayersPageState
   }
 
   void stopSearch() {
+    ref.read(searchContactsProvider.notifier).updateSearch("");
+
     searchController.clear();
     isSearch = false;
     setState(() {});
@@ -210,18 +224,37 @@ class _FindOrInvitePlayersPageState
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (loading)
-                      const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator()),
-                    IconButton(
-                      onPressed: startSearch,
-                      icon: Icon(EvaIcons.search, color: tint),
+                    HintingWidget(
+                      showHint:
+                          sharedPref.getBool(TAPPED_SEARCH_CONTACTS) == null,
+                      hintText: "Tap to search contacts",
+                      bottom: 0,
+                      right: 0,
+                      child: IconButton(
+                        onPressed: startSearch,
+                        icon: Icon(EvaIcons.search, color: tint),
+                      ),
                     ),
-                    IconButton(
-                      onPressed: () => shareTextInvite(match: match),
-                      icon: Icon(EvaIcons.share_outline, color: tint),
+                    HintingWidget(
+                      showHint: sharedPref.getBool(TAPPED_SHARE) == null,
+                      hintText: "Tap to share invite link",
+                      bottom: sharedPref.getBool(TAPPED_SEARCH_CONTACTS) == true
+                          ? 0
+                          : 40,
+                      right: 0,
+                      child: IconButton(
+                        onPressed: () {
+                          shareTextInvite(match: match);
+                          if (sharedPref.getBool(TAPPED_SHARE) != true) {
+                            sharedPref
+                                .setBool(TAPPED_SHARE, true)
+                                .then((value) {
+                              setState(() {});
+                            });
+                          }
+                        },
+                        icon: Icon(EvaIcons.share_outline, color: tint),
+                      ),
                     ),
                   ],
                 ),
@@ -233,6 +266,10 @@ class _FindOrInvitePlayersPageState
                 length: ContactStatus.values.length,
                 child: Column(
                   children: [
+                    if (loading)
+                      const Center(
+                        child: CircularProgressIndicator(),
+                      ),
                     TabBar(
                       padding: EdgeInsets.zero,
                       isScrollable: true,

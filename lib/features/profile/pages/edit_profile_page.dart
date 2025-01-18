@@ -15,6 +15,7 @@ import '../../../shared/widgets/app_appbar.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../game/services.dart';
+import '../../home/pages/home_page.dart';
 import '../../onboarding/pages/auth_page.dart';
 import '../../onboarding/services.dart';
 
@@ -174,7 +175,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       await updateGameGroupName(widget.groupId!, text, time);
     }
     if (type.toLowerCase() != "password" && type != "groupname") {
-      await updateUserDetails(type, text);
+      await updateUserDetails(type, text, type == "phone" ? countryCode : null);
     }
     loading = false;
     passwordComfirmed = null;
@@ -204,12 +205,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   void gotoStartPage() {
-    context.pushReplacement(const AuthPage());
-
-    // Navigator.of(context).pushAndRemoveUntil(
-    //   MaterialPageRoute(builder: ((context) => const AuthPage())),
-    //   (Route<dynamic> route) => false, // Remove all routes
-    // );
+    // context.pushReplacement(const AuthPage());
+    Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: ((context) => const HomePage())),
+        (route) => false);
   }
 
   @override
@@ -224,6 +223,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
             children: [
               AppTextField(
                 initialCountryCode: countryCode,
+                onChangedCountryCode: (code) {
+                  countryCode = code;
+                },
                 controller: textController,
                 titleText: "New ${type.capitalize}",
                 hintText: "Enter New ${type.capitalize}",

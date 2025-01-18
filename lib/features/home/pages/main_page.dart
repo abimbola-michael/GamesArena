@@ -36,6 +36,9 @@ class _MainPageState extends ConsumerState<MainPage> {
   void initApp() async {
     WidgetsFlutterBinding.ensureInitialized();
 
+    await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform);
+
     sharedPref = await SharedPreferences.getInstance();
     currentUserId = sharedPref.getString("currentUserId") ??
         FirebaseAuth.instance.currentUser?.uid ??
@@ -48,16 +51,11 @@ class _MainPageState extends ConsumerState<MainPage> {
     }
     ref.read(themeNotifierProvider.notifier).toggleTheme(themeValue);
 
-    await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform);
     // await AuthMethods().logOut();
     //if (privateKey != null) {
     //   Gemini.init(apiKey: privateKey!.chatGptApiKey);
     // }
-    await dotenv.load();
-
-    String apiKey = dotenv.env['GEMINI_API_KEY']!;
-    Gemini.init(apiKey: apiKey);
+    firebaseNotification.initNotification();
 
     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       MobileAds.instance.initialize();
@@ -71,10 +69,17 @@ class _MainPageState extends ConsumerState<MainPage> {
         return true;
       };
     }
-    firebaseNotification.initNotification();
+
     if (myId.isNotEmpty) {
       privateKey = await getPrivateKey();
+      String apiKey = privateKey!.geminiApiKey;
+      Gemini.init(apiKey: apiKey);
+      initializedGemini = true;
     }
+
+    //await dotenv.load();
+
+    // String apiKey = dotenv.env['GEMINI_API_KEY']!;
 
     await Hive.initFlutter();
 

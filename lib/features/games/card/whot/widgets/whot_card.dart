@@ -228,16 +228,13 @@ class CountWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-      child: CircleAvatar(
-        radius: 10,
-        backgroundColor: color ?? (darkMode ? lightestWhite : lightestBlack),
-        child: Text(
-          "$count",
-          style: TextStyle(
-              fontSize: 10, color: textColor ?? (darkMode ? white : black)),
-        ),
+    return CircleAvatar(
+      radius: 10,
+      backgroundColor: color ?? (darkMode ? lightestWhite : lightestBlack),
+      child: Text(
+        "$count",
+        style: TextStyle(
+            fontSize: 10, color: textColor ?? (darkMode ? white : black)),
       ),
     );
   }

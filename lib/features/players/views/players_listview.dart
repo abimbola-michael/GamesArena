@@ -110,7 +110,7 @@ class _PlayersListViewState extends State<PlayersListView>
   void executePlayerOption(Player player, String option) async {
     if (option.startsWith("Play")) {
       bool isPlayInGroup = option.endsWith("group");
-      context.pushTo(
+      await context.pushTo(
         GamesPage(
           gameId: isPlayInGroup ? widget.game.game_id : null,
           players: [myId, player.id],
@@ -118,7 +118,7 @@ class _PlayersListViewState extends State<PlayersListView>
         ),
       );
     } else if (option.startsWith("View")) {
-      context.pushTo(ProfilePage(id: player.id));
+      await context.pushTo(ProfilePage(id: player.id));
     } else if (option.startsWith("Make")) {
       updateRole(player, "admin");
     } else if (option.startsWith("Dismiss")) {
@@ -134,6 +134,7 @@ class _PlayersListViewState extends State<PlayersListView>
 
   void showPlayerOptions(Player player) {
     if (player.id == myId) return;
+
     final username = player.user?.username ?? "";
     List<String> options = [
       if (widget.game.groupName != null) "Play with $username in group",

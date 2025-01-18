@@ -1,3 +1,4 @@
+import 'package:gamesarena/features/contact/constants.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -13,9 +14,7 @@ String getMatchInviteMessage(Match match, [String? name]) {
 }
 
 String getContactInviteMessage([String? name]) {
-  String playStoreLink =
-      "https://play.google.com/store/apps/details?id=com.hms.gamesarena";
-  return "Hi${name == null ? "" : " $name"}, Let's play games together on Games Arena! It's a cool, simple and amazing app we can use to play board, card, puzzle and quiz games. Get it at $playStoreLink";
+  return "Hi${name == null ? "" : " $name"}, Let's play games together on Games Arena! It's a cool, simple and amazing app we can use to play board, card, puzzle and quiz games. Get it at $PLAYSTORELINK";
 }
 
 String getInviteMessage({String? name, Match? match}) {
@@ -26,24 +25,28 @@ String getInviteMessage({String? name, Match? match}) {
 
 Uri getWhatsAppUri(String phoneNumber, [String? name]) {
   final encodedMessage = Uri.encodeComponent(getInviteMessage(name: name));
-  return Uri.parse("whatsapp://send?phone=$phoneNumber&text=$encodedMessage");
+  // return Uri.parse(
+  //     "whatsapp://send?phone=${phoneNumber.replaceAll("+", "")}&text=$encodedMessage");
+  return Uri.parse(
+      "https://wa.me/${phoneNumber.replaceAll("+", "")}?text=$encodedMessage");
 }
 
 Uri getSMSUri(String phoneNumber, [String? name]) {
   final encodedMessage = Uri.encodeComponent(getInviteMessage(name: name));
-  return Uri.parse("sms:$phoneNumber?body=$encodedMessage");
+  return Uri.parse(
+      "sms:${phoneNumber.replaceAll("+", "")}?body=$encodedMessage");
 }
 
-Future<List<String>> getAvailablePlatforms(String? phone) async {
+Future<List<String>> getAvailablePlatforms() async {
   List<String> platforms = [];
-  final number = phone ?? "0804";
+  String number = "0804";
   if (await canLaunchUrl(getWhatsAppUri(number))) {
     platforms.add("WhatsApp");
   }
 
-  if (await canLaunchUrl(getSMSUri(number))) {
-    platforms.add("SMS");
-  }
+  //if (await canLaunchUrl(getSMSUri(number))) {
+  platforms.add("SMS");
+  //}
   return platforms;
 }
 

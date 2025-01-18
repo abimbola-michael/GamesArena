@@ -23,8 +23,8 @@ class UserItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+    return SizedBox(
+      width: 80,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

@@ -318,8 +318,10 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
     if ((gameAction.action == "change" ||
         gameAction.action == "restart" ||
         gameAction.action == "continue")) {
-      final leftPlayers =
-          exemptPlayers.map((player) => player.playerId).toList();
+      final leftPlayers = exemptPlayers
+          .where((player) => player.action == "leave")
+          .map((player) => player.playerId)
+          .toList();
       if (leftPlayers.isNotEmpty) {
         var players = args["players"] as List<Player>?;
         if (players != null) {

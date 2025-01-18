@@ -16,15 +16,15 @@ class AppInfoPage extends StatefulWidget {
 }
 
 class _AppInfoPageState extends State<AppInfoPage> {
-  List<AppInfo> typeAppInfos = [];
+  List<AppInfo> typeAppMessage = [];
   @override
   void initState() {
     super.initState();
     if (widget.type == "Terms and Privacy Policies") {
-      typeAppInfos.add(appInfos["Terms and Conditions"]!);
-      typeAppInfos.add(appInfos["Privacy Policies"]!);
+      typeAppMessage.add(AppMessage["Terms and Conditions"]!);
+      typeAppMessage.add(AppMessage["Privacy Policies"]!);
     } else {
-      typeAppInfos.add(appInfos[widget.type]!);
+      typeAppMessage.add(AppMessage[widget.type]!);
     }
   }
 
@@ -37,7 +37,7 @@ class _AppInfoPageState extends State<AppInfoPage> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          ...typeAppInfos.map((typeAppInfo) => Column(
+          ...typeAppMessage.map((typeAppInfo) => Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // HeadingText(

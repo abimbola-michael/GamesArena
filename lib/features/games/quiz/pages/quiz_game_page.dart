@@ -20,6 +20,7 @@ import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:openai_dart/openai_dart.dart';
 
+import '../../../../shared/services.dart';
 import '../../../../shared/utils/call_utils.dart';
 import '../../../../shared/views/error_or_success_view.dart';
 import '../../../../shared/widgets/app_button.dart';
@@ -61,6 +62,12 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
   String error = "";
 
   Future<List<Quiz>> generateQuizzes() async {
+    if (!initializedGemini) {
+      privateKey ??= await getPrivateKey();
+      String apiKey = privateKey!.geminiApiKey;
+      Gemini.init(apiKey: apiKey);
+      initializedGemini = true;
+    }
     List<Quiz> quizzes = [];
     try {
       final response = await Gemini.instance.chat([
@@ -142,7 +149,10 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
       // quizzes =
       //     testQuizzes.skip(10).take(10).map((e) => Quiz.fromMap(e)).toList();
 
+      awaiting = true;
       quizzes = await generateQuizzes();
+      awaiting = false;
+
       updateGridDetails(jsonEncode(quizzes));
     }
     loadingQuizzes = false;
@@ -191,7 +201,7 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
     final unsubmittedPlayers = getUnSubmittedPlayers();
     if (unsubmittedPlayers.isNotEmpty) {
       showPlayerToast(currentPlayer,
-          "Submitted, Waiting for ${getPlayersUsernames(unsubmittedPlayers).toStringWithCommaandAnd((t) => t)} to submit");
+          "${getPlayerUsername(playerIndex: player)} submitted, Waiting for ${getPlayersUsernames(unsubmittedPlayers).toStringWithCommaandAnd((t) => t)} to submit");
       setState(() {});
       return;
     }
@@ -427,7 +437,6 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
   @override
   Widget buildBody(BuildContext context) {
     final quizzes = playersQuizzes.isEmpty ? [] : playersQuizzes[currentPlayer];
-
     return Center(
       child: AspectRatio(
           aspectRatio: 1 / 1,

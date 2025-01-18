@@ -376,41 +376,49 @@ class GamesPageState extends ConsumerState<GamesPage>
                     Expanded(
                       child: TabBarView(
                         controller: tabController,
-                        children: List.generate(gameCategories.length, (index) {
-                          final category = gameCategories[index];
-                          List<String> foundGames = category == "Board"
-                              ? boardGames
-                              : category == "Card"
-                                  ? cardGames
-                                  : category == "Puzzle"
-                                      ? puzzleGames
-                                      : category == "Quiz"
-                                          ? quizGames
-                                          : [];
-                          final games = searchString.isEmpty
-                              ? foundGames
-                              : foundGames
-                                  .where((game) =>
-                                      game.toLowerCase().contains(searchString))
-                                  .toList();
-                          return SingleChildScrollView(
-                            primary: true,
-                            scrollDirection: Axis.vertical,
-                            child: Wrap(
-                              direction: Axis.horizontal,
-                              children: List.generate(games.length, (index) {
-                                String game = games[index];
-                                return GameItemWidget(
-                                  width: (context.screenWidth - 32) / gridSize,
-                                  game: game,
-                                  onPressed: () async {
-                                    gotoNext(game);
+                        children: List.generate(
+                          gameCategories.length,
+                          (index) {
+                            final category = gameCategories[index];
+                            List<String> foundGames = category == "Board"
+                                ? boardGames
+                                : category == "Card"
+                                    ? cardGames
+                                    : category == "Puzzle"
+                                        ? puzzleGames
+                                        : category == "Quiz"
+                                            ? quizGames
+                                            : [];
+                            final games = searchString.isEmpty
+                                ? foundGames
+                                : foundGames
+                                    .where((game) => game
+                                        .toLowerCase()
+                                        .contains(searchString))
+                                    .toList();
+                            return SingleChildScrollView(
+                              // primary: true,
+                              scrollDirection: Axis.vertical,
+                              child: Wrap(
+                                direction: Axis.horizontal,
+                                children: List.generate(
+                                  games.length,
+                                  (index) {
+                                    String game = games[index];
+                                    return GameItemWidget(
+                                      width:
+                                          (context.screenWidth - 32) / gridSize,
+                                      game: game,
+                                      onPressed: () async {
+                                        gotoNext(game);
+                                      },
+                                    );
                                   },
-                                );
-                              }),
-                            ),
-                          );
-                        }),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     )
                   ],
@@ -436,22 +444,25 @@ class GamesPageState extends ConsumerState<GamesPage>
                         ],
                         Wrap(
                           direction: Axis.horizontal,
-                          children: List.generate(modes.length, (index) {
-                            String mode = modes[index];
-                            return SizedBox(
-                              width: (context.screenWidth - 32) / gridSize,
-                              child: GameCard(
-                                  text: mode,
-                                  icon: Icons.gamepad_rounded,
-                                  onPressed: () {
-                                    if (index == 1) {
-                                      gotoOfflineGame();
-                                    } else {
-                                      gotoSelectPlayers();
-                                    }
-                                  }),
-                            );
-                          }),
+                          children: List.generate(
+                            modes.length,
+                            (index) {
+                              String mode = modes[index];
+                              return SizedBox(
+                                width: (context.screenWidth - 32) / gridSize,
+                                child: GameCard(
+                                    text: mode,
+                                    icon: Icons.gamepad_rounded,
+                                    onPressed: () {
+                                      if (index == 1) {
+                                        gotoOfflineGame();
+                                      } else {
+                                        gotoSelectPlayers();
+                                      }
+                                    }),
+                              );
+                            },
+                          ),
                         ),
                       ],
                     ),

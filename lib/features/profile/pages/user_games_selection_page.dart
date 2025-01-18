@@ -160,90 +160,91 @@ class _UserGamesSelectionPageState extends ConsumerState<UserGamesSelectionPage>
                   ],
                 ),
               )) as PreferredSizeWidget?,
-        body: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // const SizedBox(height: 4),
-              // Text(
-              //   "NB: You free to play any game you like. This is just to tell people the kind of games you can play and how good you are in them.\nTap or UnTap if you want to add or remove a game from the list",
-              //   style: context.bodySmall
-              //       ?.copyWith(color: lighterTint, fontSize: 10),
-              // ),
-              // const SizedBox(height: 10),
-              // Text(
-              //   getGamesString(games),
-              //   style: context.bodyMedium?.copyWith(color: lightTint),
-              // ),
-              // const SizedBox(height: 5),
-              Center(
-                child: TabBar(
-                  controller: tabController,
-                  padding: EdgeInsets.zero,
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.center,
-                  dividerColor: transparent,
-                  tabs: List.generate(
-                    allGameCategories.length,
-                    (index) {
-                      final tab = allGameCategories[index];
-                      return Tab(text: tab, height: 35);
-                    },
-                  ),
+        body: Column(
+          // crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Text(
+                "NB: You free to play any game you like. This is just to tell people the kind of games you like to play",
+                style: context.bodySmall
+                    ?.copyWith(color: lighterTint, fontSize: 10),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            // const SizedBox(height: 10),
+            // Text(
+            //   getGamesString(games),
+            //   style: context.bodyMedium?.copyWith(color: lightTint),
+            // ),
+            // const SizedBox(height: 5),
+            Center(
+              child: TabBar(
+                controller: tabController,
+                padding: EdgeInsets.zero,
+                isScrollable: true,
+                tabAlignment: TabAlignment.center,
+                dividerColor: transparent,
+                tabs: List.generate(
+                  allGameCategories.length,
+                  (index) {
+                    final tab = allGameCategories[index];
+                    return Tab(text: tab, height: 35);
+                  },
                 ),
               ),
-              Expanded(
-                child: TabBarView(
-                  controller: tabController,
-                  children: List.generate(allGameCategories.length, (index) {
-                    final foundGames = index == 0
-                        ? allBoardGames
-                        : index == 1
-                            ? allCardGames
-                            : index == 2
-                                ? allPuzzleGames
-                                : allQuizGames;
-                    final games = searchString.isEmpty
-                        ? foundGames
-                        : foundGames
-                            .where((game) =>
-                                game.toLowerCase().contains(searchString))
-                            .toList();
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: tabController,
+                children: List.generate(allGameCategories.length, (index) {
+                  final foundGames = index == 0
+                      ? allBoardGames
+                      : index == 1
+                          ? allCardGames
+                          : index == 2
+                              ? allPuzzleGames
+                              : allQuizGames;
+                  final games = searchString.isEmpty
+                      ? foundGames
+                      : foundGames
+                          .where((game) =>
+                              game.toLowerCase().contains(searchString))
+                          .toList();
 
-                    return ListView.builder(
-                      itemCount: games.length,
-                      itemBuilder: (context, index) {
-                        final game = games[index];
-                        return GameItem(
-                          game: game,
-                          selectedGames: selectedGames,
-                          onChanged: (selected) => updateGames(game, selected),
-                        );
-                        // final userGame =
-                        //     gamesMap[game] ?? UserGame(name: game, ability: "");
-                        // return UserGameItem(
-                        //   key: Key(userGame.name),
-                        //   userGame: userGame,
-                        //   onChanged: (ability) =>
-                        //       updateUserGame(userGame, ability),
-                        // );
-                      },
-                    );
-                  }),
-                ),
+                  return ListView.builder(
+                    itemCount: games.length,
+                    itemBuilder: (context, index) {
+                      final game = games[index];
+                      return GameItem(
+                        game: game,
+                        selectedGames: selectedGames,
+                        onChanged: (selected) => updateGames(game, selected),
+                      );
+                      // final userGame =
+                      //     gamesMap[game] ?? UserGame(name: game, ability: "");
+                      // return UserGameItem(
+                      //   key: Key(userGame.name),
+                      //   userGame: userGame,
+                      //   onChanged: (ability) =>
+                      //       updateUserGame(userGame, ability),
+                      // );
+                    },
+                  );
+                }),
               ),
-              Center(
-                child: AppButton(
-                    title: saving ? "Saving" : "Save",
-                    // wrapped: true,
-                    loading: saving,
-                    disabled: saving,
-                    onPressed: saveUserGames),
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
+            ),
+            Center(
+              child: AppButton(
+                  title: saving ? "Saving" : "Save",
+                  // wrapped: true,
+                  loading: saving,
+                  disabled: saving,
+                  onPressed: saveUserGames),
+            ),
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );

@@ -6,7 +6,7 @@ class GameListNotifier extends StateNotifier<GameList?> {
   GameListNotifier(super.state);
 
   void updateGameList(GameList? gamelist) {
-    state = gamelist;
+    state = gamelist?.copyWith();
   }
 }
 

@@ -182,6 +182,9 @@ Future<Player> addPlayer(String playerId) async {
   final player = Player(id: playerId, time: timeNow);
   await fm
       .setValue(["users", myId, "players", playerId], value: player.toMap());
+
+  await fm.setValue(["users", playerId, "players", myId],
+      value: player.copyWith(id: myId).toMap());
   return player;
 }
 
@@ -346,7 +349,7 @@ Future<Match> cancelMatch(Match match, List<Player> players) async {
 
   for (int i = 0; i < players.length; i++) {
     final player = players[i];
-    await fm.updateValue([
+    fm.updateValue([
       "games",
       gameId,
       "players",
@@ -359,15 +362,26 @@ Future<Match> cancelMatch(Match match, List<Player> players) async {
       "time_modified": time
     });
   }
-  // await fm.updateValue(["games", gameId, "matches", matchId],
-  //     value: {"time_end": time, "time_modified": time});
 
-  // match.time_end = time;
-  // match.available_players = [];
-  // match.time_modified = time;
-  // match.user_id = myId;
-  // sendPushNotification(gameId,
-  //     notificationType: "match", isTopic: true, data: match.toMap());
+  match.time_end = time;
+  match.available_players = [];
+  match.time_modified = time;
+  match.user_id = myId;
+
+  sendPushNotification(gameId,
+      notificationType: "match", isTopic: true, data: match.toMap());
+
+  fm.updateValue([
+    "games",
+    gameId,
+    "matches",
+    matchId
+  ], value: {
+    "time_end": time,
+    "time_modified": time,
+    "available_players": match.available_players,
+    "user_id": myId
+  });
   return match;
 }
 
@@ -399,7 +413,7 @@ Future<Match> leaveMatch(Match match, List<Player> players,
       .where((player) => player.action != "" && player.matchId == matchId)
       .toList();
 
-  await fm.updateValue([
+  fm.updateValue([
     "games",
     gameId,
     "players",
@@ -411,12 +425,13 @@ Future<Match> leaveMatch(Match match, List<Player> players,
     "game": null,
     "time_modified": time
   });
+  match.available_players?.remove(myId);
 
-  if (activePlayers.length == 2) {
-    final otherId = activePlayers.first.id == myId
-        ? activePlayers.second!.id
-        : activePlayers.first.id;
-    await fm.updateValue([
+  activePlayers.removeWhere((player) => player.id == myId);
+
+  if (activePlayers.length == 1) {
+    final otherId = activePlayers.first.id;
+    fm.updateValue([
       "games",
       gameId,
       "players",
@@ -428,37 +443,30 @@ Future<Match> leaveMatch(Match match, List<Player> players,
       "game": null,
       "time_modified": time
     });
+    activePlayers.removeWhere((player) => player.id == otherId);
+    match.available_players?.remove(otherId);
   }
 
-  // if (endMatch) {
-  //   if (activePlayers.length <= 2) {
-  //     await fm.updateValue(["games", gameId, "matches", matchId],
-  //         value: {"time_end": time, "time_modified": time});
-  //     match.time_end = time;
-  //     match.available_players = [];
-  //     activePlayers.removeWhere((player) => player.id == myId);
-  //     if (activePlayers.isNotEmpty) {
-  //       fm.updateValue([
-  //         "games",
-  //         gameId,
-  //         "players",
-  //         activePlayers.first.id
-  //       ], value: {
-  //         "action": "",
-  //         "matchId": "",
-  //         "gameId": "",
-  //         "game": null,
-  //         "time_modified": time
-  //       });
-  //     }
-  //   } else {
-  //     match.available_players?.remove(myId);
-  //   }
-  //   match.time_modified = time;
-  //   match.user_id = myId;
-  //   sendPushNotification(gameId,
-  //       notificationType: "match", isTopic: true, data: match.toMap());
-  // }
+  if (activePlayers.isEmpty) {
+    match.time_end = time;
+  }
+  match.time_modified = time;
+  match.user_id = myId;
+
+  sendPushNotification(gameId,
+      notificationType: "match", isTopic: true, data: match.toMap());
+  fm.updateValue([
+    "games",
+    gameId,
+    "matches",
+    matchId
+  ], value: {
+    "time_end": match.time_end,
+    "time_modified": time,
+    "available_players": match.available_players,
+    "user_id": myId
+  });
+
   return match;
 }
 

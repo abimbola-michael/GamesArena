@@ -19,6 +19,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../theme/colors.dart';
 import '../../../shared/utils/utils.dart';
 import '../../game/widgets/profile_photo.dart';
+import '../../home/pages/home_page.dart';
 import '../../onboarding/pages/auth_page.dart';
 import '../../onboarding/services.dart';
 import '../../settings/pages/settings_and_more_page.dart';
@@ -181,16 +182,16 @@ class _ProfilePageState extends State<ProfilePage> {
       am.logOut();
       gotoStartPage();
     } catch (e) {
-      print("logoutError = $e");
-      showErrorToast("Unable to logout ");
+      // print("logoutError = $e");
+      //showErrorToast("Unable to logout ");
     }
   }
 
   void gotoStartPage() {
-    context.pushReplacement(const AuthPage());
-    // Navigator.of(context).pushAndRemoveUntil(
-    //     MaterialPageRoute(builder: ((context) => const AuthPage())),
-    //     (route) => false);
+    // context.pushReplacement(const AuthPage());
+    Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: ((context) => const HomePage())),
+        (route) => false);
   }
 
   void readUser() async {

@@ -23,6 +23,8 @@ class AppTextField extends StatefulWidget {
   final double? width;
   final TextEditingController? controller;
   final void Function(String code)? onChangedCountryCode;
+  final void Function(String dialCode)? onChangedDialCode;
+
   final String? initialCountryCode;
   final void Function(String)? onChanged;
   final void Function(String)? onSubmit;
@@ -56,6 +58,7 @@ class AppTextField extends StatefulWidget {
       this.width,
       this.controller,
       this.onChangedCountryCode,
+      this.onChangedDialCode,
       this.onChanged,
       this.onSubmit,
       this.maxLines,
@@ -114,6 +117,9 @@ class _AppTextFieldState extends State<AppTextField> {
     //   print("countryCode = $countryCode, dialCode = $dialCode");
     //   setState(() {});
     // });
+    if (widget.onChangedCountryCode != null) {
+      widget.onChangedCountryCode!(widget.initialCountryCode ?? countryCode);
+    }
   }
 
   @override
@@ -334,7 +340,10 @@ class _AppTextFieldState extends State<AppTextField> {
                             onChanged: (country) {
                               countryDialCode = country.dialCode;
                               if (widget.onChangedCountryCode != null) {
-                                widget.onChangedCountryCode!(country.dialCode);
+                                widget.onChangedCountryCode!(country.code);
+                              }
+                              if (widget.onChangedDialCode != null) {
+                                widget.onChangedDialCode!(country.dialCode);
                               }
                               if (widget.onChanged != null) {
                                 widget.onChanged!("$countryDialCode$text");

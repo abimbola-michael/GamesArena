@@ -14,6 +14,7 @@ import '../../../core/firebase/auth_methods.dart';
 import '../../../shared/widgets/app_appbar.dart';
 import '../../app_info/pages/app_info_page.dart';
 import '../../contact/pages/findorinvite_player_page.dart';
+import '../../home/pages/home_page.dart';
 import '../components/settings_category_item.dart';
 import '../components/settings_item.dart';
 
@@ -85,12 +86,11 @@ class _SettingsAndMorePageState extends State<SettingsAndMorePage> {
   }
 
   void gotoStartPage() {
-    context.pushReplacement(const AuthPage());
+    // context.pushReplacement(const AuthPage());
 
-    // Navigator.of(context).pushAndRemoveUntil(
-    //   MaterialPageRoute(builder: ((context) => const AuthPage())),
-    //   (Route<dynamic> route) => false, // Remove all routes
-    // );
+    Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: ((context) => const HomePage())),
+        (route) => false);
   }
 
   //void addAccount() {}

@@ -142,7 +142,7 @@ class _NewOnlineGamePageState extends ConsumerState<NewOnlineGamePage> {
     playingSub = null;
 
     match = await cancelMatch(match!, players);
-    // saveMatch(match!);
+    saveMatch(match!);
     context.pop();
   }
 
@@ -152,7 +152,7 @@ class _NewOnlineGamePageState extends ConsumerState<NewOnlineGamePage> {
     playingSub = null;
 
     match = await leaveMatch(match!, players);
-    // saveMatch(match!);
+    saveMatch(match!);
     context.pop();
   }
 

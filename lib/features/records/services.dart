@@ -60,6 +60,9 @@ List<dynamic> getPlayedMatchesQueries(String type) {
       type == "win" ? "winners" : "others",
       "contains",
       myId,
+      "time_end",
+      "null",
+      false,
     ],
   ];
 }

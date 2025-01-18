@@ -9,10 +9,17 @@ import 'models/user.dart';
 
 FirestoreMethods fm = FirestoreMethods();
 
-Future updateUserDetails(String type, String value) async {
+Future updateUserDetails(String type, String value,
+    [String? countryCode]) async {
   final time = timeNow;
-  await fm.updateValue(["users", myId],
-      value: {type: value, "time_modified": time});
+  await fm.updateValue([
+    "users",
+    myId
+  ], value: {
+    type: value,
+    "time_modified": time,
+    if (countryCode != null) "country_code": countryCode
+  });
   return saveUserProperty(myId, {type: value});
 }
 

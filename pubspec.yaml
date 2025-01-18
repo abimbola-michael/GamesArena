@@ -40,9 +40,8 @@ dependencies:
   firebase_messaging:
   firebase_database:
   firebase_crashlytics:
-  #firebase_analytics:
+  firebase_analytics:
   firebase_storage:
-  #firebase_crashlytics:
   cloud_firestore:
   flutter_local_notifications:
   google_sign_in:
@@ -94,6 +93,11 @@ dependencies:
   sim_card_info:
   permission_handler:
   flutter_dotenv:
+  package_info_plus:
+  #agora_rtc_engine:
+  webview_flutter:
+  # youtube_player_flutter:
+  # youtube_player_iframe:
 
 dev_dependencies:
   flutter_test:
