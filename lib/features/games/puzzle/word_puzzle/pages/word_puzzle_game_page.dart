@@ -547,17 +547,10 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
                 if (words.isEmpty) {
                   updateWin(player);
                 }
-                // if (isPlayerOne) {
-                //   player1Words.add(word);
-                //   //updateCount(player, player1Words.length);
-                // } else {
-                //   player2Words.add(word);
-                //   //updateCount(player, player2Words.length);
-                // }
-                //incrementCount(player);
+                showPlayerToast(player, "$word found");
               } else {
                 if (!dragging) {
-                  showPlayerToast(player, "Invalid word! Try again");
+                  showPlayerToast(player, "$word not in words");
                 }
               }
             }
@@ -781,91 +774,14 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
               ),
             ),
           )),
-      // child: AspectRatio(
-      //   aspectRatio: 1 / 1,
-      //   child: Column(
-      //     children: List.generate(2, (pindex) {
-      //       return Expanded(
-      //         child: RotatedBox(
-      //           quarterTurns: (gameId.isEmpty && pindex == 0) ||
-      //                   (gameId.isNotEmpty && currentPlayer == 0)
-      //               ? 2
-      //               : 0,
-      //           child: GestureDetector(
-      //             behavior: HitTestBehavior.opaque,
-      //             onPanStart: (details) =>
-      //                 startDrawingLine(details, pindex),
-      //             onPanUpdate: (details) =>
-      //                 updateDrawingLine(details, pindex),
-      //             onPanEnd: (details) => endDrawingLine(details, pindex),
-      //             child: CustomPaint(
-      //               foregroundPainter: MatchLinesPainter(
-      //                 context: context,
-      //                 gridSize: gridSize,
-      //                 matchLines: matchLines,
-      //                 draggedMatchLines: draggedMatchLines,
-      //                 player: pindex,
-      //               ),
-      //               child: Container(
-      //                 decoration:
-      //                     BoxDecoration(border: Border.all(color: tint)),
-      //                 child: GridView(
-      //                   physics: const NeverScrollableScrollPhysics(),
-      //                   padding: EdgeInsets.zero,
-      //                   gridDelegate:
-      //                       SliverGridDelegateWithFixedCrossAxisCount(
-      //                           crossAxisCount: gridSize,
-      //                           crossAxisSpacing: 0,
-      //                           mainAxisSpacing: 0),
-      //                   children: List.generate(gridSize * (gridSize ~/ 2),
-      //                       (index) {
-      //                     final coordinates =
-      //                         convertToGrid(index, gridSize);
-      //                     final rowindex = coordinates[0];
-      //                     final colindex = coordinates[1];
-
-      //                     // final wordPuzzles = pindex == 0
-      //                     //     ? player1WordPuzzles
-      //                     //     : player2WordPuzzles;
-      //                     if (wordPuzzles.isEmpty) return Container();
-      //                     final wordPuzzle =
-      //                         wordPuzzles[colindex][rowindex];
-      //                     return WordPuzzleTile(
-      //                         key: Key("${wordPuzzle.x}:${wordPuzzle.y}"),
-      //                         gameId: gameId,
-      //                         highLight: (pindex == 0 &&
-      //                                 player1SelectedOffset != null &&
-      //                                 player1SelectedOffset!.dx ==
-      //                                     rowindex &&
-      //                                 player1SelectedOffset!.dy ==
-      //                                     colindex) ||
-      //                             (pindex == 1 &&
-      //                                 player2SelectedOffset != null &&
-      //                                 player2SelectedOffset!.dx ==
-      //                                     rowindex &&
-      //                                 player2SelectedOffset!.dy ==
-      //                                     colindex),
-      //                         wordPuzzle: wordPuzzle,
-      //                         onPressed: () {
-      //                           playChar(index, pindex, false);
-      //                         },
-      //                         blink: false);
-      //                   }),
-      //                 ),
-      //               ),
-      //             ),
-      //           ),
-      //         ),
-      //       );
-      //     }),
-      //   ),
-      // ),
     );
   }
 
   @override
   Widget buildBottomOrLeftChild(int index) {
-    if (index != currentPlayer || playersWords.isEmpty) return Container();
+    // if (index != currentPlayer || playersWords.isEmpty) return Container();
+    if (playersWords.isEmpty) return Container();
+
     final words = playersWords[index];
     return RotatedBox(
       quarterTurns: getStraightTurn(index),

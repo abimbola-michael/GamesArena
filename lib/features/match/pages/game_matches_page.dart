@@ -31,6 +31,7 @@ import '../providers/search_matches_provider.dart';
 import '../../user/models/user.dart';
 import '../../user/services.dart';
 import '../../profile/pages/game_profile_page.dart';
+import 'package:auto_size_text/auto_size_text.dart';
 
 class GameMatchesPage extends ConsumerStatefulWidget {
   final GameList? gameList;
@@ -54,6 +55,7 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
   String type = "", game_id = "";
   Game? game;
   List<Match> matches = [];
+
   List<User> users = [];
   List<String> players = [];
   GameList? gameList;
@@ -119,79 +121,127 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
     setState(() {});
   }
 
-  void loadMatches() {
-    final allMatches = matchesBox.values.map((map) => Match.fromJson(map));
-
+  bool getMatchCondition(Match match) {
     switch (widget.type) {
       case "":
-        matches =
-            allMatches.where((match) => match.game_id == game_id).toList();
-        break;
+        return match.game_id == game_id;
+
       case "play":
-        matches = allMatches
-            .where((match) =>
-                match.game_id == game_id &&
-                match.outcome != "" &&
-                match.players!.contains(myId))
-            .toList();
-        break;
+        return match.game_id == game_id &&
+            match.outcome != "" &&
+            match.players!.contains(myId);
       case "win":
-        matches = allMatches
-            .where((match) =>
-                match.game_id == game_id &&
-                match.outcome == "win" &&
-                match.winners!.contains(myId) &&
-                match.time_start != null &&
-                match.time_end != null)
-            .toList();
-        break;
+        return match.game_id == game_id &&
+            match.outcome == "win" &&
+            match.winners!.contains(myId) &&
+            match.time_start != null &&
+            match.time_end != null;
 
       case "draw":
-        matches = allMatches
-            .where((match) =>
-                match.game_id == game_id &&
-                match.outcome == "draw" &&
-                match.others!.contains(myId) &&
-                match.time_start != null &&
-                match.time_end != null)
-            .toList();
-        break;
+        return match.game_id == game_id &&
+            match.outcome == "draw" &&
+            match.others!.contains(myId) &&
+            match.time_start != null &&
+            match.time_end != null;
 
       case "loss":
-        matches = allMatches
-            .where((match) =>
-                match.game_id == game_id &&
-                match.outcome == "win" &&
-                match.others!.contains(myId) &&
-                match.time_start != null &&
-                match.time_end != null)
-            .toList();
-        break;
+        return match.game_id == game_id &&
+            match.outcome == "win" &&
+            match.others!.contains(myId) &&
+            match.time_start != null &&
+            match.time_end != null;
 
       case "incomplete":
-        matches = allMatches
-            .where((match) =>
-                match.game_id == game_id &&
-                match.outcome != "" &&
-                match.time_start != null &&
-                match.time_end == null &&
-                match.players!.contains(myId))
-            .toList();
-        break;
+        return match.game_id == game_id &&
+            match.outcome != "" &&
+            match.time_start != null &&
+            match.time_end == null &&
+            match.players!.contains(myId);
 
       case "missed":
-        matches = allMatches
-            .where((match) =>
-                match.game_id == game_id &&
-                match.outcome == "" &&
-                match.players!.contains(myId))
-            .toList();
-        break;
+        return match.game_id == game_id &&
+            match.outcome == "" &&
+            match.players!.contains(myId);
     }
+    return false;
+  }
 
+  void loadMatches() {
+    // final allMatches = matchesBox.values.map((map) => Match.fromJson(map)).where((match) => getMatchCondition(match));
+
+    // switch (widget.type) {
+    //   case "":
+    //     matches =
+    //         allMatches.where((match) => match.game_id == game_id).toList();
+    //     break;
+    //   case "play":
+    //     matches = allMatches
+    //         .where((match) =>
+    //             match.game_id == game_id &&
+    //             match.outcome != "" &&
+    //             match.players!.contains(myId))
+    //         .toList();
+    //     break;
+    //   case "win":
+    //     matches = allMatches
+    //         .where((match) =>
+    //             match.game_id == game_id &&
+    //             match.outcome == "win" &&
+    //             match.winners!.contains(myId) &&
+    //             match.time_start != null &&
+    //             match.time_end != null)
+    //         .toList();
+    //     break;
+
+    //   case "draw":
+    //     matches = allMatches
+    //         .where((match) =>
+    //             match.game_id == game_id &&
+    //             match.outcome == "draw" &&
+    //             match.others!.contains(myId) &&
+    //             match.time_start != null &&
+    //             match.time_end != null)
+    //         .toList();
+    //     break;
+
+    //   case "loss":
+    //     matches = allMatches
+    //         .where((match) =>
+    //             match.game_id == game_id &&
+    //             match.outcome == "win" &&
+    //             match.others!.contains(myId) &&
+    //             match.time_start != null &&
+    //             match.time_end != null)
+    //         .toList();
+    //     break;
+
+    //   case "incomplete":
+    //     matches = allMatches
+    //         .where((match) =>
+    //             match.game_id == game_id &&
+    //             match.outcome != "" &&
+    //             match.time_start != null &&
+    //             match.time_end == null &&
+    //             match.players!.contains(myId))
+    //         .toList();
+    //     break;
+
+    //   case "missed":
+    //     matches = allMatches
+    //         .where((match) =>
+    //             match.game_id == game_id &&
+    //             match.outcome == "" &&
+    //             match.players!.contains(myId))
+    //         .toList();
+    //     break;
+    // }
+    matches = matchesBox.values
+        .map((map) => Match.fromJson(map))
+        .where((match) => getMatchCondition(match))
+        .toList();
     matches.sortList((match) => match.time_created, true);
 
-    if (gameList == null && matches.isNotEmpty) {
+    if (gameList != null && matches.isNotEmpty) {
       final firstMatch = matches.first;
       bool changed = false;
       if (gameList != null && (gameList!.unseen ?? 0) > 0) {
@@ -364,7 +414,9 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
       gameList = currentGameList;
     }
 
-    if (currentMatch != null && currentMatch.game_id == game_id) {
+    if (currentMatch != null &&
+        currentMatch.game_id == game_id &&
+        getMatchCondition(currentMatch)) {
       final matchIndex = this
           .matches
           .indexWhere((match) => match.match_id == currentMatch.match_id);
@@ -377,10 +429,9 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
             match.time_modified != currentMatch.time_modified) {
           this.matches[matchIndex] = currentMatch;
         }
+      } else {
+        this.matches.insert(0, currentMatch);
       }
-      //  else {
-      //   this.matches.insert(0, currentMatch);
-      // }
     }
 
     final matches = searchString.isEmpty
@@ -426,25 +477,19 @@ class _GameMatchesPageState extends ConsumerState<GameMatchesPage>
                           ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                gameList?.game?.users != null
-                                    ? getOtherPlayersUsernames(
-                                        gameList!.game!.users!)
-                                    : gameList?.game?.groupName != null
-                                        ? gameList!.game!.groupName!
-                                        : "",
-                                style: TextStyle(
-                                    fontSize: 18,
-                                    color: tint,
-                                    fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            ],
+                          child: AutoSizeText(
+                            gameList?.game?.users != null
+                                ? getOtherPlayersUsernames(
+                                    gameList!.game!.users!)
+                                : gameList?.game?.groupName != null
+                                    ? gameList!.game!.groupName!
+                                    : "",
+                            style: TextStyle(
+                                fontSize: 16,
+                                color: tint,
+                                fontWeight: FontWeight.bold),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         )
                       ],

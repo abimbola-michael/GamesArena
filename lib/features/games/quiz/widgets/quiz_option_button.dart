@@ -30,7 +30,7 @@ class QuizOptionButton extends StatelessWidget {
         : index == selectedAnswer
             ? rightAnswer != null && selectedAnswer != rightAnswer
                 ? Colors.red
-                : Colors.purple
+                : primaryColor
             : null;
     return GestureDetector(
       onTap: onPressed,

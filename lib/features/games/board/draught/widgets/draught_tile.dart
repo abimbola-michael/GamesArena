@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
 import '../../../../../shared/widgets/svg_asset.dart';
+import '../../../../../theme/colors.dart';
 import '../models/draught.dart';
 
 Color tileLightColor = const Color(0xFFF0D9B5);
@@ -40,7 +41,7 @@ class DraughtTileWidget extends StatelessWidget {
           height: double.infinity,
           alignment: Alignment.center,
           color: draughtTile != null && highLight
-              ? Colors.purple
+              ? primaryColor
               : (x + y).isOdd
                   ? tileDarkColor
                   : tileLightColor,

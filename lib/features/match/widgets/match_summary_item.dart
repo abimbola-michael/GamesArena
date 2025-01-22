@@ -15,8 +15,10 @@ class MatchSummaryItem extends StatelessWidget {
 
   Widget textWidget(BuildContext context, Color color, String action) {
     return Text(
-      "${match.games!.toStringWithCommaandAnd((t) => t)}, $action",
+      "$action, ${match.games!.toStringWithCommaandAnd((t) => t)}",
       style: context.bodyMedium?.copyWith(fontSize: 11, color: color),
+      overflow: TextOverflow.ellipsis,
+      maxLines: 1,
     );
   }
 
@@ -35,33 +37,31 @@ class MatchSummaryItem extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    user?.username ?? "",
-                    style: context.bodyMedium?.copyWith(
-                        fontSize: fontSize, fontWeight: FontWeight.w500),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
+                  Flexible(
+                    child: Text(
+                      user?.username ?? "",
+                      style: context.bodyMedium?.copyWith(
+                          fontSize: fontSize, fontWeight: FontWeight.w500),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
                   if (score != -1) ...[
                     const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        "$score",
-                        style: context.bodyMedium?.copyWith(
-                            fontSize: fontSize, fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
+                    Text(
+                      "$score",
+                      style: context.bodyMedium?.copyWith(
+                          fontSize: fontSize, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     )
                   ],
                   if (index != match.players!.length - 1)
-                    Flexible(
-                      child: Text(
-                        " - ",
-                        style: context.bodyMedium?.copyWith(fontSize: fontSize),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
+                    Text(
+                      " - ",
+                      style: context.bodyMedium?.copyWith(fontSize: fontSize),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                 ],
               ),

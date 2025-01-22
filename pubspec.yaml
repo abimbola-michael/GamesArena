@@ -98,6 +98,8 @@ dependencies:
   webview_flutter:
   # youtube_player_flutter:
   # youtube_player_iframe:
+  auto_size_text:
+  webview_all:
 
 dev_dependencies:
   flutter_test:

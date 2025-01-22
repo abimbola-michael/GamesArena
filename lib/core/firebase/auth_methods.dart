@@ -23,18 +23,27 @@ class AuthMethods {
     }
   }
 
-  Future<UserCredential?> login(String email, String password) async {
+  Future<UserCredential?> login(String email, String password,
+      {AuthCredential? credential}) async {
     try {
-      return _auth.signInWithEmailAndPassword(email: email, password: password);
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+          email: email, password: password);
+      if (credential != null) {
+        await userCredential.user?.linkWithCredential(credential);
+      }
+      return userCredential;
     } on FirebaseException catch (e) {
       return null;
     }
   }
 
-  Future<User?> signInWithGoogle() async {
+  Future<User?> signInWithGoogle(
+      {void Function(AuthCredential? credential, String? email)?
+          onAccountExist}) async {
+    GoogleSignInAccount? googleUser;
     try {
       // Trigger the Google Sign-In process
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         return null; // User canceled the sign-in
       }
@@ -56,6 +65,18 @@ class AuthMethods {
       // Return the signed-in user
       return userCredential.user;
     } catch (e) {
+      if (e is FirebaseAuthException &&
+          e.code == 'account-exists-with-different-credential') {
+        if (onAccountExist != null) {
+          onAccountExist(e.credential, e.email);
+        }
+      } else {
+        if (googleUser != null) {
+          _googleSignIn.signOut();
+          _googleSignIn.disconnect();
+        }
+      }
+
       print("Error signing in with Google: $e");
       return null;
     }
@@ -63,6 +84,12 @@ class AuthMethods {
 
   bool get isPasswordAuthentication =>
       _auth.currentUser?.providerData.first.providerId == "password";
+
+  bool get hasPasswordAuthentication =>
+      _auth.currentUser?.providerData
+          .where((info) => info.providerId == "password")
+          .isNotEmpty ??
+      false;
 
   Future<void> logOut() async {
     try {

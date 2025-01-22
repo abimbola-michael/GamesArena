@@ -107,8 +107,7 @@ class _MatchesPageState extends ConsumerState<MatchesPage>
 
     await getGameListMatchesAndDetails(newGameLists);
 
-    if (gameLists.isEmpty) {
-      if (!mounted) return;
+    if (isHomeResumed && gameLists.isEmpty) {
       Future.delayed(const Duration(seconds: 5)).then((value) {
         context.pushTo(const TutorialsPage());
       });
@@ -207,7 +206,9 @@ class _MatchesPageState extends ConsumerState<MatchesPage>
               gameMatches.add(match);
             }
             if (matchesBox.get(match.match_id) == null &&
-                match.creator_id != myId) {
+                match.creator_id != myId &&
+                (gameList.time_seen == null ||
+                    match.time_created!.toInt > gameList.time_seen!.toInt)) {
               gameList.unseen = (gameList.unseen ?? 0) + 1;
             }
 
@@ -325,12 +326,19 @@ class _MatchesPageState extends ConsumerState<MatchesPage>
             ? GameList.fromJson(gameListJson)
             : null;
     if (gameList != null) {
-      if (matchesBox.get(match.match_id) == null && match.creator_id != myId) {
+      if (matchesBox.get(match.match_id) == null &&
+          match.creator_id != myId &&
+          (gameList.time_seen == null ||
+              match.time_created!.toInt > gameList.time_seen!.toInt)) {
         gameList.unseen = (gameList.unseen ?? 0) + 1;
       }
       gameList.match = match;
       gameListsBox.put(gameList.game_id, gameList.toJson());
-      gameLists[gameListIndex] = gameList;
+      if (gameListIndex == -1) {
+        gameLists.add(gameList);
+      } else {
+        gameLists[gameListIndex] = gameList;
+      }
     } else {}
 
     matchesBox.put(match.match_id, match.toJson());
@@ -515,24 +523,6 @@ class _MatchesPageState extends ConsumerState<MatchesPage>
         ),
       ],
     );
-
-    // return ListView.builder(
-    //     itemCount: gameLists.length + (loading ? 1 : 0),
-    //     itemBuilder: (context, index) {
-    //       if (index == 0 && loading) {
-    //         return const Center(child: CircularProgressIndicator());
-    //       }
-    //       final gameList = gameLists[loading ? index - 1 : index];
-
-    //       return GameListItem(
-    //         key: Key(gameList.game_id),
-    //         gameList: gameList,
-    //         onPressed: () {
-    //           context.pushTo(GameMatchesPage(
-    //               gameList: gameList, game_id: gameList.game_id));
-    //         },
-    //       );
-    //     });
   }
 
   @override

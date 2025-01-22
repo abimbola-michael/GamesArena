@@ -63,6 +63,7 @@ class ColumnOrRow extends StatelessWidget {
   final MainAxisAlignment mainAxisAlignment;
   final CrossAxisAlignment crossAxisAlignment;
   final MainAxisSize mainAxisSize;
+  final VerticalDirection verticalDirection;
   const ColumnOrRow({
     super.key,
     required this.column,
@@ -70,6 +71,7 @@ class ColumnOrRow extends StatelessWidget {
     this.mainAxisAlignment = MainAxisAlignment.start,
     this.crossAxisAlignment = CrossAxisAlignment.center,
     this.mainAxisSize = MainAxisSize.max,
+    this.verticalDirection = VerticalDirection.down,
   });
 
   @override
@@ -79,12 +81,14 @@ class ColumnOrRow extends StatelessWidget {
             mainAxisAlignment: mainAxisAlignment,
             crossAxisAlignment: crossAxisAlignment,
             mainAxisSize: mainAxisSize,
+            verticalDirection: verticalDirection,
             children: children,
           )
         : Row(
             mainAxisAlignment: mainAxisAlignment,
             crossAxisAlignment: crossAxisAlignment,
             mainAxisSize: mainAxisSize,
+            verticalDirection: verticalDirection,
             children: children,
           );
   }

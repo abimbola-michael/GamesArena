@@ -522,7 +522,8 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                   child: Text(
                     "Players: ${selectedUsers.length} / $maxPlayers",
                     style: context.bodyMedium,
@@ -532,7 +533,8 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
                   SizedBox(
                     height: 80,
                     child: ListView.builder(
-                        primary: true,
+                        // primary: true,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
                         shrinkWrap: true,
                         scrollDirection: Axis.horizontal,
                         itemCount: selectedUsers.length,
@@ -560,6 +562,7 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
                 ],
                 Expanded(
                   child: ListView.builder(
+                      padding: const EdgeInsets.only(bottom: 100),
                       itemCount:
                           users.length + (users.isNotEmpty && loading ? 1 : 0),
                       itemBuilder: (context, index) {

@@ -57,6 +57,9 @@ void shareTextInvite({String? name, Match? match}) async {
 
 void shareContactInvite(String platform, String phoneNumber,
     [String? name]) async {
+  if (name != null && name.replaceAll(RegExp(r"\D"), "").trim().isEmpty) {
+    name = null;
+  }
   if (platform == "WhatsApp") {
     launchUrl(getWhatsAppUri(phoneNumber, name));
   } else if (platform == "SMS") {

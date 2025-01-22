@@ -69,11 +69,11 @@ class _SettingsAndMorePageState extends State<SettingsAndMorePage> {
     final comfirm = await context.showComfirmationDialog(
         title: "Delete Account",
         message:
-            "Are you sure you want to delete account?\nThis is an irreversible process and every would be deleted\nYou would no longer be able to play online games with this account\nYou cannot create a new account using the same email address");
+            "Are you sure you want to delete account?\nThis is an irreversible process\nYou would no longer be able to login and play online games with this account\nYou cannot create a new account using the same email address");
     if (comfirm != true) return;
     try {
       await deleteUser();
-      await am.deleteAccount();
+      //await am.deleteAccount();
       am.logOut();
       Hive.box<String>("details").delete("dailyLimit");
       Hive.box<String>("details").delete("dailyLimitDate");

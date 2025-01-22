@@ -1455,7 +1455,7 @@ class _LudoGamePageState extends BaseGamePageState<LudoGamePage> {
                                             height: cellSize,
                                             decoration: BoxDecoration(
                                               color: selectedLudo == ludo
-                                                  ? Colors.purple
+                                                  ? primaryColor
                                                   : null,
                                               shape: BoxShape.circle,
                                               // borderRadius:

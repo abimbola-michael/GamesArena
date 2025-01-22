@@ -9,16 +9,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_gemini/flutter_gemini.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:gamesarena/features/games/quiz/widgets/quiz_action_button.dart';
 import 'package:gamesarena/features/games/quiz/widgets/quiz_option_button.dart';
 import 'package:gamesarena/main.dart';
-import 'package:gamesarena/shared/widgets/action_button.dart';
 
 import 'package:gamesarena/features/game/pages/base_game_page.dart';
 import 'package:gamesarena/theme/colors.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:icons_plus/icons_plus.dart';
-import 'package:openai_dart/openai_dart.dart';
 
 import '../../../../shared/services.dart';
 import '../../../../shared/utils/call_utils.dart';
@@ -27,6 +24,8 @@ import '../../../../shared/widgets/app_button.dart';
 import '../../../game/models/game_action.dart';
 import '../../../../shared/views/loading_view.dart';
 import '../models/quiz.dart';
+import '../utils/quizzes.dart';
+import '../widgets/quiz_action_button.dart';
 
 class QuizGamePage extends BaseGamePage {
   static const route = "/quiz";
@@ -50,7 +49,7 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
   List<Quiz> quizzes = [];
 
   int questionsLength = 10;
-  int currentQuestion = 0;
+  int currentQuestion = -1;
   int answeredQuestion = -1;
 
   //OpenAI? openAI;
@@ -208,9 +207,33 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
     getResults();
   }
 
+  Future showAnswers() async {
+    final players = getActivePlayersIndices();
+
+    List<String> messages = [];
+    for (int i = 0; i < players.length; i++) {
+      final player = players[i];
+      final quiz = playersQuizzes[player][currentQuestion];
+      messages.add(quiz.selectedAnswer != null
+          ? quiz.options[quiz.selectedAnswer!]
+          : "No answer");
+      showPlayerToast(
+          player,
+          quiz.selectedAnswer != null
+              ? quiz.options[quiz.selectedAnswer!]
+              : "No answer");
+      if (!seeking) await Future.delayed(const Duration(seconds: 1));
+    }
+    // showPlayerToasts(messages);
+  }
+
   Future getResults() async {
     stopPlayerTime = true;
     setState(() {});
+
+    await showAnswers();
+
+    if (!seeking) await Future.delayed(const Duration(seconds: 3));
 
     showPlayerToast(currentPlayer, "And your answer is ...");
 
@@ -611,7 +634,8 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
 
   @override
   Widget buildBottomOrLeftChild(int index) {
-    if (index != currentPlayer || playersQuizzes.isEmpty) return Container();
+    // if (index != currentPlayer || playersQuizzes.isEmpty) return Container();
+    if (playersQuizzes.isEmpty) return Container();
     final quizzes = playersQuizzes[index];
     return RotatedBox(
       quarterTurns: getStraightTurn(index),
@@ -677,20 +701,40 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
                 ]
               ],
             ),
-          if (!finishedAnsweringQuestions &&
+          // if (quizzes.isNotEmpty)
+          //   quizzes[currentQuestion].selectedAnswer == null ||
+          //           index > answeredQuestion ||
+          //           getUnSubmittedPlayers().isNotEmpty
+          //       ? const SizedBox()
+          //       : Container(
+          //           padding: const EdgeInsets.symmetric(
+          //               horizontal: 20, vertical: 10),
+          //           decoration: BoxDecoration(
+          //               color: lightestTint,
+          //               borderRadius: BorderRadius.circular(20)),
+          //           child: Text(
+          //             quizzes[currentQuestion]
+          //                 .options[quizzes[currentQuestion].selectedAnswer!],
+          //             style: context.bodyMedium?.copyWith(color: tint),
+          //             maxLines: 1,
+          //             overflow: TextOverflow.ellipsis,
+          //           ),
+          //         ),
+          if (index == myPlayer &&
+              !finishedAnsweringQuestions &&
               selectedAnswer != null &&
               playersQuizzes[currentPlayer][currentQuestion].selectedAnswer ==
                   null)
             AppButton(
                 title: "Submit",
-                height: 50,
+                height: 40,
                 wrapped: true,
-                bgColor: Colors.purple,
+                bgColor: primaryColor,
                 onPressed: () {
                   submitAnswer(selectedAnswer!, currentPlayer);
                 })
-          else if (!finishedAnsweringQuestions)
-            const SizedBox(height: 70),
+          // else if (!finishedAnsweringQuestions)
+          //   const SizedBox(height: 70),
         ],
       ),
     );

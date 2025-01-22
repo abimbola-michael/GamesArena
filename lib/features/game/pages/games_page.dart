@@ -94,10 +94,11 @@ class GamesPageState extends ConsumerState<GamesPage>
           boardGames.addAll(allBoardGames);
           cardGames.addAll(allCardGames);
         }
-        if ((widget.gameId ?? "").isNotEmpty) {
-          puzzleGames.addAll(allPuzzleGames);
-          quizGames.addAll(allQuizGames);
-        }
+        puzzleGames.addAll(allPuzzleGames);
+        quizGames.addAll(allQuizGames);
+        // if ((widget.gameId ?? "").isNotEmpty) {
+
+        // }
       }
     } else {
       cardGames.addAll(allCardGames);
@@ -398,6 +399,7 @@ class GamesPageState extends ConsumerState<GamesPage>
                                     .toList();
                             return SingleChildScrollView(
                               // primary: true,
+                              padding: const EdgeInsets.only(bottom: 100),
                               scrollDirection: Axis.vertical,
                               child: Wrap(
                                 direction: Axis.horizontal,
@@ -425,7 +427,8 @@ class GamesPageState extends ConsumerState<GamesPage>
                 )
               : Center(
                   child: SingleChildScrollView(
-                    primary: true,
+                    // primary: true,
+                    padding: const EdgeInsets.only(bottom: 100),
                     scrollDirection: Axis.vertical,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,

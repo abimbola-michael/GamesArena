@@ -19,6 +19,7 @@ import '../../../shared/services.dart';
 import '../../../shared/utils/utils.dart';
 import 'splash_screen_page.dart';
 
+
 class MainPage extends ConsumerStatefulWidget {
   const MainPage({super.key});
 
@@ -52,9 +53,7 @@ class _MainPageState extends ConsumerState<MainPage> {
     ref.read(themeNotifierProvider.notifier).toggleTheme(themeValue);
 
     // await AuthMethods().logOut();
-    //if (privateKey != null) {
-    //   Gemini.init(apiKey: privateKey!.chatGptApiKey);
-    // }
+    
     firebaseNotification.initNotification();
 
     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {

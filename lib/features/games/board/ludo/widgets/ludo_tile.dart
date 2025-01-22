@@ -2,6 +2,7 @@ import 'package:gamesarena/shared/widgets/blinking_border_container.dart';
 import 'package:gamesarena/enums/emums.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:flutter/material.dart';
+import '../../../../../theme/colors.dart';
 import '../models/ludo.dart';
 import '../../../../../shared/utils/utils.dart';
 
@@ -40,7 +41,7 @@ class LudoTileWidget extends StatelessWidget {
             border: Border.all(
                 color: darkMode ? Colors.white : Colors.black, width: 1),
             color: ludoTile != null && highLight
-                ? Colors.purple
+                ? primaryColor
                 : useColor(pos)
                     ? convertToColor(color)
                     : null,

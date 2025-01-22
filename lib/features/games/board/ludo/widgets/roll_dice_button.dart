@@ -2,8 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gamesarena/shared/providers/player_timer_provider.dart';
+
 import 'package:gamesarena/theme/colors.dart';
 
 import '../../../../../shared/widgets/blinking_border_container.dart';
@@ -48,7 +47,7 @@ class RollDiceButton extends StatelessWidget {
                     total: 30,
                     width: 70,
                     height: 70,
-                    progressColor: Colors.purple,
+                    progressColor: primaryColor,
                     strokeColor: lighterTint,
                     backgroundColor: Colors.transparent,
                     strokeWidth: 4,

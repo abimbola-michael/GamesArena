@@ -3,6 +3,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import '../../../../../enums/emums.dart';
 import '../../../../../shared/widgets/svg_asset.dart';
+import '../../../../../theme/colors.dart';
 import '../models/chess.dart';
 import '../../../../../shared/widgets/blinking_border_container.dart';
 
@@ -96,7 +97,7 @@ class ChessTileWidget extends StatelessWidget {
         width: size,
         alignment: Alignment.center,
         color: chessTile != null && highLight
-            ? Colors.purple
+            ? primaryColor
             : (x + y).isOdd
                 ? tileDarkColor
                 : tileLightColor,

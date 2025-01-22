@@ -1,6 +1,8 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
+
 class Whot {
   String id;
   int number;
@@ -62,21 +64,26 @@ class WhotDetails {
   String? whotIndices;
   int? playPos;
   int? shapePos;
+  List<int>? deckPoses;
+
   WhotDetails({
     this.whotIndices,
     this.playPos,
     this.shapePos,
+    this.deckPoses,
   });
 
   WhotDetails copyWith({
     String? whotIndices,
     int? playPos,
     int? shapePos,
+    List<int>? deckPoses,
   }) {
     return WhotDetails(
       whotIndices: whotIndices ?? this.whotIndices,
       playPos: playPos ?? this.playPos,
       shapePos: shapePos ?? this.shapePos,
+      deckPoses: deckPoses ?? this.deckPoses,
     );
   }
 
@@ -85,6 +92,7 @@ class WhotDetails {
       'whotIndices': whotIndices,
       'playPos': playPos,
       'shapePos': shapePos,
+      'deckPoses': deckPoses,
     };
   }
 
@@ -94,6 +102,9 @@ class WhotDetails {
           map['whotIndices'] != null ? map['whotIndices'] as String : null,
       playPos: map['playPos'] != null ? map['playPos'] as int : null,
       shapePos: map['shapePos'] != null ? map['shapePos'] as int : null,
+      deckPoses: map['deckPoses'] != null
+          ? List<int>.from((map['deckPoses'] as List<dynamic>))
+          : null,
     );
   }
 
@@ -103,19 +114,26 @@ class WhotDetails {
       WhotDetails.fromMap(json.decode(source) as Map<String, dynamic>);
 
   @override
-  String toString() =>
-      'WhotDetails(whotIndices: $whotIndices, playPos: $playPos, shapePos: $shapePos)';
+  String toString() {
+    return 'WhotDetails(whotIndices: $whotIndices, playPos: $playPos, shapePos: $shapePos, deckPoses: $deckPoses)';
+  }
 
   @override
   bool operator ==(covariant WhotDetails other) {
     if (identical(this, other)) return true;
+    final listEquals = const DeepCollectionEquality().equals;
 
     return other.whotIndices == whotIndices &&
         other.playPos == playPos &&
-        other.shapePos == shapePos;
+        other.shapePos == shapePos &&
+        listEquals(other.deckPoses, deckPoses);
   }
 
   @override
-  int get hashCode =>
-      whotIndices.hashCode ^ playPos.hashCode ^ shapePos.hashCode;
+  int get hashCode {
+    return whotIndices.hashCode ^
+        playPos.hashCode ^
+        shapePos.hashCode ^
+        deckPoses.hashCode;
+  }
 }

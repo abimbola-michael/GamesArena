@@ -398,8 +398,7 @@ class _NewOnlineGamePageState extends ConsumerState<NewOnlineGamePage> {
                               itemCount: users.length,
                               itemBuilder: (context, index) {
                                 final user = users[index];
-                                return UserItem(
-                                    showCheck: false, user: user, type: "");
+                                return UserItem(user: user, type: "");
                               }),
                         ),
                       ],
@@ -424,7 +423,8 @@ class _NewOnlineGamePageState extends ConsumerState<NewOnlineGamePage> {
                   bgColor: Colors.red,
                 ),
               ),
-              if (!creatorIsMe) ...[
+              if (!creatorIsMe ||
+                  players.indexWhere((player) => player.id == myId) == -1) ...[
                 // const SizedBox(
                 //   width: 20,
                 // ),

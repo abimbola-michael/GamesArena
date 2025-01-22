@@ -2,6 +2,7 @@ import 'package:gamesarena/enums/emums.dart';
 import 'package:flutter/material.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 
+import '../../../../../theme/colors.dart';
 import '../models/match_line.dart';
 
 List<Color> pathColors = [
@@ -50,12 +51,12 @@ class MatchLinesPainter extends CustomPainter {
         // final color = line.player == 1 ? Colors.blue : Colors.red;
         //pathColors[line.wordIndex]
         // final color = line.wordIndex == -1
-        //     ? Colors.purple
+        //     ? primaryColor
         //     : line.player == 1
         //         ? Colors.blue
         //         : Colors.red;
         final color = line.wordIndex == -1
-            ? Colors.purple
+            ? primaryColor
             : [...Colors.primaries, ...Colors.accents][line.wordIndex];
         double lineHeight = size - 2;
         Paint paint = Paint()

@@ -179,7 +179,8 @@ String getOtherPlayersUsernames(List<User> users) {
       .where((user) => user.user_id != myId)
       .map((e) => e.username)
       .toList()
-      .toStringWithCommaandAnd((t) => t);
+      .join(" & ");
+  // .toStringWithCommaandAnd((t) => t);
 }
 
 String getAllPlayersUsernames(List<User> users) {
@@ -238,8 +239,11 @@ double getMatchRecordDuration(MatchRecord record) {
   if (record.time_end == null) return 0;
   double duration = 0;
   for (int i = 0; i < record.rounds.length; i++) {
-    final round = MatchRound.fromMap(record.rounds["$i"]);
-    duration += round.duration;
+    final roundMap = record.rounds["$i"];
+    if (roundMap != null) {
+      final round = MatchRound.fromMap(roundMap);
+      duration += round.duration;
+    }
   }
   return duration;
 }
@@ -351,6 +355,22 @@ String getGamesWonMessage(List<String> games) {
       : "${messages.toStringWithCommaandAnd((t) => t.capitalize)} game${games.length == 1 ? "" : "s"}";
 
   // return "${messages.isEmpty ? "0" : messages.toStringWithCommaandAnd((t) => t.capitalize)} game${games.length == 1 ? "" : "s"}";
+}
+
+int getPlayerOverallScore(Match match, String playerId) {
+  if ((match.players ?? []).isEmpty) return -1;
+  final overallOutcome = getMatchOverallOutcome(match);
+  final allScores = overallOutcome.scores;
+  final playerIndex = match.players!.indexWhere((id) => id == playerId);
+  if (playerIndex == -1) return -1;
+  return allScores[playerIndex];
+}
+
+String getOverallMatchOutcomeMessage(Match match) {
+  final overallOutcome = getMatchOverallOutcome(match);
+  return getMatchOutcomeMessageFromScores(
+      overallOutcome.scores.toList().cast(), match.players!,
+      users: match.users);
 }
 
 MatchOverallOutcome getMatchOverallOutcome(Match match) {

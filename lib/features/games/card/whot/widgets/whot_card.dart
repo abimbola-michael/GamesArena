@@ -10,135 +10,154 @@ import '../pages/whot_game_page.dart';
 
 Color cardColor = const Color(0xff722f37);
 
-class WhotCard extends StatefulWidget {
+class WhotCard extends StatelessWidget {
   final double height, width;
   final Whot whot;
+  final int? count;
   final VoidCallback? onPressed;
+  final VoidCallback? onDoubleTap;
+
   final VoidCallback? onLongPressed;
   final bool isBackCard;
   final bool blink;
+  final bool highlight;
+
   final double? margin;
   const WhotCard({
     super.key,
     required this.height,
     required this.width,
     required this.whot,
+    this.count,
     this.onPressed,
+    this.onDoubleTap,
     this.onLongPressed,
     this.isBackCard = false,
     required this.blink,
+    required this.highlight,
     this.margin,
   });
 
-  @override
-  State<WhotCard> createState() => _WhotCardState();
-}
+  double get fontSize => width.percentValue(15);
 
-class _WhotCardState extends State<WhotCard> {
-  double get fontSize => widget.width.percentValue(15);
-  double get iconSize => widget.width.percentValue(50);
-  double get radiusSize => widget.width.percentValue(10);
-  double get paddingSize => widget.width.percentValue(5);
+  double get iconSize => width.percentValue(50);
 
-  @override
-  void initState() {
-    super.initState();
-  }
+  double get radiusSize => width.percentValue(10);
+
+  double get paddingSize => width.percentValue(5);
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: widget.onPressed,
-      onLongPress: widget.onLongPressed,
+      onTap: onPressed,
+      onLongPress: onLongPressed,
+      onDoubleTap: onDoubleTap,
       child: BlinkingBorderContainer(
-          blink: widget.blink,
-          width: widget.width,
-          height: widget.height,
-          padding: EdgeInsets.all(paddingSize),
-          margin: EdgeInsets.all(widget.margin ?? paddingSize),
+          blink: blink,
+          width: width,
+          height: height,
+          // padding: EdgeInsets.all(paddingSize),
+          // margin: EdgeInsets.all(widget.margin ?? paddingSize),
           decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(radiusSize),
-              color: widget.isBackCard ? cardColor : Colors.white,
-              border: Border.all(color: cardColor, width: 1)),
-          child: widget.isBackCard
-              ? Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      "Whot",
-                      style: TextStyle(
-                        fontSize: fontSize,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: "Bookman",
-                      ),
-                    ),
-                    SizedBox(
-                      height: paddingSize,
-                    ),
-                    RotatedBox(
-                      quarterTurns: 2,
-                      child: Text(
-                        "Whot",
-                        style: TextStyle(
-                          fontSize: fontSize,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: "Bookman",
-                        ),
+              color: isBackCard ? cardColor : Colors.white,
+              border: Border.all(
+                  color: highlight ? primaryColor : cardColor,
+                  width: highlight ? 3 : 1)),
+          child: Stack(
+            children: [
+              isBackCard
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            "Whot",
+                            style: TextStyle(
+                              fontSize: fontSize,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: "Bookman",
+                            ),
+                          ),
+                          SizedBox(
+                            height: paddingSize,
+                          ),
+                          RotatedBox(
+                            quarterTurns: 2,
+                            child: Text(
+                              "Whot",
+                              style: TextStyle(
+                                fontSize: fontSize,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: "Bookman",
+                              ),
+                            ),
+                          )
+                        ],
                       ),
                     )
-                  ],
-                )
-              : Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Container(
-                        width: double.infinity,
-                        alignment: Alignment.topLeft,
-                        child: widget.whot.number == -1
-                            ? null
-                            : WhotShapeWithText(
-                                whot: widget.whot,
-                                width: widget.width,
-                              )),
-                    Center(
-                        child: getWhotIconWidget(
-                            widget.whot,
-                            widget.whot.shape == 5 ? fontSize : iconSize,
-                            "Whot")),
-                    Container(
-                        alignment: Alignment.bottomRight,
-                        width: double.infinity,
-                        child: widget.whot.number == -1
-                            ? null
-                            : RotatedBox(
-                                quarterTurns: 2,
-                                child: WhotShapeWithText(
-                                  whot: widget.whot,
-                                  width: widget.width,
-                                ),
-                              )),
-                  ],
-                )),
+                  : Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Container(
+                            width: double.infinity,
+                            alignment: Alignment.topLeft,
+                            child: whot.number == -1
+                                ? null
+                                : WhotShapeWithText(
+                                    whot: whot,
+                                    width: width,
+                                  )),
+                        Center(
+                            child: getWhotIconWidget(whot,
+                                whot.shape == 5 ? fontSize : iconSize, "Whot")),
+                        Container(
+                            alignment: Alignment.bottomRight,
+                            width: double.infinity,
+                            child: whot.number == -1
+                                ? null
+                                : RotatedBox(
+                                    quarterTurns: 2,
+                                    child: WhotShapeWithText(
+                                      whot: whot,
+                                      width: width,
+                                    ),
+                                  )),
+                      ],
+                    ),
+              if (count != null) ...[
+                Positioned(
+                  top: width.percentValue(5),
+                  right: width.percentValue(5),
+                  child: CountWidget(
+                    count: count!,
+                    size: width.percentValue(20),
+                    color: isBackCard
+                        ? Colors.white.withOpacity(0.1)
+                        : cardColor.withOpacity(0.1),
+                    textColor: isBackCard ? Colors.white : cardColor,
+                  ),
+                ),
+              ]
+            ],
+          )),
     );
   }
 }
 
-class WhotShapeWithText extends StatefulWidget {
+class WhotShapeWithText extends StatelessWidget {
   final Whot whot;
   final double width;
   const WhotShapeWithText({super.key, required this.whot, required this.width});
 
-  @override
-  State<WhotShapeWithText> createState() => _WhotShapeWithTextState();
-}
+  double get fontSize => width.percentValue(15);
 
-class _WhotShapeWithTextState extends State<WhotShapeWithText> {
-  double get fontSize => widget.width.percentValue(15);
-  double get iconSize => widget.width.percentValue(15);
-  double get paddingSize => widget.width.percentValue(5);
+  double get iconSize => width.percentValue(15);
+
+  double get paddingSize => width.percentValue(5);
 
   @override
   Widget build(BuildContext context) {
@@ -148,10 +167,10 @@ class _WhotShapeWithTextState extends State<WhotShapeWithText> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            "${widget.whot.number}",
+            "${whot.number}",
             style: TextStyle(fontSize: fontSize, color: cardColor),
           ),
-          getWhotIconWidget(widget.whot, iconSize)
+          getWhotIconWidget(whot, iconSize)
         ],
       ),
     );
@@ -223,18 +242,21 @@ Widget getWhotIconWidget(Whot whot, double size, [String text = "W"]) {
 class CountWidget extends StatelessWidget {
   final int count;
   final Color? color, textColor;
+  final double? size;
   const CountWidget(
-      {super.key, required this.count, this.color, this.textColor});
+      {super.key, required this.count, this.color, this.textColor, this.size});
 
   @override
   Widget build(BuildContext context) {
+    double countSize = size != null ? (size! / 2) : 10;
     return CircleAvatar(
-      radius: 10,
+      radius: countSize,
       backgroundColor: color ?? (darkMode ? lightestWhite : lightestBlack),
       child: Text(
         "$count",
         style: TextStyle(
-            fontSize: 10, color: textColor ?? (darkMode ? white : black)),
+            fontSize: countSize,
+            color: textColor ?? (darkMode ? white : black)),
       ),
     );
   }

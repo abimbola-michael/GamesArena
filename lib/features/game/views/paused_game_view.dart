@@ -426,15 +426,10 @@ class _PausedGameViewState extends State<PausedGameView> {
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
+
                                           Text(
                                             widget.finishedRound
-                                                ? getMatchOutcomeMessageFromWinners(
-                                                    widget.winners,
-                                                    widget.players
-                                                            ?.map((e) => e.id)
-                                                            .toList() ??
-                                                        [],
-                                                    users: widget.users)
+                                                ? "This round: ${getMatchOutcomeMessageFromWinners(widget.winners, widget.players?.map((e) => e.id).toList() ?? [], users: widget.users)}"
                                                 : widget.startingRound
                                                     ? "New Round"
                                                     : "Ongoing Round",
@@ -446,7 +441,6 @@ class _PausedGameViewState extends State<PausedGameView> {
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
-
                                           if ((widget.reason ?? "").isNotEmpty)
                                             Text(
                                               "Reason: ${widget.reason!}",
@@ -459,14 +453,27 @@ class _PausedGameViewState extends State<PausedGameView> {
                                           if (widget.finishedRound) ...[
                                             const SizedBox(height: 4),
                                             Text(
-                                              "So far ${getMatchOutcomeMessageFromScores(widget.playersScores, widget.players?.map((e) => e.id).toList() ?? [], users: widget.users)}",
+                                              "This record: ${getMatchOutcomeMessageFromScores(widget.playersScores, widget.players?.map((e) => e.id).toList() ?? [], users: widget.users)}",
                                               style: const TextStyle(
                                                 fontSize: 18,
                                                 color: Colors.white,
                                                 fontWeight: FontWeight.w600,
                                               ),
                                               textAlign: TextAlign.center,
-                                            )
+                                            ),
+                                            const SizedBox(height: 4),
+                                            if (widget.match != null) ...[
+                                              Text(
+                                                "Overall: ${getOverallMatchOutcomeMessage(widget.match!)}",
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                              const SizedBox(height: 4),
+                                            ]
                                           ],
                                           const SizedBox(height: 4),
 
@@ -575,20 +582,24 @@ class _PausedGameViewState extends State<PausedGameView> {
                                                           user?.profile_photo,
                                                       score: widget
                                                           .playersScores[i],
+                                                      overallScore: widget
+                                                                      .match ==
+                                                                  null ||
+                                                              widget.players ==
+                                                                  null
+                                                          ? null
+                                                          : getPlayerOverallScore(
+                                                              widget.match!,
+                                                              widget.players![i]
+                                                                  .id),
                                                       action: widget.isLastPage
                                                           ? changeGameMessage
                                                                   .isNotEmpty
                                                               ? changeGameMessage
-                                                              :
-                                                              // action.isEmpty ||
-                                                              //         action ==
-                                                              //             "pause"
-                                                              //     ?
-                                                              winnerOrExemptPlayerMessage
+                                                              : winnerOrExemptPlayerMessage
                                                                       .isNotEmpty
                                                                   ? winnerOrExemptPlayerMessage
                                                                   : action
-                                                          // : action
                                                           : winnerOrExemptPlayerMessage,
                                                       callMode:
                                                           player?.callMode,

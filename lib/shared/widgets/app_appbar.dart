@@ -1,4 +1,5 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:icons_plus/icons_plus.dart';
@@ -47,7 +48,7 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
               Align(
                 alignment: Alignment.center,
                 child: Padding(
-                  padding: const EdgeInsets.only(left: 40, right: 70),
+                  padding: const EdgeInsets.only(left: 40, right: 90),
                   child: middle!,
                 ),
               )
@@ -59,7 +60,7 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
+                      AutoSizeText(
                         title!,
                         style: style ??
                             context.headlineSmall

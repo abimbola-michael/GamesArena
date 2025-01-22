@@ -1,6 +1,8 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter/material.dart';
 
+import '../../theme/colors.dart';
+
 class BlinkingBorderContainer extends StatefulWidget {
   final double? width;
   final double? height;
@@ -28,7 +30,7 @@ class BlinkingBorderContainer extends StatefulWidget {
     this.child,
     this.color,
     this.alignment,
-    this.blinkBorderColor = Colors.purple,
+    this.blinkBorderColor = primaryColor,
     this.blink = false,
     this.circular = false,
   });

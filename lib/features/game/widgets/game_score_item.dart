@@ -11,12 +11,14 @@ class GameScoreItem extends StatelessWidget {
   final String action;
   final String? callMode;
   final int score;
+  final int? overallScore;
 
   const GameScoreItem(
       {super.key,
       required this.username,
       required this.score,
       required this.action,
+      this.overallScore,
       this.callMode,
       this.profilePhoto});
 
@@ -54,7 +56,7 @@ class GameScoreItem extends StatelessWidget {
           height: 4,
         ),
         Text(
-          username,
+          "$username${overallScore != null && overallScore != -1 ? "($overallScore)" : ""}",
           style: const TextStyle(fontSize: 16, color: Colors.white),
           textAlign: TextAlign.center,
           maxLines: 1,

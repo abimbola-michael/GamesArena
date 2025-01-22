@@ -267,10 +267,18 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
     final rounds = match?.records?["$recordId"]?["rounds"];
     if (rounds == null) return;
 
-    final gameName = rounds["$roundId"]!["game"];
+    var gameName = rounds["$roundId"]?["game"];
+    if (gameName == null) {
+      if (recordId > 0 && roundId > 0) {
+        gameName = rounds["${roundId - 1}"]?["game"];
+      }
+      if (gameName == null && args["gameName"] != null) {
+        gameName = args["gameName"];
+      }
+    }
     args["gameName"] = gameName;
 
-    final playerIds = rounds!["$roundId"]["players"] as List<dynamic>?;
+    final playerIds = rounds!["$roundId"]?["players"] as List<dynamic>?;
     if (playerIds != null) {
       //var players = args["players"] as List<Player>?;
 
@@ -281,12 +289,12 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
                   (player) => player.id == playerIds[index]) ??
               Player(id: playerIds[index], time: timeNow, order: index));
 
-      args["users"] = List.generate(
-          playerIds.length,
-          (index) async =>
-              users?.firstWhereNullable(
-                  (user) => user?.user_id == playerIds[index]) ??
-              (await getUser(playerIds[index])));
+      if (users != null) {
+        args["users"] = List.generate(
+            playerIds.length,
+            (index) async => users?.firstWhereNullable(
+                (user) => user?.user_id == playerIds[index]));
+      }
 
       // args["users"] = users == null
       //     ? null

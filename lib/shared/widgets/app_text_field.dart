@@ -288,11 +288,11 @@ class _AppTextFieldState extends State<AppTextField> {
               },
               controller: widget.controller,
               onChanged: (value) {
-                if (!_isFieldValid) {
-                  setState(() {
-                    _isFieldValid = true;
-                  });
-                }
+                // if (!_isFieldValid) {
+                //   setState(() {
+                //     _isFieldValid = true;
+                //   });
+                // }
                 text = value;
                 if (widget.onChanged != null) {
                   widget.onChanged!("$countryDialCode$text");

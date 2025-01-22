@@ -39,6 +39,8 @@ AdUtils adUtils = AdUtils();
 FirebaseNotification firebaseNotification = FirebaseNotification();
 bool initialized = false;
 bool initializedGemini = false;
+bool isHomeResumed = false;
+
 Map<String, Tutorial>? tutorialsMap;
 FirebaseAnalytics analytics = FirebaseAnalytics.instance;
 

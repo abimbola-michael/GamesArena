@@ -2,13 +2,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart' as auth;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:country_code_picker_plus/country_code_picker_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:gamesarena/core/firebase/auth_methods.dart';
 import 'package:gamesarena/core/firebase/extensions/firebase_extensions.dart';
 import 'package:gamesarena/features/onboarding/services.dart';
@@ -17,11 +14,8 @@ import 'package:gamesarena/shared/extensions/special_context_extensions.dart';
 import 'package:gamesarena/shared/widgets/app_button.dart';
 import 'package:gamesarena/shared/widgets/app_text_field.dart';
 import 'package:gamesarena/theme/colors.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/firebase/firebase_notification.dart';
 import '../../../main.dart';
-import '../../../shared/utils/country_code_utils.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/widgets/app_appbar.dart';
 import '../../app_info/pages/app_info_page.dart';
@@ -73,6 +67,8 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
   User? user;
   bool savedUsernameOrPhone = false;
   bool verifiedEmail = false;
+  auth.AuthCredential? prevCredential;
+  String? prevCredentialEmail;
 
   @override
   void initState() {
@@ -97,7 +93,10 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     phoneController.dispose();
     passwordController.dispose();
     WidgetsBinding.instance.removeObserver(this);
-
+    if (prevCredential != null) {
+      authMethods.logOut();
+      prevCredential = null;
+    }
     super.dispose();
   }
 
@@ -145,7 +144,7 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
       tokens: [],
       profile_photo: authUser.photoURL,
     );
-    await createOrUpdateUser(newUser.toMap());
+    await createOrUpdateUser(newUser.toMap(), authUser);
     saveUserProperty(userId, newUser.toMap().removeNull(), prevUser: newUser);
     return newUser;
   }
@@ -153,7 +152,7 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
   void gotoNext(User? user) async {
     hideDialog();
     clearControllers();
-    user ??= await getUser(myId);
+    user ??= await getUser(myId, useCache: false);
     if (user == null) {
       if (!mounted) return;
       context.pop();
@@ -178,17 +177,36 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     }
   }
 
+  void updateAccountExist(
+      auth.AuthCredential? credential, String? email) async {
+    if (credential == null) return;
+    prevCredential = credential;
+    prevCredentialEmail = email;
+    await Future.delayed(const Duration(seconds: 1));
+    showErrorToast("Email already exist with ${credential.providerId} sign in");
+
+    await Future.delayed(const Duration(seconds: 1));
+    showErrorToast("Resign in to link accounts");
+
+    if (credential.providerId == "password") {
+      emailController.text = email ?? "";
+    }
+    mode = AuthMode.login;
+    setState(() {});
+  }
+
   void googleSignIn() async {
     showLoading(message: "Signin in...");
 
-    authMethods.signInWithGoogle().then((authUser) async {
+    authMethods
+        .signInWithGoogle(onAccountExist: updateAccountExist)
+        .then((authUser) async {
       if (authUser == null) {
         showErrorToast("Google Sign in Failed");
         return;
       }
-      await Future.delayed(const Duration(seconds: 1));
       final userId = authUser.uid;
-      User? user = await getUser(userId);
+      User? user = await getUser(userId, useCache: false);
       user ??= await createUser(authUser);
       showSuccessToast("Sign in Successfully");
       if (isAndroidAndIos || kIsWeb) {
@@ -211,6 +229,12 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
+    if (prevCredential != null) {
+      await authMethods.logOut();
+      prevCredential = null;
+      prevCredentialEmail = null;
+    }
+
     authMethods.createAccount(email, password).then((userCred) async {
       await authMethods.sendEmailVerification();
 
@@ -231,8 +255,20 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
-    authMethods.login(email, password).then((userCred) async {
-      User? user = await getUser(myId);
+    if (prevCredential != null) {
+      if (email != prevCredentialEmail) {
+        await authMethods.logOut();
+        prevCredential = null;
+        prevCredentialEmail = null;
+      }
+    }
+    authMethods
+        .login(email, password, credential: prevCredential)
+        .then((userCred) async {
+      if (prevCredential != null) {
+        showToast("Your accounts are now linked");
+      }
+      User? user = await getUser(myId, useCache: false);
       if (user?.time_deleted != null) {
         showErrorToast("Account deleted");
         authMethods.logOut();
@@ -320,8 +356,6 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
 
       if (usernameExist) {
         showErrorToast("Username already exist");
-        if (!mounted) return;
-        context.pop();
         return;
       }
     }
@@ -535,25 +569,6 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
                           onChanged: (text) {
                             fullNumber = text;
                           },
-                          // prefix: SizedBox(
-                          //   width: 50,
-                          //   child: CountryCodePicker(
-                          //     textStyle:
-                          //         context.bodyMedium?.copyWith(color: tint),
-                          //     padding: const EdgeInsets.only(left: 10),
-                          //     mode: CountryCodePickerMode.bottomSheet,
-                          //     initialSelection:
-                          //         countryCode.isNotEmpty ? countryCode : "US",
-                          //     showFlag: false,
-                          //     showDropDownButton: false,
-                          //     dialogBackgroundColor: offtint,
-                          //     onChanged: (country) {
-                          //       setState(() {
-                          //         countryDialCode = country.dialCode;
-                          //       });
-                          //     },
-                          //   ),
-                          // ),
                         ),
                       if (mode == AuthMode.signUp)
                         Row(

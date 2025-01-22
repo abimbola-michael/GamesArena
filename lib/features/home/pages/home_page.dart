@@ -51,7 +51,8 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends ConsumerState<HomePage> {
+class _HomePageState extends ConsumerState<HomePage>
+    with WidgetsBindingObserver {
   String gameType = "";
   String name = "";
   int currentIndex = 0;
@@ -78,6 +79,13 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.initState();
     readAuthUserChange();
     listenForInternetConnection();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    isHomeResumed = state != AppLifecycleState.inactive;
   }
 
   @override
@@ -89,6 +97,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     connectivitySub?.cancel();
     appMessageSub?.cancel();
     appMessageSub = null;
+    WidgetsBinding.instance.removeObserver(this);
+
     super.dispose();
   }
 

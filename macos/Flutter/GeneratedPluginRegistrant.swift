@@ -30,6 +30,7 @@ import shared_preferences_foundation
 import sim_card_info
 import sqflite
 import url_launcher_macos
+import webf
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   AudioplayersDarwinPlugin.register(with: registry.registrar(forPlugin: "AudioplayersDarwinPlugin"))
@@ -57,4 +58,5 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   SimCardInfoPlugin.register(with: registry.registrar(forPlugin: "SimCardInfoPlugin"))
   SqflitePlugin.register(with: registry.registrar(forPlugin: "SqflitePlugin"))
   UrlLauncherPlugin.register(with: registry.registrar(forPlugin: "UrlLauncherPlugin"))
+  WebFPlugin.register(with: registry.registrar(forPlugin: "WebFPlugin"))
 }

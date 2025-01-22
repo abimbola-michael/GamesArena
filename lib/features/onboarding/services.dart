@@ -7,6 +7,7 @@ import 'package:gamesarena/main.dart';
 import 'package:gamesarena/shared/utils/utils.dart';
 
 import '../user/models/username.dart';
+import 'package:firebase_auth/firebase_auth.dart' as auth;
 
 FirestoreMethods fm = FirestoreMethods();
 
@@ -16,8 +17,9 @@ Future<bool> usernameExists(String username) async {
   return name != null;
 }
 
-Future createOrUpdateUser(Map<String, dynamic> userMap) async {
-  String currentuserId = FirebaseAuth.instance.currentUser?.uid ?? "";
+Future createOrUpdateUser(Map<String, dynamic> userMap,
+    [auth.User? authUser]) async {
+  String currentuserId = authUser?.uid ?? myId;
 
   final username = userMap["username"] as String?;
   final userId = userMap["user_id"] as String?;

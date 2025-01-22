@@ -49,8 +49,11 @@ class MatchOrRoundHeaderItem extends StatelessWidget {
 
   Widget textWidget(BuildContext context, Color color, String action) {
     return Text(
-      "${players.length} players, $game, $action",
+      "$action, $game",
+      // "${players.length} players, $game, $action",
       style: context.bodySmall?.copyWith(color: color),
+      overflow: TextOverflow.ellipsis,
+      maxLines: 1,
     );
   }
 

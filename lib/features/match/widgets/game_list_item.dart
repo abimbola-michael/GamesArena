@@ -17,6 +17,7 @@ import 'match_summary_item.dart';
 class GameListItem extends StatelessWidget {
   final GameList gameList;
   final VoidCallback onPressed;
+
   const GameListItem(
       {super.key, required this.gameList, required this.onPressed});
 
@@ -124,8 +125,6 @@ class GameListItem extends StatelessWidget {
                             if ((gameList.unseen ?? 0) != 0) ...[
                               const SizedBox(width: 10),
                               Container(
-                                // padding: const EdgeInsets.symmetric(
-                                //     horizontal: 8, vertical: 4),
                                 constraints: const BoxConstraints(
                                     minWidth: 24, minHeight: 24, maxHeight: 24),
                                 decoration: BoxDecoration(
