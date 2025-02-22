@@ -3,10 +3,14 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:gamesarena/shared/constants.dart';
+import 'package:gamesarena/shared/dialogs/options_select_with_comfirmation_dialog.dart';
+import 'package:gamesarena/shared/widgets/hinting_widget.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import 'package:gamesarena/shared/extensions/extensions.dart';
 
+import '../../../main.dart';
 import '../../../shared/dialogs/comfirmation_dialog.dart';
 import '../../../shared/utils/constants.dart';
 import '../../../shared/utils/utils.dart';
@@ -31,6 +35,9 @@ class PausedGameView extends StatefulWidget {
   final Match? match;
   final int recordId;
   final int roundId;
+  final String? difficultyLevel;
+  final String? exemptedRules;
+  final List<String> gameRules;
   final List<int> playersScores;
   final List<User?>? users;
   final List<Player>? players;
@@ -45,6 +52,9 @@ class PausedGameView extends StatefulWidget {
   final VoidCallback onRestart;
   final VoidCallback onContinue;
   final void Function(String game) onChange;
+  final void Function(String difficulty) onDifficulty;
+  final void Function(String exemptedRules) onExempt;
+
   final VoidCallback onLeave;
   final VoidCallback onClose;
   final VoidCallback onConcede;
@@ -66,6 +76,7 @@ class PausedGameView extends StatefulWidget {
   final bool readAboutGame;
   final bool hasPlayedForAMinute;
   final bool isWatch;
+  final bool isComputer;
 
   final String? reason;
   final int quarterTurns;
@@ -89,6 +100,9 @@ class PausedGameView extends StatefulWidget {
     required this.match,
     required this.recordId,
     required this.roundId,
+    required this.difficultyLevel,
+    required this.exemptedRules,
+    required this.gameRules,
     required this.playersScores,
     required this.users,
     required this.players,
@@ -100,6 +114,8 @@ class PausedGameView extends StatefulWidget {
     required this.onRestart,
     required this.onContinue,
     required this.onChange,
+    required this.onDifficulty,
+    required this.onExempt,
     required this.onLeave,
     required this.onClose,
     required this.onConcede,
@@ -118,6 +134,7 @@ class PausedGameView extends StatefulWidget {
     required this.readAboutGame,
     this.hasPlayedForAMinute = false,
     this.isWatch = false,
+    required this.isComputer,
     this.reason,
     required this.quarterTurns,
     required this.exemptPlayers,
@@ -189,6 +206,27 @@ class _PausedGameViewState extends State<PausedGameView> {
                 : "";
   }
 
+  String getPlayerUsername({String? playerId, int playerIndex = 0}) {
+    final index = widget.users?.indexWhere((e) => playerId != null
+            ? e?.user_id == playerId
+            : (widget.players ?? []).isNotEmpty
+                ? e?.user_id == widget.players![playerIndex].id
+                : false) ??
+        -1;
+
+    return index != -1
+        ? widget.users![index]?.user_id == myId
+            ? "you"
+            : widget.users![index]!.username
+        : widget.playersSize == 1
+            ? "you"
+            : widget.isComputer
+                ? playerIndex == 0
+                    ? "computer"
+                    : "you"
+                : "Player ${playerIndex + 1}";
+  }
+
   Future showLeaveComirmationDialog() async {
     final playersCount = widget.players != null && widget.players!.isNotEmpty
         ? widget.players!.length
@@ -208,6 +246,52 @@ class _PausedGameViewState extends State<PausedGameView> {
               onPressed: (positive) {
                 context.pop();
                 showComfirmationDialog(positive ? "end" : "leave");
+              });
+        });
+  }
+
+  Future showExemptSelectDialog() async {
+    return showDialog(
+        context: context,
+        builder: (context) {
+          return OptionsSelectWithComfirmationDialog(
+              quarterTurns: widget.quarterTurns,
+              scrollDirection: Axis.vertical,
+              title: "Rules Exemptions",
+              message: "Select rules you would like to exempt",
+              options: widget.gameRules,
+              selectedOptions: stringOptionsToListValue(
+                  widget.gameRules, widget.exemptedRules),
+              onPressed: (options) async {
+                if (options != null) {
+                  widget
+                      .onExempt(listOptionsToString(widget.gameRules, options));
+                }
+
+                if (!context.mounted) return;
+                context.pop();
+              });
+        });
+  }
+
+  Future showDifficultyLevelSelectDialog() async {
+    return showDialog(
+        context: context,
+        builder: (context) {
+          return OptionsSelectWithComfirmationDialog(
+              quarterTurns: widget.quarterTurns,
+              scrollDirection: Axis.vertical,
+              title: "Difficulty levels",
+              message: "Select your prefered difficulty level",
+              options: const ["Easy", "Medium", "Hard"],
+              selectedOption: widget.difficultyLevel,
+              onPressed: (options) async {
+                if ((options ?? []).isNotEmpty) {
+                  widget.onDifficulty(options!.first);
+                }
+
+                if (!context.mounted) return;
+                context.pop();
               });
         });
   }
@@ -265,6 +349,7 @@ class _PausedGameViewState extends State<PausedGameView> {
 
   @override
   Widget build(BuildContext context) {
+    // print("exemptedRules = ${widget.exemptedRules}");
     //widget.callMode = widget.widget.callMode;
     exemptPlayer = getExemptPlayer(widget.pauseIndex);
     final myPlayer = getMyPlayer(widget.players!);
@@ -429,7 +514,7 @@ class _PausedGameViewState extends State<PausedGameView> {
 
                                           Text(
                                             widget.finishedRound
-                                                ? "This round: ${getMatchOutcomeMessageFromWinners(widget.winners, widget.players?.map((e) => e.id).toList() ?? [], users: widget.users)}"
+                                                ? "This round: ${getMatchOutcomeMessageFromWinners(widget.winners, widget.players?.map((e) => e.id).toList() ?? [], users: widget.users, playersSize: widget.playersSize)}"
                                                 : widget.startingRound
                                                     ? "New Round"
                                                     : "Ongoing Round",
@@ -450,7 +535,8 @@ class _PausedGameViewState extends State<PausedGameView> {
                                               ),
                                               textAlign: TextAlign.center,
                                             ),
-                                          if (widget.finishedRound) ...[
+                                          if (widget.finishedRound &&
+                                              widget.playersSize > 1) ...[
                                             const SizedBox(height: 4),
                                             Text(
                                               "This record: ${getMatchOutcomeMessageFromScores(widget.playersScores, widget.players?.map((e) => e.id).toList() ?? [], users: widget.users)}",
@@ -461,8 +547,8 @@ class _PausedGameViewState extends State<PausedGameView> {
                                               ),
                                               textAlign: TextAlign.center,
                                             ),
-                                            const SizedBox(height: 4),
                                             if (widget.match != null) ...[
+                                              const SizedBox(height: 4),
                                               Text(
                                                 "Overall: ${getOverallMatchOutcomeMessage(widget.match!)}",
                                                 style: const TextStyle(
@@ -472,8 +558,31 @@ class _PausedGameViewState extends State<PausedGameView> {
                                                 ),
                                                 textAlign: TextAlign.center,
                                               ),
-                                              const SizedBox(height: 4),
                                             ]
+                                          ],
+                                          if ((widget.difficultyLevel ?? "")
+                                              .isNotEmpty) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              "Difficulty Level: ${widget.difficultyLevel}",
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.white,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                          if ((widget.exemptedRules ?? "")
+                                              .isNotEmpty) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              "Exempted Rules: ${stringOptionsToListValue(widget.gameRules, widget.exemptedRules).join(", ")}",
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.white,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
                                           ],
                                           const SizedBox(height: 4),
 
@@ -576,8 +685,11 @@ class _PausedGameViewState extends State<PausedGameView> {
                                                   return Expanded(
                                                     child: GameScoreItem(
                                                       username:
-                                                          user?.username ??
-                                                              "Player ${i + 1}",
+                                                          getPlayerUsername(
+                                                              playerIndex: i),
+                                                      // username:
+                                                      //     user?.username ??
+                                                      //         "Player ${i + 1}",
                                                       profilePhoto:
                                                           user?.profile_photo,
                                                       score: widget
@@ -663,7 +775,28 @@ class _PausedGameViewState extends State<PausedGameView> {
                                                 width: 150,
                                               ),
                                           ],
-
+                                          if ((widget.finishedRound ||
+                                                  widget.startingRound) &&
+                                              showPlayGameActions &&
+                                              widget.difficultyLevel != null)
+                                            AppButton(
+                                              title: "Difficulty",
+                                              onPressed: () {
+                                                showDifficultyLevelSelectDialog();
+                                              },
+                                              width: 150,
+                                            ),
+                                          if (showPlayGameActions &&
+                                              (widget.finishedRound ||
+                                                  widget.startingRound) &&
+                                              widget.gameRules.isNotEmpty)
+                                            AppButton(
+                                              title: "Exempt",
+                                              onPressed: () {
+                                                showExemptSelectDialog();
+                                              },
+                                              width: 150,
+                                            ),
                                           if (showPlayGameActions)
                                             AppButton(
                                               title: "Change",

@@ -162,28 +162,46 @@ class ChessTile {
 }
 
 class ChessDetails {
-  int pos;
+  int? pos;
+  int? startPos;
+  int? endPos;
+  String? move;
   ChessDetails({
-    required this.pos,
+    this.pos,
+    this.startPos,
+    this.endPos,
+    this.move,
   });
 
   ChessDetails copyWith({
     int? pos,
+    int? startPos,
+    int? endPos,
+    String? move,
   }) {
     return ChessDetails(
       pos: pos ?? this.pos,
+      startPos: startPos ?? this.startPos,
+      endPos: endPos ?? this.endPos,
+      move: move ?? this.move,
     );
   }
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'pos': pos,
+      'startPos': startPos,
+      'endPos': endPos,
+      'move': move,
     };
   }
 
   factory ChessDetails.fromMap(Map<String, dynamic> map) {
     return ChessDetails(
-      pos: map['pos'] as int,
+      pos: map['pos'] != null ? map['pos'] as int : null,
+      startPos: map['startPos'] != null ? map['startPos'] as int : null,
+      endPos: map['endPos'] != null ? map['endPos'] as int : null,
+      move: map['move'] != null ? map['move'] as String : null,
     );
   }
 
@@ -193,15 +211,22 @@ class ChessDetails {
       ChessDetails.fromMap(json.decode(source) as Map<String, dynamic>);
 
   @override
-  String toString() => 'ChessDetails(pos: $pos)';
+  String toString() {
+    return 'ChessDetails(pos: $pos, startPos: $startPos, endPos: $endPos, move: $move)';
+  }
 
   @override
   bool operator ==(covariant ChessDetails other) {
     if (identical(this, other)) return true;
 
-    return other.pos == pos;
+    return other.pos == pos &&
+        other.startPos == startPos &&
+        other.endPos == endPos &&
+        other.move == move;
   }
 
   @override
-  int get hashCode => pos.hashCode;
+  int get hashCode {
+    return pos.hashCode ^ startPos.hashCode ^ endPos.hashCode ^ move.hashCode;
+  }
 }

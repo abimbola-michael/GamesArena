@@ -2,6 +2,7 @@
 import 'dart:convert';
 
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 
 class Whot {
   String id;
@@ -65,12 +66,14 @@ class WhotDetails {
   int? playPos;
   int? shapePos;
   List<int>? deckPoses;
+  String? move;
 
   WhotDetails({
     this.whotIndices,
     this.playPos,
     this.shapePos,
     this.deckPoses,
+    this.move,
   });
 
   WhotDetails copyWith({
@@ -78,12 +81,14 @@ class WhotDetails {
     int? playPos,
     int? shapePos,
     List<int>? deckPoses,
+    String? move,
   }) {
     return WhotDetails(
       whotIndices: whotIndices ?? this.whotIndices,
       playPos: playPos ?? this.playPos,
       shapePos: shapePos ?? this.shapePos,
       deckPoses: deckPoses ?? this.deckPoses,
+      move: move ?? this.move,
     );
   }
 
@@ -93,6 +98,7 @@ class WhotDetails {
       'playPos': playPos,
       'shapePos': shapePos,
       'deckPoses': deckPoses,
+      'move': move,
     };
   }
 
@@ -105,6 +111,7 @@ class WhotDetails {
       deckPoses: map['deckPoses'] != null
           ? List<int>.from((map['deckPoses'] as List<dynamic>))
           : null,
+      move: map['move'] != null ? map['move'] as String : null,
     );
   }
 
@@ -115,18 +122,18 @@ class WhotDetails {
 
   @override
   String toString() {
-    return 'WhotDetails(whotIndices: $whotIndices, playPos: $playPos, shapePos: $shapePos, deckPoses: $deckPoses)';
+    return 'WhotDetails(whotIndices: $whotIndices, playPos: $playPos, shapePos: $shapePos, deckPoses: $deckPoses, move: $move)';
   }
 
   @override
   bool operator ==(covariant WhotDetails other) {
     if (identical(this, other)) return true;
-    final listEquals = const DeepCollectionEquality().equals;
 
     return other.whotIndices == whotIndices &&
         other.playPos == playPos &&
         other.shapePos == shapePos &&
-        listEquals(other.deckPoses, deckPoses);
+        listEquals(other.deckPoses, deckPoses) &&
+        other.move == move;
   }
 
   @override
@@ -134,6 +141,7 @@ class WhotDetails {
     return whotIndices.hashCode ^
         playPos.hashCode ^
         shapePos.hashCode ^
-        deckPoses.hashCode;
+        deckPoses.hashCode ^
+        move.hashCode;
   }
 }

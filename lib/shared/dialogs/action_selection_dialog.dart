@@ -2,11 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 
-class OptionSelectionDialog extends StatelessWidget {
+class ActionSelectionDialog extends StatelessWidget {
   final String? title;
   final List<String> options;
   final void Function(int index, String option) onPressed;
-  const OptionSelectionDialog(
+  const ActionSelectionDialog(
       {super.key, required this.options, required this.onPressed, this.title});
 
   @override

@@ -14,7 +14,6 @@ class WatchGameControlsView extends StatefulWidget {
   final List<Player>? players;
   final bool watching;
   final bool showWatchControls;
-  final bool loadingDetails;
   final bool finishedRound;
   final double duration;
   final double endDuration;
@@ -43,7 +42,6 @@ class WatchGameControlsView extends StatefulWidget {
       required this.onSeek,
       required this.watching,
       required this.showWatchControls,
-      required this.loadingDetails,
       required this.finishedRound,
       this.users,
       this.players});

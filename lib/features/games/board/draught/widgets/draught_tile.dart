@@ -41,7 +41,7 @@ class DraughtTileWidget extends StatelessWidget {
           height: double.infinity,
           alignment: Alignment.center,
           color: draughtTile != null && highLight
-              ? primaryColor
+              ? gameHintColor
               : (x + y).isOdd
                   ? tileDarkColor
                   : tileLightColor,

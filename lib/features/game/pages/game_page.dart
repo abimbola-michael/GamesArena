@@ -40,6 +40,8 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
 
   String matchId = "";
   String gameId = "";
+  String? difficultyLevel;
+  String? exemptedRules;
 
   bool isTournament = false;
   Match? match;
@@ -101,8 +103,8 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
       controller.dispose();
     }
     pageControllers.clear();
-    callUtils.leaveCall();
-    callUtils.dispose();
+    // callUtils.leaveCall();
+    // callUtils.dispose();
 
     super.dispose();
   }
@@ -113,6 +115,7 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
     if (!gottenDependencies) {
       if (context.args != null) {
         //gameName = context.args["gameName"] ?? "";
+        difficultyLevel = context.args["difficultyLevel"];
         matchId = context.args["matchId"] ?? "";
         gameId = context.args["gameId"] ?? "";
         match = context.args["match"];
@@ -314,6 +317,20 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
     final playersSize = args["playersSize"] as int;
     final exemptPlayers = gameAction.exemptPlayers;
 
+    if (gameAction.action == "difficulty" && gameAction.difficulty != null) {
+      difficultyLevel = gameAction.difficulty!;
+      args["difficultyLevel"] = difficultyLevel;
+      setState(() {});
+      return;
+    }
+
+    if (gameAction.action == "exemptedRules" &&
+        gameAction.exemptedRules != null) {
+      exemptedRules = gameAction.exemptedRules!;
+      setState(() {});
+      return;
+    }
+
     if (gameAction.action == "close") {
       gamePagesDatas.removeLast();
       setState(() {});
@@ -362,10 +379,16 @@ class _gamePagesDatastate extends ConsumerState<GamePage> {
 
       if (gameAction.action == "change") {
         args["gameName"] = gameAction.game;
+        exemptedRules = null;
+        difficultyLevel = null;
       }
+      args["exemptedRules"] = exemptedRules;
+      args["difficultyLevel"] = difficultyLevel;
     } else if (gameAction.action == "continue") {
       roundId++;
       args["roundId"] = roundId;
+      args["exemptedRules"] = exemptedRules;
+      args["difficultyLevel"] = difficultyLevel;
     } else if (gameAction.action == "previous") {
       if (currentPage > 0) {
         pageController.previousPage(

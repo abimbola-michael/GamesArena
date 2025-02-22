@@ -13,13 +13,33 @@ class SplashScreenPage extends StatelessWidget {
       body: Stack(
         children: [
           Center(
-            child: Container(
-              height: 100,
-              width: 250,
-              decoration: BoxDecoration(
-                  image: DecorationImage(
-                      image: AssetImage("launcher_icon.png".toIcon),
-                      fit: BoxFit.cover)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 100,
+                  width: 250,
+                  decoration: BoxDecoration(
+                      image: DecorationImage(
+                          image: AssetImage("launcher_icon.png".toIcon),
+                          fit: BoxFit.cover)),
+                ),
+                // const SizedBox(height: 10),
+                // const Text(
+                //   "Games Arena",
+                //   style: TextStyle(
+                //       fontFamily: "Roboto",
+                //       fontSize: 20,
+                //       fontWeight: FontWeight.bold),
+                //   textAlign: TextAlign.center,
+                // ),
+                // const SizedBox(height: 4),
+                const Text(
+                  "Arena of fun",
+                  style: TextStyle(fontFamily: "Playwrite", fontSize: 13),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
             // child: Column(
             //   mainAxisSize: MainAxisSize.min,

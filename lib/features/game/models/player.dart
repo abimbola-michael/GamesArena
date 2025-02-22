@@ -1,6 +1,8 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:gamesarena/features/user/models/user.dart';
 
 import 'game_list.dart';
@@ -13,6 +15,8 @@ class Player {
   String? action;
   int? order;
   String? game;
+  String? difficulty;
+  String? exemptedRules;
   String? gameId;
   String? matchId;
   String? callMode;
@@ -28,6 +32,8 @@ class Player {
     this.action,
     this.order,
     this.game,
+    this.difficulty,
+    this.exemptedRules,
     this.gameId,
     this.matchId,
     this.callMode,
@@ -45,6 +51,8 @@ class Player {
     String? action,
     int? order,
     String? game,
+    String? difficulty,
+    String? exemptedRules,
     String? gameId,
     String? matchId,
     String? callMode,
@@ -61,6 +69,8 @@ class Player {
       action: action ?? this.action,
       order: order ?? this.order,
       game: game ?? this.game,
+      difficulty: difficulty ?? this.difficulty,
+      exemptedRules: exemptedRules ?? this.exemptedRules,
       gameId: gameId ?? this.gameId,
       matchId: matchId ?? this.matchId,
       callMode: callMode ?? this.callMode,
@@ -80,6 +90,8 @@ class Player {
       'action': action,
       'order': order,
       'game': game,
+      'difficulty': difficulty,
+      'exemptedRules': exemptedRules,
       'gameId': gameId,
       'matchId': matchId,
       'callMode': callMode,
@@ -100,6 +112,10 @@ class Player {
       action: map['action'] != null ? map['action'] as String : null,
       order: map['order'] != null ? map['order'] as int : null,
       game: map['game'] != null ? map['game'] as String : null,
+      difficulty:
+          map['difficulty'] != null ? map['difficulty'] as String : null,
+      exemptedRules:
+          map['exemptedRules'] != null ? map['exemptedRules'] as String : null,
       gameId: map['gameId'] != null ? map['gameId'] as String : null,
       matchId: map['matchId'] != null ? map['matchId'] as String : null,
       callMode: map['callMode'] != null ? map['callMode'] as String : null,
@@ -122,7 +138,7 @@ class Player {
 
   @override
   String toString() {
-    return 'Player(id: $id, time: $time, time_modified: $time_modified, role: $role, action: $action, order: $order, game: $game, gameId: $gameId, matchId: $matchId, callMode: $callMode, isAudioOn: $isAudioOn, isFrontCamera: $isFrontCamera, user: $user, gameList: $gameList)';
+    return 'Player(id: $id, time: $time, time_modified: $time_modified, role: $role, action: $action, order: $order, game: $game, difficulty: $difficulty, exemptedRules: $exemptedRules, gameId: $gameId, matchId: $matchId, callMode: $callMode, isAudioOn: $isAudioOn, isFrontCamera: $isFrontCamera, user: $user, gameList: $gameList)';
   }
 
   @override
@@ -136,6 +152,8 @@ class Player {
         other.action == action &&
         other.order == order &&
         other.game == game &&
+        other.difficulty == difficulty &&
+        other.exemptedRules == exemptedRules &&
         other.gameId == gameId &&
         other.matchId == matchId &&
         other.callMode == callMode &&
@@ -154,6 +172,8 @@ class Player {
         action.hashCode ^
         order.hashCode ^
         game.hashCode ^
+        difficulty.hashCode ^
+        exemptedRules.hashCode ^
         gameId.hashCode ^
         matchId.hashCode ^
         callMode.hashCode ^

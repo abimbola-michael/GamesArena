@@ -2,7 +2,10 @@ import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:gamesarena/shared/utils/utils.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+
+import '../../main.dart';
 
 class AuthMethods {
   var myId = "";
@@ -11,8 +14,19 @@ class AuthMethods {
   }
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-      clientId:
-          "182221656090-9phi32s2nujj8fk5dvcu36anp07u9sg8.apps.googleusercontent.com");
+      scopes: <String>[
+        'email',
+        'profile',
+        // PeopleServiceApi.contactsReadonlyScope
+      ],
+      clientId: isDesktop
+          ? '29371509294-q9glv8oegtn4jpm80htu2v6fqse0rbvt.apps.googleusercontent.com'
+          : kIsWeb
+              ? "29371509294-7770ev42v6v5nuun4t99uu0qpbrouqdh.apps.googleusercontent.com"
+              : null
+      // clientId:
+      //     "182221656090-9phi32s2nujj8fk5dvcu36anp07u9sg8.apps.googleusercontent.com",
+      );
 
   Future<UserCredential?> createAccount(String email, String password) async {
     try {
@@ -23,14 +37,13 @@ class AuthMethods {
     }
   }
 
-  Future<UserCredential?> login(String email, String password,
-      {AuthCredential? credential}) async {
+  Future<UserCredential?> login(String email, String password) async {
     try {
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
           email: email, password: password);
-      if (credential != null) {
-        await userCredential.user?.linkWithCredential(credential);
-      }
+      // if (credential != null) {
+      //   await userCredential.user?.linkWithCredential(credential);
+      // }
       return userCredential;
     } on FirebaseException catch (e) {
       return null;
@@ -93,16 +106,22 @@ class AuthMethods {
 
   Future<void> logOut() async {
     try {
-      final provider = _auth.currentUser?.providerData.first.providerId;
+      // await _auth.currentUser?.reload();
+
+      // final provider = _auth.currentUser?.providerData.firstOrNull?.providerId;
+
       await _auth.signOut();
       // Sign out and disconnect Google account session
-      if (!kIsWeb && Platform.isWindows) return;
-      if (provider != null && provider.contains("google")) {
-        if (await _googleSignIn.isSignedIn()) {
-          await _googleSignIn.signOut(); // Sign out
-          await _googleSignIn.disconnect(); // Disconnect the account
-        }
+      // if (!kIsWeb && Platform.isWindows) return;
+
+      // if (provider != null && provider.contains("google")) {
+      //await _googleSignIn.isSignedIn()
+      if (await _googleSignIn.isSignedIn()) {
+        await _googleSignIn.signOut(); // Sign out
+        await _googleSignIn.disconnect(); // Disconnect the account
+        //   }
       }
+      await _auth.currentUser?.reload();
     } on FirebaseException catch (e) {}
   }
 

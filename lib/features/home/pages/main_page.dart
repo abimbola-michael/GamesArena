@@ -11,14 +11,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamesarena/features/games/pages.dart';
 import 'package:gamesarena/firebase_options.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:google_sign_in_dartio/google_sign_in_dartio.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/firebase/auth_methods.dart';
 import '../../../main.dart';
 import '../../../shared/services.dart';
 import '../../../shared/utils/utils.dart';
 import 'splash_screen_page.dart';
-
 
 class MainPage extends ConsumerStatefulWidget {
   const MainPage({super.key});
@@ -39,6 +40,14 @@ class _MainPageState extends ConsumerState<MainPage> {
 
     await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform);
+    if (isDesktop) {
+      await GoogleSignInDart.register(
+        // exchangeEndpoint:
+        //     'https://us-central1-flutter-sdk.cloudfunctions.net/authHandler',
+        clientId:
+            '29371509294-q9glv8oegtn4jpm80htu2v6fqse0rbvt.apps.googleusercontent.com',
+      );
+    }
 
     sharedPref = await SharedPreferences.getInstance();
     currentUserId = sharedPref.getString("currentUserId") ??
@@ -53,7 +62,7 @@ class _MainPageState extends ConsumerState<MainPage> {
     ref.read(themeNotifierProvider.notifier).toggleTheme(themeValue);
 
     // await AuthMethods().logOut();
-    
+
     firebaseNotification.initNotification();
 
     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {

@@ -1,14 +1,20 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_gemini/flutter_gemini.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:gamesarena/features/game/models/game_info.dart';
 import 'package:gamesarena/features/game/views/watch_game_controls_view.dart';
 import 'package:gamesarena/features/game/widgets/profile_photo.dart';
+import 'package:gamesarena/shared/widgets/hinting_widget.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:hive/hive.dart';
 import 'package:icons_plus/icons_plus.dart';
@@ -21,14 +27,19 @@ import 'package:gamesarena/shared/services.dart';
 import 'package:gamesarena/shared/utils/constants.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import '../../../shared/constants.dart';
 import '../../../shared/utils/call_utils.dart';
+import '../../about/utils/about_game_words.dart';
 import '../../match/providers/gamelist_provider.dart';
 import '../../records/models/match_round.dart';
+import '../models/computer_format.dart';
 import '../models/exempt_player.dart';
 import '../models/game_action.dart';
 import '../models/game_page_infos.dart';
 import '../providers/game_page_infos_provider.dart';
 import '../../match/providers/match_provider.dart';
+import '../utils/game_examples.dart';
+import '../utils/prompt_utils.dart';
 import '../views/paused_game_view.dart';
 import '../services.dart';
 import '../utils.dart';
@@ -78,11 +89,27 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   void onPlayerChange(int player);
   Widget buildBody(BuildContext context);
   Widget buildBottomOrLeftChild(int index);
+  bool onShowRightClick(int index);
+
+  void onRightClick(int index);
 
   abstract int? maxPlayerTime;
   abstract int? maxGameTime;
 
-  // int availablePlayersCount = 0;
+  //Computer mode
+  int trialCount = 0;
+  int maxTrialCount = 5;
+  bool isComputer = false;
+  String? difficultyLevel;
+  List<String> gameRules = [];
+  List<String> get exemptedGameRules =>
+      stringOptionsToListValue(gameRules, exemptedRules);
+  List<int> get exemptedGameRulesIndices =>
+      stringOptionsToListIndex(gameRules, exemptedRules);
+  String? exemptedRules;
+  bool handleComputerResponse = true;
+
+  String error = "";
 
   final Connectivity _connectivity = Connectivity();
 
@@ -125,6 +152,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   int playerWaitingTime = 0;
   String gameName = "";
   int pauseIndex = 0;
+  bool showPlayerTime = true;
+
   bool stopPlayerTime = false;
   bool matchEnded = false;
   bool roundEnded = false;
@@ -162,10 +191,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   MediaStream? _localStream;
 
   //Player
-  //bool isWatch = false;
   bool isWatchMode = false;
 
   List<Map<String, dynamic>> gatheredGameDetails = [];
+  List<Map<String, dynamic>> computerGameDetails = [];
 
   List<Map<String, dynamic>> gameDetails = [];
   List<Map<String, dynamic>> unsentGameDetails = [];
@@ -254,12 +283,24 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
     WidgetsBinding.instance.addObserver(this);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
-    onInitState();
     init();
+    onInitState();
     resetPlayerTime();
     // callSetStateSub = widget.gameCallUtils.setStateStream?.listen((callback) {
     //   setState(callback);
     // });
+    Future.delayed(const Duration(seconds: 10)).then((value) {
+      if (sharedPref.getBool(TAPPED_SCORES_AND_POINTS) != true) {
+        sharedPref.setBool(TAPPED_SCORES_AND_POINTS, true).then((value) {
+          setState(() {});
+        });
+      }
+      if (sharedPref.getBool(TAPPED_OPTIONS_MENU) != true) {
+        sharedPref.setBool(TAPPED_OPTIONS_MENU, true).then((value) {
+          setState(() {});
+        });
+      }
+    });
   }
 
   @override
@@ -313,6 +354,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   void init() {
     if (widget.arguments != null) {
       final arguments = widget.arguments!;
+      isComputer = arguments["isComputer"] ?? false;
+      difficultyLevel = arguments["difficultyLevel"];
+      exemptedRules = arguments["exemptedRules"];
       gameName = arguments["gameName"] ?? "";
       matchId = arguments["matchId"] ?? "";
       gameId = arguments["gameId"] ?? "";
@@ -369,6 +413,125 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     // }
   }
 
+  Map<String, dynamic> detailWithoutExtras(Map<String, dynamic> detail) {
+    Map<String, dynamic> newDetail = {};
+
+    List<String> keysExceptions = [
+      "game",
+      "recordId",
+      "roundId",
+      // "index",
+      // "time",
+      // "duration",
+      // "playerTime"
+    ];
+    for (var entry in detail.entries) {
+      final key = entry.key;
+      if (keysExceptions.contains(key)) continue;
+      newDetail[key] = entry.value;
+    }
+
+    return newDetail;
+  }
+
+  Future<List<Map<String, dynamic>>> generateAIResponse() async {
+    if (!initializedGemini) {
+      privateKey ??= await getPrivateKey();
+      if (privateKey == null) return [];
+      String apiKey = privateKey!.geminiApiKey;
+      Gemini.init(apiKey: apiKey);
+      initializedGemini = true;
+    }
+
+    final firstPrompt =
+        getFirstGamePrompt(gameName, difficultyLevel ?? "Medium");
+    //print("firstPrompt: $firstPrompt");
+
+    // List<Content> chats = [
+    //   Content(parts: [Parts(text: firstPrompt)]),
+    //   // ...gameDetails
+    //   //     .map((detail) => Content(parts: [Parts(text: jsonEncode(detail))])),
+    // ];
+    // print("gameDetails = $gameDetails");
+
+    // final newDetails = gameDetails.map((detail) => detailWithoutExtras(detail));
+    final examples = getGameExamples(gameName);
+    final extraMessage = getExtraMessage(gameName);
+    List<Content> chats = [
+      Content(parts: [
+        Parts(text: firstPrompt),
+        Parts(text: "Full game Examples are:"),
+        if (examples.isNotEmpty) ...examples.map((text) => Parts(text: text)),
+        if (extraMessage.isNotEmpty) Parts(text: extraMessage),
+        Parts(
+            text:
+                "The example is just to understand how the game should go. I want just a single map as result or list of map if you want to play multiple moves at once using any of the styles above not giving me bulk details like the examples. So lets start:"),
+        ...gameDetails.map(
+            (detail) => Parts(text: jsonEncode(detailWithoutExtras(detail)))),
+        if (gameDetails.isNotEmpty && gameDetails.last["id"] == 1)
+          Parts(text: "I played. Your turn"),
+      ]),
+      // ...gameDetails
+      //     .map((detail) => Content(parts: [Parts(text: jsonEncode(detail))])),
+    ];
+
+    try {
+      final response = await Gemini.instance.chat(chats);
+      final part = response?.content?.parts?.firstOrNull;
+      String result = part?.text ?? "";
+
+      // print("before= $result");
+
+      if (result.startsWith("```json") && result.endsWith("```")) {
+        result = result.substring(7, result.length - 3).trim();
+      }
+
+      //print("result= $result");
+      final output = jsonDecode(result);
+      if (output is List) {
+        return output.cast();
+      } else if (output is Map) {
+        return [output.cast()];
+      }
+      return [];
+
+      // return map is Map ? map.cast() : map as Map<String, dynamic>;
+    } on Exception catch (e) {
+      if (!isConnectedToInternet) {
+        error =
+            "No internet Connection, Make sure you are connected to the internet";
+        print("error = $error");
+        return [];
+      }
+      if (e is GeminiException &&
+          e.message.toString().trim().startsWith("The connection errored")) {
+        error = "Connection error. Make sure you are connected to the internet";
+        error = "";
+        trialCount = 0;
+
+        return [];
+      } else {
+        //if (error.isEmpty && trialCount == maxTrialCount) {
+        error = "Oops, Something went wrong";
+        //}
+      }
+
+      print('Error: $e');
+
+      if (trialCount == maxTrialCount) {
+        error = "";
+        trialCount = 0;
+        return [];
+      } else {
+        trialCount++;
+        return generateAIResponse();
+      }
+
+      //return generateAIResponse();
+      //return [];
+    }
+  }
+
   void getOfflineDetails() {
     if (gameId.isEmpty) {}
   }
@@ -409,7 +572,16 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   void resetPlayerTime([int? maxTime]) {
     stopPlayerTime = false;
+    showPlayerTime = true;
     playersTimes[currentPlayer] = maxTime ?? maxPlayerTime ?? 30;
+  }
+
+  void hideAllPlayerTimes() {
+    showPlayerTime = false;
+  }
+
+  void showAllPlayerTimes() {
+    showPlayerTime = true;
   }
 
   void stopTimer([bool pause = true]) {
@@ -459,9 +631,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       } else {
         adUtils.adTime++;
       }
-      // print("adTime = ${adUtils.adTime}");
-      // }
-      //}
 
       if (maxGameTime != null && gameTime <= 0) {
         timer.cancel();
@@ -475,14 +644,18 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       timerController.sink.add(gameTime);
 
       if (!stopPlayerTime) {
+        if (isComputer && computerGameDetails.isNotEmpty) {
+          setComputerDetails();
+        }
         if (playerTime <= 0) {
           if (!isWatch && (gameId.isEmpty || currentPlayerId == myId)) {
             onPlayerTimeEnd();
           }
-          if (isPuzzle) {
-            setGatheredDetails();
-            resetPlayerTime();
-          } else if (isChessOrDraught) {
+          // if (isPuzzle) {
+          //   setGatheredDetails();
+          //   resetPlayerTime();
+          // } else
+          if (isChessOrDraught) {
             updateWin(getNextPlayerIndex(currentPlayer));
           }
           if (!mounted) return;
@@ -568,7 +741,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   void getCurrentPlayer() {
-    if (gameId != "") {
+    if (gameId.isNotEmpty) {
       final playerIds = players.map((e) => e.id).toList();
       if (playerIds.isEmpty) return;
       currentPlayerId = isPuzzle || isQuiz ? myId : playerIds.last;
@@ -614,7 +787,22 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     if (!isChessOrDraught) {
       playersTimes[currentPlayer] = maxPlayerTime!;
     }
+    if (handleComputerResponse && isComputer && currentPlayer == 0) {
+      Future.delayed(const Duration(seconds: 3)).then((value) {
+        generateResponse();
+      });
+    }
     setState(() {});
+  }
+
+  void generateResponse() {
+    loadingDetails = true;
+    setState(() {});
+    generateAIResponse().then((details) {
+      computerGameDetails = details;
+      loadingDetails = false;
+      setState(() {});
+    });
   }
 
   void resetExemptPlayer() {
@@ -798,7 +986,13 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         ? users![index]?.user_id == myId
             ? "you"
             : users![index]!.username
-        : "Player ${playerIndex + 1}";
+        : playersSize == 1
+            ? "you"
+            : isComputer
+                ? playerIndex == 0
+                    ? "computer"
+                    : "you"
+                : "Player ${playerIndex + 1}";
   }
 
   int getPrevPlayerIndex([int? playerIndex]) {
@@ -914,8 +1108,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   void updateMyChangedGame(String game) async {
     final index = players.indexWhere((element) => element.id == myId);
     if (index == -1 || players[index].game == game) return;
-    await updatePlayerActionAndShowToast("pause", game);
-    players[index] = players[index].copyWith(game: game, action: "pause");
+    await updatePlayerActionAndShowToast("pause",
+        game: game, exemptedRules: null);
+    players[index] = players[index].copyWith(
+        game: game, action: "pause", exemptedRules: null, difficulty: null);
     showToast("You changed game to $game");
     executeGameChange();
     if (!mounted) return;
@@ -923,9 +1119,46 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   void executeGameChange() {
-    String newgame = getChangedGame(getAvailablePlayers());
-    if (newgame.isEmpty || gameName == newgame) return;
-    change(newgame, false);
+    String newGame = getChangedGame(getAvailablePlayers());
+    if (newGame.isEmpty || gameName == newGame) return;
+    change(newGame, false);
+  }
+
+  void updateMyDifficultyLevel(String difficulty) async {
+    final index = players.indexWhere((element) => element.id == myId);
+    if (index == -1 || players[index].difficulty == difficulty) return;
+    await updatePlayerActionAndShowToast("pause", difficulty: difficulty);
+    players[index] =
+        players[index].copyWith(difficulty: difficulty, action: "pause");
+    showToast("You changed difficulty level to $difficulty");
+    executeDifficultyLevel();
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  void executeDifficultyLevel() {
+    String newDifficulty = getChangedDifficulty(getAvailablePlayers());
+    if (newDifficulty.isEmpty || difficultyLevel == newDifficulty) return;
+    changeDifficultyLevel(newDifficulty, false);
+  }
+
+  void updateMyExemptedRules(String exemptedRules) async {
+    final index = players.indexWhere((element) => element.id == myId);
+    if (index == -1 || players[index].exemptedRules == exemptedRules) return;
+    await updatePlayerActionAndShowToast("pause", exemptedRules: exemptedRules);
+    players[index] =
+        players[index].copyWith(exemptedRules: exemptedRules, action: "pause");
+    showToast(
+        "You exempted ${exemptedRules.isEmpty ? "no" : stringOptionsToListValue(gameRules, exemptedRules).join(", ")} rules");
+    executeExemptedRules();
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  void executeExemptedRules() {
+    String newExemptedRules = getExemptedRules(getAvailablePlayers());
+    if (newExemptedRules.isEmpty || exemptedRules == newExemptedRules) return;
+    changeExemptedRules(newExemptedRules, false);
   }
 
   String executeAction() {
@@ -1030,6 +1263,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   void checkFirstime() async {
     final name = gameName.isQuiz ? "Quiz" : gameName;
     int playTimes = sharedPref.getInt(name) ?? 0;
+
     if (playTimes < maxHintTime) {
       readAboutGame = playTimes == 0;
       playTimes++;
@@ -1074,6 +1308,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
       playersScores = round.scores.toList().cast();
       winners = round.winners;
+      difficultyLevel = round.difficultyLevel;
+      exemptedRules = round.exemptedRules;
+
       finishedRound = round.time_end != null;
 
       gameDetailsLength = round.detailsLength;
@@ -1170,6 +1407,40 @@ abstract class BaseGamePageState<T extends BaseGamePage>
             if (result == true) {
               change(player.game!);
             }
+          } else if (player.difficulty != null &&
+              // myPlayer?.difficulty != null &&
+              prevPlayer.difficulty != player.difficulty &&
+              player.difficulty != myPlayer?.difficulty) {
+            if (alertShown) {
+              context.pop();
+              alertShown = false;
+            }
+            alertShown = true;
+            final result = await context.showComfirmationDialog(
+                title:
+                    "$username changed difficulty level to ${player.difficulty}",
+                message: "Do you also want to change difficulty level?");
+            alertShown = false;
+            if (result == true) {
+              changeDifficultyLevel(player.difficulty!);
+            }
+          } else if (player.exemptedRules != null &&
+              // myPlayer?.exemptedRules != null &&
+              prevPlayer.exemptedRules != player.exemptedRules &&
+              player.exemptedRules != myPlayer?.exemptedRules) {
+            if (alertShown) {
+              context.pop();
+              alertShown = false;
+            }
+            alertShown = true;
+            final result = await context.showComfirmationDialog(
+                title:
+                    "$username exempted ${player.exemptedRules!.isEmpty ? "no" : stringOptionsToListValue(gameRules, player.exemptedRules).join(", ")} rules",
+                message: "Do you accept?");
+            alertShown = false;
+            if (result == true) {
+              changeExemptedRules(player.exemptedRules!);
+            }
           } else if ((player.action ?? "").isNotEmpty &&
               (myPlayer?.action ?? "").isNotEmpty &&
               prevPlayer.action != player.action &&
@@ -1260,6 +1531,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         if (!mounted) return;
         executeAction();
         executeGameChange();
+        executeDifficultyLevel();
+        executeExemptedRules();
         //executeCallAction(player, playersChange.removed);
         // widget.gameCallUtils.executeCallAction(player, playersChange.removed);
 
@@ -1620,11 +1893,13 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       onDetailsChange(gameDetail);
       awaitingDetails = false;
     }
-    if (readMoreDetails && gameDetail["moreDetails"] != null) {
-      final moreDetails = gameDetail["moreDetails"] as List<dynamic>;
-      for (int i = 0; i < moreDetails.length; i++) {
-        final detail = moreDetails[i];
-        updateGameDetails(detail);
+    if (readMoreDetails) {
+      if (gameDetail["moreDetails"] != null) {
+        final moreDetails = gameDetail["moreDetails"] as List<dynamic>;
+        for (int i = 0; i < moreDetails.length; i++) {
+          final detail = moreDetails[i];
+          updateGameDetails(detail);
+        }
       }
     }
   }
@@ -1712,6 +1987,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
     gameDetails.add(detail);
 
+    if (firstTime) {
+      checkFirstime();
+    }
+
     if (gameId.isNotEmpty) {
       await sendUnsentDetails();
       return setGameDetails(gameId, matchId, detail).catchError((e) {
@@ -1736,6 +2015,22 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     }
   }
 
+  void setComputerDetails() {
+    // print("computerGameDetails = $computerGameDetails");
+    if (computerGameDetails.isEmpty) return;
+    final detail = computerGameDetails.first;
+    final detailDuration = detail["duration"];
+
+    // if (detailDuration == null ||
+    //     (detailDuration != null && detailDuration.toDouble() >= duration)) {
+    setDetail(detail);
+    updateGameDetails(detail, readMoreDetails: true);
+    //}
+    // print("setComputerDetails = ${computerGameDetails.first}");
+
+    computerGameDetails.removeAt(0);
+  }
+
   Future<bool> get allowNextMove async {
     if (!seeking) {
       await Future.delayed(Duration(milliseconds: detailDelay));
@@ -1752,8 +2047,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   }
 
   bool itsMyTurnForMessage(int player) =>
-      (currentPlayer == player && showMessage) ||
-      getExemptPlayer(player) != null;
+      (currentPlayer == player) || getExemptPlayer(player) != null;
 
   bool itsMyTurnToPlay(bool isClick, [int? player]) {
     if (isClick &&
@@ -1766,7 +2060,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       return false;
     }
     if (isCheckoutMode) {
-      showToast("You can't play in checkout mode. Back press to exit");
+      showToast("You can't play in checkout mode. Back press or menu to exit");
 
       return false;
     }
@@ -1781,6 +2075,12 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     if (isClick && gameId.isNotEmpty && currentPlayerId != myId) {
       showPlayerToast(myPlayer,
           "Its ${getPlayerUsername(playerId: currentPlayerId)}'s turn");
+
+      return false;
+    }
+    if (isClick && isComputer && currentPlayer == 0) {
+      showPlayerToast(
+          1, "Its ${getPlayerUsername(playerIndex: currentPlayer)}'s turn");
 
       return false;
     }
@@ -1889,25 +2189,99 @@ abstract class BaseGamePageState<T extends BaseGamePage>
   String getMessage(int index) {
     String message = playersMessages[index];
 
-    return "${itsMyTurnForMessage(index) ? "${message.isEmpty ? this.message.isNotEmpty ? this.message : "Play" : message} - " : message.isEmpty ? "" : "$message - "}${playersTimes[index].toDurationString(false)}";
+    final playerMessage = itsMyTurnForMessage(index)
+        ? message.isEmpty
+            ? this.message.isNotEmpty
+                ? this.message
+                : "Play"
+            : message
+        : message;
+    final playerTime =
+        showPlayerTime ? playersTimes[index].toDurationString(false) : "";
+    return "$playerMessage${playerMessage.isNotEmpty && playerTime.isNotEmpty ? " - " : ""}$playerTime";
   }
 
-  void updateWinForPlayerWithHighestCount() {
-    final players = getHighestCountPlayer(playersCounts);
+  void updateWinForPlayerWithHighestCount(
+      {List<int>? counts, String countType = "points", int? lowestCount}) {
+    counts ??= playersCounts;
+    final players = getHighestCountPlayer(counts, lowestCount: lowestCount);
     if (players.length == 1) {
+      //${getPlayerUsername(playerIndex: players.first)} won with
       updateWin(players.first,
-          reason:
-              "${getPlayerUsername(playerIndex: players.first)} won with ${playersCounts[players.first]} points");
+          reason: "Highest $countType - ${counts[players.first]}");
     } else {
-      if (players.isEmpty) return;
-      if (players.length == playersSize) {
-        updateDraw(
-            reason: "It's a draw with ${playersCounts[players.first]} points");
+      if (players.isEmpty) {
+        if (playersSize == 1) {
+          updateLost(
+              reason: lowestCount != null
+                  ? "${getPlayerUsername(playerIndex: currentPlayer)} scored below the lowest $countType - $lowestCount"
+                  : "");
+        } else {
+          updateDraw(
+              reason: lowestCount != null
+                  ? "Nobody passed the lowest $countType - $lowestCount"
+                  : "");
+        }
+      } else if (players.length == playersSize) {
+        updateDraw(reason: "Same $countType - ${counts[players.first]}");
       } else {
         updateTie(players,
             reason:
-                "${players.map((player) => getPlayerUsername(playerIndex: player)).join(" and ")} tied with ${playersCounts[players.first]} points");
+                "${players.map((player) => getPlayerUsername(playerIndex: player)).join(", ")} tied with ${counts[players.first]} $countType");
       }
+    }
+  }
+
+  void updateWinForPlayerWithLowestCount(
+      {List<int>? counts, String countType = "points", int? highestCount}) {
+    counts ??= playersCounts;
+
+    final players = getLowestCountPlayer(counts, highestCount: highestCount);
+
+    //${getPlayerUsername(playerIndex: players.first)}
+    if (players.length == 1) {
+      updateWin(players.first,
+          reason: "Highest $countType - ${counts[players.first]}");
+    } else {
+      if (players.isEmpty) {
+        if (playersSize == 1) {
+          updateLost(
+              reason: highestCount != null
+                  ? "${getPlayerUsername(playerIndex: currentPlayer)} scored above the highest $countType - $highestCount"
+                  : "");
+        } else {
+          updateDraw(
+              reason: highestCount != null
+                  ? "Nobody passed the $highestCount $countType"
+                  : "");
+        }
+      } else if (players.length == playersSize) {
+        updateDraw(
+            reason: "Same number of $countType - ${counts[players.first]}");
+      } else {
+        updateTie(players,
+            reason:
+                "${players.map((player) => getPlayerUsername(playerIndex: player)).join(", ")} tied with ${counts[players.first]} $countType");
+      }
+    }
+  }
+
+  void updateLost({String? reason}) {
+    if (this.reason.isEmpty) {
+      this.reason = reason ?? "";
+    }
+    updateMatchRound([]);
+
+    toastLoser(currentPlayer, reason: reason);
+  }
+
+  void toastLoser(int player, {String? reason}) {
+    String message = "${getPlayerUsername(playerIndex: player)} lost";
+    if (reason != null) {
+      message += " with $reason";
+    }
+    for (int i = 0; i < playersSize; i++) {
+      showPlayerToast(i, message);
     }
   }
 
@@ -1963,12 +2337,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     for (int i = 0; i < playersSize; i++) {
       showPlayerToast(i, message);
     }
-    // if (isCard) {
-
-    // } else {
-    //   showPlayerToast(0, message);
-    //   showPlayerToast(1, message);
-    // }
   }
 
   void toastWinners(List<int> players, {String? reason}) {
@@ -2152,7 +2520,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     controlsVisiblityTimer = 0;
 
     if ((duration - durationSkipLimit) < 0) {
-      newDuration = 0;
+      newDuration = 0.0;
       return;
     }
 
@@ -2260,20 +2628,33 @@ abstract class BaseGamePageState<T extends BaseGamePage>
           players: players,
           exemptPlayers: exemptPlayers,
           hasStarted: !startingRound,
-          args: widget.arguments ?? {}),
+          args: widget.arguments ?? {},
+          difficulty: difficultyLevel,
+          exemptedRules: exemptedRules),
     );
   }
 
   Future<dynamic> updatePlayerActionAndShowToast(
-    String action, [
+    String action, {
     String? game,
-  ]) async {
+    String? difficulty,
+    String? exemptedRules,
+  }) async {
     final myPlaying = players.firstWhere((element) => element.id == myId);
     final myAction = myPlaying.action;
     final myGame = myPlaying.game;
+    final myDifficulty = myPlaying.difficulty;
+    final myexemptedRules = myPlaying.exemptedRules;
 
-    if (myAction == action && myGame == game) return;
-    await updatePlayerAction(gameId, matchId, action, game);
+    if (myAction == action &&
+        myGame == game &&
+        myDifficulty == difficulty &&
+        myexemptedRules == exemptedRules) {
+      return;
+    }
+
+    await updatePlayerAction(gameId, matchId, action,
+        game: game, difficulty: difficulty, exemptedRules: exemptedRules);
 
     if (this.users == null || this.users!.isEmpty) return;
     final users = this.users!;
@@ -2302,7 +2683,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         return;
       }
       showToast(
-          "Waiting for ${waitingUsers.toStringWithCommaandAnd((user) => user.username)} to also ${action != myAction ? action : "change to $game"}");
+          "Waiting for ${waitingUsers.toStringWithCommaandAnd((user) => user.username)} to also ${action != myAction ? action : game != myGame ? "change to $game" : difficulty != myDifficulty ? "change difficulty level to $difficulty" : exemptedRules != myexemptedRules ? "accept rules" : ""}");
     }
   }
 
@@ -2311,7 +2692,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
     reason = "";
     message = "Play";
-    duration = 0;
+    duration = 0.0;
     gameTime = maxGameTime ?? 0;
     playersTimes[currentPlayer] = maxPlayerTime ?? 30;
     gatheredGameDetails.clear();
@@ -2334,8 +2715,15 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                 match?.records?["$recordId"]?["rounds"]?["$roundId"] ==
                     null))) {
       onInit();
+      // if (isQuiz || isPuzzle) {
+      //   //generateResponse();
+      // }
     }
     onStart();
+    if (isQuiz && !finishedRound && startingRound) {
+      loadingDetails = true;
+      setState(() {});
+    }
   }
 
   void showCheckout() {
@@ -2444,6 +2832,26 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     stopListening();
   }
 
+  void changeExemptedRules(String exemptedRules, [bool isClick = true]) async {
+    if (isClick && gameId.isNotEmpty) {
+      updateMyExemptedRules(exemptedRules);
+      return;
+    }
+    this.exemptedRules = exemptedRules;
+    updateGameAction("exemptedRules");
+    setState(() {});
+  }
+
+  void changeDifficultyLevel(String difficulty, [bool isClick = true]) async {
+    if (isClick && gameId.isNotEmpty) {
+      updateMyDifficultyLevel(difficulty);
+      return;
+    }
+    difficultyLevel = difficulty;
+    updateGameAction("difficulty");
+    setState(() {});
+  }
+
   void change(String game, [bool isClick = true]) async {
     if (isClick && gameId.isNotEmpty) {
       updateMyChangedGame(game);
@@ -2463,9 +2871,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
       return;
     }
     if (isClick && gameId.isNotEmpty) {
-      if (isPuzzle) {
-        setGatheredDetails();
-      }
+      // if (isPuzzle) {
+      //   setGatheredDetails();
+      // }
       if (startingRound || finishedRound) {
         try {
           await updateMyAction("close");
@@ -2552,9 +2960,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   void concede([String? playerId, bool isClick = true]) async {
     if (isClick && gameId.isNotEmpty) {
-      if (isPuzzle) {
-        setGatheredDetails();
-      }
+      // if (isPuzzle) {
+      //   setGatheredDetails();
+      // }
       setActionDetails("concede");
 
       concede(myId, false);
@@ -2605,9 +3013,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
 
   void leave([String? playerId, bool isClick = true]) async {
     if (isClick && gameId.isNotEmpty) {
-      if (isPuzzle) {
-        setGatheredDetails();
-      }
+      // if (isPuzzle) {
+      //   setGatheredDetails();
+      // }
 
       if (startingRound || finishedRound) {
         try {
@@ -2815,7 +3223,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
               players: players.map((e) => e.id).toList(),
               closed_players: getClosedPlayers(),
               detailsLength: 0,
-              duration: 0)
+              duration: 0.0,
+              difficultyLevel: difficultyLevel,
+              exemptedRules: exemptedRules)
           .toMap()
           .removeNull();
 
@@ -2892,9 +3302,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     }
     widget.arguments?["playersScores"] = playersScores;
 
-    if (isPuzzle) {
-      setGatheredDetails();
-    }
+    // if (isPuzzle) {
+    //   setGatheredDetails();
+    // }
     final time = timeNow;
 
     if (this.match == null || this.match!.players == null) {
@@ -3395,7 +3805,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         break;
       case whotGame:
         hint =
-            "Tap any card to open\nLong press any card to hide\nPlay a matching card";
+            "Tap any card to open\nDouble tap any card to hide or show\nPlay a matching card";
         // hint =
         //     "Tap on any card you want to play or tap the general card if you don't have the matching card\nMake your move";
         break;
@@ -3413,6 +3823,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
             "Tap on any start character and tap on the end character or start dragging from the start character to end char to match your word\nGet your word";
         break;
     }
+    hint +=
+        "\nTap Watch Tutorial or About Game when paused to understand better";
     return hint;
   }
 
@@ -3517,6 +3929,23 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 4),
+                HintingWidget(
+                  showHint:
+                      sharedPref.getBool(TAPPED_SCORES_AND_POINTS) == null,
+                  hintText: "Photo, Name, Score, Points",
+                  top: 0,
+                  right: 0,
+                  child: Text(
+                    "${playersScores[index]}",
+                    style: const TextStyle(
+                        fontSize: 14,
+                        color: primaryColor,
+                        fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 if (playersCounts.isNotEmpty &&
                     index < playersCounts.length &&
                     playersCounts[index] != -1) ...[
@@ -3543,14 +3972,25 @@ abstract class BaseGamePageState<T extends BaseGamePage>
         if (!paused) {
           pause();
         }
+        if (sharedPref.getBool(TAPPED_OPTIONS_MENU) != true) {
+          sharedPref.setBool(TAPPED_OPTIONS_MENU, true).then((value) {
+            setState(() {});
+          });
+        }
       },
-      child: Container(
-        height: 20,
-        width: 20,
-        margin: const EdgeInsets.all(5),
-        decoration: BoxDecoration(
-            color: primaryColor, borderRadius: BorderRadius.circular(5)),
-        child: Icon(EvaIcons.menu_outline, color: tint, size: 15),
+      child: HintingWidget(
+        showHint: sharedPref.getBool(TAPPED_OPTIONS_MENU) == null,
+        hintText: "Tap to pause or show options",
+        top: sharedPref.getBool(TAPPED_SCORES_AND_POINTS) == null ? 30 : 0,
+        right: 0,
+        child: Container(
+          height: 20,
+          width: 20,
+          margin: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+              color: primaryColor, borderRadius: BorderRadius.circular(5)),
+          child: Icon(EvaIcons.menu_outline, color: tint, size: 15),
+        ),
       ),
     );
     // return IconButton(
@@ -3567,13 +4007,187 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     // );
   }
 
+  // double get availableHeight =>
+  //     gameName.isCard ? min(padding - 30, (minSize / 3)) : padding;
+
+  Widget buildPlayerWidget(int index) {
+    final videoView = buildVideoView(index);
+    final exemptPlayer = getExemptPlayer(index);
+    final mindex = (playersSize / 2).ceil();
+    final height = isCard
+        ? min((minSize / 2) - (cardHeight / 2) - 4, padding - 30)
+        : padding;
+    final width = isCard
+        ? minSize
+        : landScape
+            ? padding
+            : playersSize > 2
+                ? minSize / 2
+                : minSize;
+    return Container(
+      alignment: Alignment.center,
+      child: RotatedBox(
+        quarterTurns: isCard
+            ? getTurn(index)
+            : index < mindex
+                ? 2
+                : 0,
+        child: Opacity(
+          opacity: getOverlayOpacity(index),
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            children: [
+              if (videoView != null) videoView,
+              Container(
+                height: height,
+                width: width,
+                alignment: Alignment.center,
+                margin: EdgeInsets.only(
+                    left: !isCard ? 0 : 30,
+                    right: !isCard ? 0 : 30,
+                    bottom: !isCard
+                        ? 0
+                        : (landScape &&
+                                    (index == 1 || index == 3) &&
+                                    playersSize > 2) ||
+                                (!landScape &&
+                                    (index == 0 ||
+                                        (index == 2 && playersSize > 2) ||
+                                        (index == 1 && playersSize == 2)))
+                            ? 30
+                            : 4),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        // const SizedBox(width: 4),
+                        if (onShowRightClick(index))
+                          const SizedBox(width: 40, height: 40),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(height: 4),
+                              RotatedBox(
+                                quarterTurns: getStraightTurn(index),
+                                child: GameTimer(
+                                  timerStream: timerController.stream,
+                                  time: exemptPlayer?.time,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              RotatedBox(
+                                quarterTurns: getStraightTurn(index),
+                                child: StreamBuilder<int>(
+                                    stream: currentPlayer == index
+                                        ? timerController.stream
+                                        : null,
+                                    builder: (context, snapshot) {
+                                      return AutoSizeText(
+                                        exemptPlayer != null
+                                            ? getExemptPlayerMessage(
+                                                exemptPlayer)
+                                            : getMessage(index),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: itsMyTurnForMessage(index)
+                                              ? primaryColor
+                                              : tint,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      );
+                                    }),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        if (onShowRightClick(index))
+                          GestureDetector(
+                            onTap: () {
+                              onRightClick(index);
+                              if (sharedPref.getBool(TAPPED_DONE) != true) {
+                                sharedPref
+                                    .setBool(TAPPED_DONE, true)
+                                    .then((value) {
+                                  setState(() {});
+                                });
+                              }
+                            },
+                            child: HintingWidget(
+                              showHint: sharedPref.getBool(TAPPED_DONE) == null,
+                              hintText:
+                                  "Tap to ${gameName.isQuiz ? "submit" : "play"}",
+                              bottom: 0,
+                              right: 0,
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                alignment: Alignment.center,
+                                decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: primaryColor),
+                                child: const Icon(EvaIcons.checkmark_outline,
+                                    size: 20, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        // else
+                        //   const SizedBox(width: 40, height: 40),
+                        const SizedBox(width: 4),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          toggleVideoOverlayVisibility(getPlayerId(index));
+                        },
+                        child: IgnorePointer(
+                            ignoring: exemptPlayer != null && !finishedRound,
+                            child: Align(
+                                alignment: Alignment.topCenter,
+                                child: buildBottomOrLeftChild(index))),
+                      ),
+                    ),
+                    if (!isCard) getPlayerBottomWidget(index),
+                  ],
+                ),
+              ),
+              if (exemptPlayer == null &&
+                  index < playersToasts.length &&
+                  playersToasts[index] != "") ...[
+                RotatedBox(
+                  quarterTurns: getStraightTurn(index),
+                  child: AppToast(
+                    message: playersToasts[index],
+                    onComplete: () {
+                      playersToasts[index] = "";
+                      setState(() {});
+                    },
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    // print("difficultyLevel = $difficultyLevel");
     // print("hasVideo = ${widget.gameCallUtils.getMyRenderer()}");
     updateGamePageInfos();
     // print("match = $match");
-    // print("gameDetails = $gameDetails");
+    //print("gameDetails = $gameDetails");
     // print("players = $players");
     // print("exemptPlayers = $exemptPlayers");
 
@@ -3596,6 +4210,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
     return PopScope(
       canPop: false,
       onPopInvoked: (pop) async {
+        if (pop) return;
         if (isCheckoutMode) {
           setState(() {
             isCheckoutMode = false;
@@ -3604,6 +4219,10 @@ abstract class BaseGamePageState<T extends BaseGamePage>
           stopWatching(false);
         } else if (!paused) {
           pause();
+        }
+        if (loadingDetails) {
+          loadingDetails = false;
+          setState(() {});
         }
       },
       child: VisibilityDetector(
@@ -3640,8 +4259,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                     children: [
                       if (isCard) ...[
                         ...List.generate(playersSize, (index) {
-                          final videoView = buildVideoView(index);
-                          final exemptPlayer = getExemptPlayer(index);
+                          // final videoView = buildVideoView(index);
+                          // final exemptPlayer = getExemptPlayer(index);
                           return Positioned(
                             top: index == 0 ||
                                     ((index == 1 || index == 3) &&
@@ -3651,196 +4270,205 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                             bottom: index != 0 ? 0 : null,
                             left: playersSize > 2 && index == 1 ? null : 0,
                             right: index < 3 ? 0 : null,
-                            child: RotatedBox(
-                              quarterTurns: getTurn(index),
-                              child: Opacity(
-                                opacity: getOverlayOpacity(index),
-                                child: Container(
-                                  alignment: Alignment.center,
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      RotatedBox(
-                                        quarterTurns: getStraightTurn(index),
-                                        child: StreamBuilder<int>(
-                                            stream: currentPlayer == index
-                                                ? timerController.stream
-                                                : null,
-                                            builder: (context, snapshot) {
-                                              return Text(
-                                                exemptPlayer != null
-                                                    ? getExemptPlayerMessage(
-                                                        exemptPlayer)
-                                                    : getMessage(index),
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 14,
-                                                  color:
-                                                      itsMyTurnForMessage(index)
-                                                          ? primaryColor
-                                                          : tint,
-                                                ),
-                                                textAlign: TextAlign.center,
-                                              );
-                                            }),
-                                      ),
-                                      GestureDetector(
-                                        behavior: HitTestBehavior.opaque,
-                                        onTap: () {
-                                          toggleVideoOverlayVisibility(
-                                              getPlayerId(index));
-                                        },
-                                        child: Stack(
-                                          alignment: Alignment.center,
-                                          children: [
-                                            if (videoView != null) videoView,
-                                            Container(
-                                              // height: cardHeight,
-                                              width: minSize,
-                                              alignment: Alignment.center,
-                                              margin: EdgeInsets.only(
-                                                  left: 24,
-                                                  right: 24,
-                                                  bottom: (landScape &&
-                                                              (index == 1 ||
-                                                                  index == 3) &&
-                                                              playersSize >
-                                                                  2) ||
-                                                          (!landScape &&
-                                                              (index == 0 ||
-                                                                  (index == 2 &&
-                                                                      playersSize >
-                                                                          2) ||
-                                                                  (index == 1 &&
-                                                                      playersSize ==
-                                                                          2)))
-                                                      ? 30
-                                                      : 8),
-                                              child: IgnorePointer(
-                                                  ignoring:
-                                                      exemptPlayer != null &&
-                                                          !finishedRound,
-                                                  child: buildBottomOrLeftChild(
-                                                      index)),
-                                            ),
-                                            if (exemptPlayer == null &&
-                                                index < playersToasts.length &&
-                                                playersToasts[index] != "") ...[
-                                              Align(
-                                                alignment:
-                                                    Alignment.bottomCenter,
-                                                child: RotatedBox(
-                                                  quarterTurns:
-                                                      getStraightTurn(index),
-                                                  child: AppToast(
-                                                    message:
-                                                        playersToasts[index],
-                                                    onComplete: () {
-                                                      playersToasts[index] = "";
-                                                      setState(() {});
-                                                    },
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
+                            child: buildPlayerWidget(index),
+                            // child: RotatedBox(
+                            //   quarterTurns: getTurn(index),
+                            //   child: Opacity(
+                            //     opacity: getOverlayOpacity(index),
+                            //     child: Container(
+                            //       alignment: Alignment.center,
+                            //       child: Column(
+                            //         mainAxisSize: MainAxisSize.min,
+                            //         children: [
+                            //           RotatedBox(
+                            //             quarterTurns: getStraightTurn(index),
+                            //             child: GameTimer(
+                            //               timerStream: timerController.stream,
+                            //               time: exemptPlayer?.time,
+                            //             ),
+                            //           ),
+                            //           RotatedBox(
+                            //             quarterTurns: getStraightTurn(index),
+                            //             child: StreamBuilder<int>(
+                            //                 stream: currentPlayer == index
+                            //                     ? timerController.stream
+                            //                     : null,
+                            //                 builder: (context, snapshot) {
+                            //                   return Text(
+                            //                     exemptPlayer != null
+                            //                         ? getExemptPlayerMessage(
+                            //                             exemptPlayer)
+                            //                         : getMessage(index),
+                            //                     style: TextStyle(
+                            //                       fontWeight: FontWeight.bold,
+                            //                       fontSize: 14,
+                            //                       color:
+                            //                           itsMyTurnForMessage(index)
+                            //                               ? primaryColor
+                            //                               : tint,
+                            //                     ),
+                            //                     textAlign: TextAlign.center,
+                            //                   );
+                            //                 }),
+                            //           ),
+                            //           const SizedBox(height: 4),
+                            //           GestureDetector(
+                            //             behavior: HitTestBehavior.opaque,
+                            //             onTap: () {
+                            //               toggleVideoOverlayVisibility(
+                            //                   getPlayerId(index));
+                            //             },
+                            //             child: Stack(
+                            //               alignment: Alignment.center,
+                            //               children: [
+                            //                 if (videoView != null) videoView,
+                            //                 Container(
+                            //                   // height: cardHeight,
+                            //                   width: minSize,
+                            //                   alignment: Alignment.center,
+                            //                   margin: EdgeInsets.only(
+                            //                       left: 24,
+                            //                       right: 24,
+                            //                       bottom: (landScape &&
+                            //                                   (index == 1 ||
+                            //                                       index == 3) &&
+                            //                                   playersSize >
+                            //                                       2) ||
+                            //                               (!landScape &&
+                            //                                   (index == 0 ||
+                            //                                       (index == 2 &&
+                            //                                           playersSize >
+                            //                                               2) ||
+                            //                                       (index == 1 &&
+                            //                                           playersSize ==
+                            //                                               2)))
+                            //                           ? 30
+                            //                           : 8),
+                            //                   child: IgnorePointer(
+                            //                       ignoring:
+                            //                           exemptPlayer != null &&
+                            //                               !finishedRound,
+                            //                       child: buildBottomOrLeftChild(
+                            //                           index)),
+                            //                 ),
+                            //                 if (exemptPlayer == null &&
+                            //                     index < playersToasts.length &&
+                            //                     playersToasts[index] != "") ...[
+                            //                   Align(
+                            //                     alignment:
+                            //                         Alignment.bottomCenter,
+                            //                     child: RotatedBox(
+                            //                       quarterTurns:
+                            //                           getStraightTurn(index),
+                            //                       child: AppToast(
+                            //                         message:
+                            //                             playersToasts[index],
+                            //                         onComplete: () {
+                            //                           playersToasts[index] = "";
+                            //                           setState(() {});
+                            //                         },
+                            //                       ),
+                            //                     ),
+                            //                   ),
+                            //                 ],
+                            //               ],
+                            //             ),
+                            //           ),
+                            //         ],
+                            //       ),
+                            //     ),
+                            //   ),
+                            // ),
                           );
                         }),
-                        ...List.generate(playersSize, (index) {
-                          final mindex = (playersSize / 2).ceil();
-                          bool isEdgeTilt = gameId != "" &&
-                              playersSize > 2 &&
-                              (myPlayer == 1 || myPlayer == 3);
-                          final value = isEdgeTilt ? !landScape : landScape;
-                          final exemptPlayer = getExemptPlayer(index);
-                          return Positioned(
-                              top: index < mindex ? 0 : null,
-                              bottom: index >= mindex ? 0 : null,
-                              left: index == 0 || index == 3 ? 0 : null,
-                              right: index == 1 || index == 2 ? 0 : null,
-                              child: Container(
-                                width: value
-                                    ? padding
-                                    : playersSize > 2
-                                        ? minSize / 2
-                                        : minSize,
-                                height: value ? minSize / 2 : padding,
-                                alignment: value
-                                    ? index == 0
-                                        ? Alignment.topRight
-                                        : index == 1
-                                            ? playersSize > 2
-                                                ? Alignment.topLeft
-                                                : Alignment.bottomLeft
-                                            : index == 2
-                                                ? Alignment.bottomLeft
-                                                : Alignment.bottomRight
-                                    : index == 0
-                                        ? Alignment.bottomLeft
-                                        : index == 1
-                                            ? playersSize > 2
-                                                ? Alignment.bottomRight
-                                                : Alignment.topRight
-                                            : index == 2
-                                                ? Alignment.topRight
-                                                : Alignment.topLeft,
-                                child: RotatedBox(
-                                  quarterTurns: index == 0
-                                      ? 2
-                                      : index == 1 && playersSize > 2
-                                          ? 3
-                                          : index == 3
-                                              ? 1
-                                              : 0,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(
-                                        left: 8.0, right: 8.0, bottom: 24),
-                                    child: Opacity(
-                                      opacity: getOverlayOpacity(index),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          RotatedBox(
-                                            quarterTurns:
-                                                getStraightTurn(index),
-                                            child: SizedBox(
-                                              height: 70,
-                                              child: Text(
-                                                '${playersScores[index]}',
-                                                style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 60,
-                                                    color: darkMode
-                                                        ? Colors.white
-                                                            .withOpacity(0.5)
-                                                        : Colors.black
-                                                            .withOpacity(0.5)),
-                                              ),
-                                            ),
-                                          ),
-                                          RotatedBox(
-                                            quarterTurns:
-                                                getStraightTurn(index),
-                                            child: GameTimer(
-                                              timerStream:
-                                                  timerController.stream,
-                                              time: exemptPlayer?.time,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ));
-                        }),
+                        // ...List.generate(playersSize, (index) {
+                        //   final mindex = (playersSize / 2).ceil();
+                        //   bool isEdgeTilt = gameId != "" &&
+                        //       playersSize > 2 &&
+                        //       (myPlayer == 1 || myPlayer == 3);
+                        //   final value = isEdgeTilt ? !landScape : landScape;
+                        //   final exemptPlayer = getExemptPlayer(index);
+                        //   return Positioned(
+                        //       top: index < mindex ? 0 : null,
+                        //       bottom: index >= mindex ? 0 : null,
+                        //       left: index == 0 || index == 3 ? 0 : null,
+                        //       right: index == 1 || index == 2 ? 0 : null,
+                        //       child: Container(
+                        //         width: value
+                        //             ? padding
+                        //             : playersSize > 2
+                        //                 ? minSize / 2
+                        //                 : minSize,
+                        //         height: value ? minSize / 2 : padding,
+                        //         alignment: value
+                        //             ? index == 0
+                        //                 ? Alignment.topRight
+                        //                 : index == 1
+                        //                     ? playersSize > 2
+                        //                         ? Alignment.topLeft
+                        //                         : Alignment.bottomLeft
+                        //                     : index == 2
+                        //                         ? Alignment.bottomLeft
+                        //                         : Alignment.bottomRight
+                        //             : index == 0
+                        //                 ? Alignment.bottomLeft
+                        //                 : index == 1
+                        //                     ? playersSize > 2
+                        //                         ? Alignment.bottomRight
+                        //                         : Alignment.topRight
+                        //                     : index == 2
+                        //                         ? Alignment.topRight
+                        //                         : Alignment.topLeft,
+                        //         child: RotatedBox(
+                        //           quarterTurns: index == 0
+                        //               ? 2
+                        //               : index == 1 && playersSize > 2
+                        //                   ? 3
+                        //                   : index == 3
+                        //                       ? 1
+                        //                       : 0,
+                        //           child: Padding(
+                        //             padding: const EdgeInsets.only(
+                        //                 left: 8.0, right: 8.0, bottom: 24),
+                        //             child: Opacity(
+                        //               opacity: getOverlayOpacity(index),
+                        //               child: Column(
+                        //                 mainAxisSize: MainAxisSize.min,
+                        //                 children: [
+                        //                   RotatedBox(
+                        //                     quarterTurns:
+                        //                         getStraightTurn(index),
+                        //                     child: SizedBox(
+                        //                       height: 70,
+                        //                       child: Text(
+                        //                         '${playersScores[index]}',
+                        //                         style: TextStyle(
+                        //                             fontWeight: FontWeight.bold,
+                        //                             fontSize: 60,
+                        //                             color: darkMode
+                        //                                 ? Colors.white
+                        //                                     .withOpacity(0.5)
+                        //                                 : Colors.black
+                        //                                     .withOpacity(0.5)),
+                        //                       ),
+                        //                     ),
+                        //                   ),
+                        //                   RotatedBox(
+                        //                     quarterTurns:
+                        //                         getStraightTurn(index),
+                        //                     child: GameTimer(
+                        //                       timerStream:
+                        //                           timerController.stream,
+                        //                       time: exemptPlayer?.time,
+                        //                     ),
+                        //                   ),
+                        //                 ],
+                        //               ),
+                        //             ),
+                        //           ),
+                        //         ),
+                        //       ));
+                        // }),
                         ...List.generate(playersSize, (index) {
                           return Positioned(
                             top: index == 0 ||
@@ -3908,147 +4536,149 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                                       : playersSize > 2
                                           ? minSize / 2
                                           : minSize,
+                                  //height: availableHeight,
                                   height: landScape ? minSize / 2 : padding,
                                   alignment: Alignment.center,
-                                  padding: const EdgeInsets.all(4),
-                                  child: RotatedBox(
-                                    quarterTurns: index < mindex ? 2 : 0,
-                                    child: GestureDetector(
-                                      behavior: HitTestBehavior.opaque,
-                                      onTap: () {
-                                        toggleVideoOverlayVisibility(
-                                            getPlayerId(index));
-                                      },
-                                      child: Stack(
-                                        alignment: Alignment.center,
-                                        children: [
-                                          if (videoView != null) videoView,
-                                          Opacity(
-                                            opacity: getOverlayOpacity(index),
-                                            child: Column(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    RotatedBox(
-                                                      quarterTurns:
-                                                          getStraightTurn(
-                                                              index),
-                                                      child: SizedBox(
-                                                        height: 70,
-                                                        child: Text(
-                                                          '${playersScores[index]}',
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                              fontSize: 60,
-                                                              color:
-                                                                  lighterTint),
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    RotatedBox(
-                                                      quarterTurns:
-                                                          getStraightTurn(
-                                                              index),
-                                                      child: GameTimer(
-                                                        timerStream:
-                                                            timerController
-                                                                .stream,
-                                                        time:
-                                                            exemptPlayer?.time,
-                                                      ),
-                                                    ),
-                                                    // if ((currentPlayer ==
-                                                    //             index &&
-                                                    //         showMessage) ||
-                                                    //     exemptPlayer !=
-                                                    //         null) ...[
-                                                    const SizedBox(height: 4),
-                                                    RotatedBox(
-                                                      quarterTurns:
-                                                          getStraightTurn(
-                                                              index),
-                                                      child: StreamBuilder<int>(
-                                                          stream:
-                                                              timerController
-                                                                  .stream,
-                                                          builder: (context,
-                                                              snapshot) {
-                                                            return Text(
-                                                              exemptPlayer !=
-                                                                      null
-                                                                  ? getExemptPlayerMessage(
-                                                                      exemptPlayer)
-                                                                  : getMessage(
-                                                                      index),
-                                                              // : "${itsMyTurnForMessage(index) ? "${message.isNotEmpty ? message : "Play"} - " : ""}${playersTimes[index].toDurationString(false)}",
-                                                              style: TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
-                                                                  fontSize: 14,
-                                                                  color: itsMyTurnForMessage(
-                                                                          index)
-                                                                      ? primaryColor
-                                                                      : tint),
-                                                              textAlign:
-                                                                  TextAlign
-                                                                      .center,
-                                                            );
-                                                          }),
-                                                    ),
-                                                    //],
-                                                  ],
-                                                ),
-                                                Expanded(
-                                                  child: IgnorePointer(
-                                                    ignoring:
-                                                        exemptPlayer != null &&
-                                                            !finishedRound,
-                                                    child: Container(
-                                                      alignment: Alignment
-                                                          .bottomCenter,
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                          horizontal: 20),
-                                                      child:
-                                                          buildBottomOrLeftChild(
-                                                              index),
-                                                    ),
-                                                  ),
-                                                ),
-                                                getPlayerBottomWidget(index),
-                                              ],
-                                            ),
-                                          ),
-                                          if (playersToasts[index] != "") ...[
-                                            Align(
-                                              alignment: Alignment.bottomCenter,
-                                              child: RotatedBox(
-                                                quarterTurns:
-                                                    getStraightTurn(index),
-                                                child: AppToast(
-                                                  message: playersToasts[index],
-                                                  onComplete: () {
-                                                    playersToasts[index] = "";
-                                                    setState(() {});
-                                                  },
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  ),
+                                  //padding: const EdgeInsets.all(4),
+                                  child: buildPlayerWidget(index),
+                                  // child: RotatedBox(
+                                  //   quarterTurns: index < mindex ? 2 : 0,
+                                  //   child: GestureDetector(
+                                  //     behavior: HitTestBehavior.opaque,
+                                  //     onTap: () {
+                                  //       toggleVideoOverlayVisibility(
+                                  //           getPlayerId(index));
+                                  //     },
+                                  //     child: Stack(
+                                  //       alignment: Alignment.center,
+                                  //       children: [
+                                  //         if (videoView != null) videoView,
+                                  //         Opacity(
+                                  //           opacity: getOverlayOpacity(index),
+                                  //           child: Column(
+                                  //             mainAxisAlignment:
+                                  //                 MainAxisAlignment
+                                  //                     .spaceBetween,
+                                  //             children: [
+                                  //               Column(
+                                  //                 mainAxisSize:
+                                  //                     MainAxisSize.min,
+                                  //                 children: [
+                                  //                   // RotatedBox(
+                                  //                   //   quarterTurns:
+                                  //                   //       getStraightTurn(
+                                  //                   //           index),
+                                  //                   //   child: SizedBox(
+                                  //                   //     height: 70,
+                                  //                   //     child: Text(
+                                  //                   //       '${playersScores[index]}',
+                                  //                   //       style: TextStyle(
+                                  //                   //           fontWeight:
+                                  //                   //               FontWeight
+                                  //                   //                   .bold,
+                                  //                   //           fontSize: 60,
+                                  //                   //           color:
+                                  //                   //               lighterTint),
+                                  //                   //       textAlign:
+                                  //                   //           TextAlign.center,
+                                  //                   //     ),
+                                  //                   //   ),
+                                  //                   // ),
+                                  //                   RotatedBox(
+                                  //                     quarterTurns:
+                                  //                         getStraightTurn(
+                                  //                             index),
+                                  //                     child: GameTimer(
+                                  //                       timerStream:
+                                  //                           timerController
+                                  //                               .stream,
+                                  //                       time:
+                                  //                           exemptPlayer?.time,
+                                  //                     ),
+                                  //                   ),
+                                  //                   // if ((currentPlayer ==
+                                  //                   //             index &&
+                                  //                   //         showMessage) ||
+                                  //                   //     exemptPlayer !=
+                                  //                   //         null) ...[
+                                  //                   const SizedBox(height: 4),
+                                  //                   RotatedBox(
+                                  //                     quarterTurns:
+                                  //                         getStraightTurn(
+                                  //                             index),
+                                  //                     child: StreamBuilder<int>(
+                                  //                         stream:
+                                  //                             timerController
+                                  //                                 .stream,
+                                  //                         builder: (context,
+                                  //                             snapshot) {
+                                  //                           return Text(
+                                  //                             exemptPlayer !=
+                                  //                                     null
+                                  //                                 ? getExemptPlayerMessage(
+                                  //                                     exemptPlayer)
+                                  //                                 : getMessage(
+                                  //                                     index),
+                                  //                             style: TextStyle(
+                                  //                                 fontWeight:
+                                  //                                     FontWeight
+                                  //                                         .bold,
+                                  //                                 fontSize: 14,
+                                  //                                 color: itsMyTurnForMessage(
+                                  //                                         index)
+                                  //                                     ? primaryColor
+                                  //                                     : tint),
+                                  //                             textAlign:
+                                  //                                 TextAlign
+                                  //                                     .center,
+                                  //                           );
+                                  //                         }),
+                                  //                   ),
+                                  //                   //],
+                                  //                 ],
+                                  //               ),
+                                  //               const SizedBox(height: 4),
+                                  //               Expanded(
+                                  //                 child: IgnorePointer(
+                                  //                   ignoring:
+                                  //                       exemptPlayer != null &&
+                                  //                           !finishedRound,
+                                  //                   child: Container(
+                                  //                     alignment: Alignment
+                                  //                         .bottomCenter,
+                                  //                     padding: const EdgeInsets
+                                  //                         .symmetric(
+                                  //                         horizontal: 20),
+                                  //                     child:
+                                  //                         buildBottomOrLeftChild(
+                                  //                             index),
+                                  //                   ),
+                                  //                 ),
+                                  //               ),
+                                  //               getPlayerBottomWidget(index),
+                                  //             ],
+                                  //           ),
+                                  //         ),
+                                  //         if (playersToasts[index] != "") ...[
+                                  //           Align(
+                                  //             alignment: Alignment.bottomCenter,
+                                  //             child: RotatedBox(
+                                  //               quarterTurns:
+                                  //                   getStraightTurn(index),
+                                  //               child: AppToast(
+                                  //                 message: playersToasts[index],
+                                  //                 onComplete: () {
+                                  //                   playersToasts[index] = "";
+                                  //                   setState(() {});
+                                  //                 },
+                                  //               ),
+                                  //             ),
+                                  //           ),
+                                  //         ],
+                                  //       ],
+                                  //     ),
+                                  //   ),
+                                  // ),
                                 ));
                           },
                         ),
@@ -4064,15 +4694,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                     ],
                   ),
                 ),
-                // if (loadingDetails)
-                //   Center(
-                //     child: SizedBox(
-                //       width: 60,
-                //       height: 60,
-                //       child: CircularProgressIndicator(
-                //           color: Colors.white.withOpacity(0.5), strokeWidth: 2),
-                //     ),
-                //   ),
+
                 if (!paused &&
                     isWatchMode &&
                     !isCheckoutMode &&
@@ -4093,7 +4715,6 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                     onPlayPause: togglePlayPause,
                     onSeek: seek,
                     watching: watching,
-                    loadingDetails: loadingDetails,
                     onPressed: toggleShowControls,
                   ),
 
@@ -4111,6 +4732,9 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                       match: match,
                       recordId: recordId,
                       roundId: roundId,
+                      difficultyLevel: difficultyLevel,
+                      exemptedRules: exemptedRules,
+                      gameRules: gameRules,
                       playersScores: playersScores,
                       users: users,
                       players: players,
@@ -4125,6 +4749,7 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                       gameId: gameId,
                       isWatching: isWatchMode,
                       isWatch: isWatch,
+                      isComputer: isComputer,
                       isFirstPage: isFirstPage,
                       isLastPage: isLastPage,
                       availablePlayersCount: availablePlayersCount,
@@ -4134,6 +4759,8 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                       onContinue: continueMatch,
                       onRestart: restart,
                       onChange: change,
+                      onDifficulty: changeDifficultyLevel,
+                      onExempt: changeExemptedRules,
                       onLeave: leave,
                       onClose: close,
                       onConcede: concede,
@@ -4174,12 +4801,15 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                     alignment: Alignment.center,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      child: Center(
-                        child: Text(
-                          getFirstHint(),
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 18),
-                          textAlign: TextAlign.center,
+                      child: AspectRatio(
+                        aspectRatio: 1 / 1,
+                        child: Center(
+                          child: Text(
+                            getFirstHint(),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 18),
+                            textAlign: TextAlign.center,
+                          ),
                         ),
                       ),
                       onTap: () {
@@ -4265,14 +4895,27 @@ abstract class BaseGamePageState<T extends BaseGamePage>
                       }),
                     )),
                 if (loadingDetails)
-                  Center(
-                    child: SizedBox(
-                      width: 60,
-                      height: 60,
-                      child: CircularProgressIndicator(
-                          color: Colors.white.withOpacity(0.5), strokeWidth: 2),
+                  if (gameDetails.isNotEmpty && isComputer)
+                    Positioned(
+                        top: 0,
+                        left: 20,
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              color: Colors.white.withOpacity(0.5),
+                              strokeWidth: 2),
+                        ))
+                  else
+                    Center(
+                      child: SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: CircularProgressIndicator(
+                            color: Colors.white.withOpacity(0.5),
+                            strokeWidth: 2),
+                      ),
                     ),
-                  ),
               ],
             ),
           ),

@@ -30,7 +30,7 @@ class XandOGamePage extends BaseGamePage {
 }
 
 class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
-  bool played = false;
+  List<String> moves = [];
   int gridSize = 3;
   List<List<XandOTile>> xandoTiles = [];
 
@@ -52,49 +52,33 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
   XandOChar getChar(int index) => index == 0 ? XandOChar.x : XandOChar.o;
 
   void updateDetails(int playPos) async {
-    final details = XandODetails(playPos: playPos);
+    final details = XandODetails(playPos: playPos, move: moves.join(", "));
     await setDetail(details.toMap());
   }
 
   void playChar(int index, [int? playerIndex, bool isClick = true]) async {
     if (!itsMyTurnToPlay(isClick)) return;
+    moves = [];
 
     final coordinates = convertToGrid(index, gridSize);
     final rowindex = coordinates[0];
     final colindex = coordinates[1];
     final xando = xandoTiles.get(colindex)?.get(rowindex);
-    if (xando != null && xando.char == null) {
-      if (isClick) updateDetails(index);
-      xandoTiles[colindex][rowindex].char =
-          getChar(playerIndex ?? currentPlayer);
-      checkIfMatch(xando);
-      //getHintMessage();
-      setState(() {});
-    }
-  }
+    if (xando == null) return;
+    if (xando.char != null) {
+      showPlayerToast(
+          currentPlayer, "This spot is taken, Play on the available spots");
 
-  void playIfTimeOut() {
-    List<int> unplayedPositions = [];
-    for (int i = 0; i < xandoTiles.length; i++) {
-      for (int j = 0; j < xandoTiles[i].length; j++) {
-        final xandO = xandoTiles[i][j];
-        if (xandO.char == null) {
-          unplayedPositions
-              .add(convertToPosition([xandO.x, xandO.y], gridSize));
-        }
-      }
+      return;
     }
-    if (unplayedPositions.isNotEmpty) {
-      playChar(unplayedPositions[Random().nextInt(unplayedPositions.length)]);
-    }
-    // changePlayer();
-  }
+    final currentChar = getChar(playerIndex ?? currentPlayer);
+    moves.add("played ${currentChar.name} in ${xando.id}");
+    xando.char = currentChar;
 
-  void checkIfMatch(XandOTile xando) async {
-    // if (awaiting) return;
     final x = xando.x;
     final y = xando.y;
     final char = xando.char;
+
     int vertCount = 0, horCount = 0, lowerDiagCount = 0, upperDiagCount = 0;
     bool foundMatch = false;
 
@@ -157,12 +141,14 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
         winChar = xando.char;
         message = "You Won";
         incrementCount(currentPlayer);
-        // playersScores[currentPlayer]++;
-        // updateMatchRecord();
-        // toastWinner(winChar!.index);
-        //updateWin(currentPlayer);
+        moves.add("matched pattern in ${winDirection!.name} direction");
+      }
+      if (playedCount == (gridSize * gridSize)) {
+        moves.add("clearing grids for next");
       }
       awaiting = true;
+      if (isClick) updateDetails(index);
+
       changePlayer();
       setState(() {});
       if (!seeking) {
@@ -171,10 +157,115 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
 
       initGrids();
     } else {
+      if (isClick) updateDetails(index);
+
       changePlayer();
       setState(() {});
     }
   }
+
+  void playIfTimeOut() {
+    List<int> unplayedPositions = [];
+    for (int i = 0; i < xandoTiles.length; i++) {
+      for (int j = 0; j < xandoTiles[i].length; j++) {
+        final xandO = xandoTiles[i][j];
+        if (xandO.char == null) {
+          unplayedPositions
+              .add(convertToPosition([xandO.x, xandO.y], gridSize));
+        }
+      }
+    }
+    if (unplayedPositions.isNotEmpty) {
+      playChar(unplayedPositions[Random().nextInt(unplayedPositions.length)]);
+    }
+    // changePlayer();
+  }
+
+  // void checkIfMatch(XandOTile xando) async {
+  //   // if (awaiting) return;
+  //   final x = xando.x;
+  //   final y = xando.y;
+  //   final char = xando.char;
+  //   int vertCount = 0, horCount = 0, lowerDiagCount = 0, upperDiagCount = 0;
+  //   bool foundMatch = false;
+
+  //   for (int i = 0; i < 3; i++) {
+  //     final vertXandO = xandoTiles[i][x];
+  //     if (vertXandO.char == char) {
+  //       vertCount++;
+  //     }
+  //     if (vertCount == 3) {
+  //       winIndex = x;
+  //       winDirection = LineDirection.vertical;
+  //       foundMatch = true;
+  //       break;
+  //     }
+
+  //     final horXandO = xandoTiles[y][i];
+  //     if (horXandO.char == char) {
+  //       horCount++;
+  //     }
+  //     if (horCount == 3) {
+  //       winIndex = y;
+  //       winDirection = LineDirection.horizontal;
+  //       foundMatch = true;
+  //       break;
+  //     }
+  //   }
+  //   if ((x + y).isEven) {
+  //     for (int i = 0; i < 3; i++) {
+  //       if ((x + y) == 2) {
+  //         final lowerdiagXandO = xandoTiles[2 - i][i];
+  //         if (lowerdiagXandO.char == char) {
+  //           lowerDiagCount++;
+  //         }
+  //         if (lowerDiagCount == 3) {
+  //           winIndex = 0;
+  //           winDirection = LineDirection.lowerDiagonal;
+  //           foundMatch = true;
+  //           break;
+  //         }
+  //       }
+  //       if (x == y) {
+  //         final upperdiagXandO = xandoTiles[i][i];
+  //         if (upperdiagXandO.char == char) {
+  //           upperDiagCount++;
+  //         }
+  //         if (upperDiagCount == 3) {
+  //           winIndex = 1;
+  //           winDirection = LineDirection.upperDiagonal;
+  //           foundMatch = true;
+  //           break;
+  //         }
+  //       }
+  //     }
+  //   }
+  //   playedCount++;
+  //   message = "Play";
+
+  //   if (foundMatch || playedCount == (gridSize * gridSize)) {
+  //     if (foundMatch) {
+  //       winChar = xando.char;
+  //       message = "You Won";
+  //       incrementCount(currentPlayer);
+  //       // playersScores[currentPlayer]++;
+  //       // updateMatchRecord();
+  //       // toastWinner(winChar!.index);
+  //       //updateWin(currentPlayer);
+  //     }
+  //     awaiting = true;
+  //     changePlayer();
+  //     setState(() {});
+  //     if (!seeking) {
+  //       await Future.delayed(const Duration(seconds: 2));
+  //     }
+
+  //     initGrids();
+  //   } else {
+  //     changePlayer();
+  //     setState(() {});
+  //   }
+  // }
 
   // Future resetChars() async {
   //   playedCount = 0;
@@ -202,6 +293,7 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
     winChar = null;
     winIndex = -1;
     message = "Play";
+    //handleComputerResponse = false;
     resetPlayerTime();
 
     xandoTiles = List.generate(
@@ -210,6 +302,8 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
               final index = convertToPosition([rowindex, colindex], gridSize);
               return XandOTile(null, rowindex, colindex, "$index");
             }));
+
+    // print("xandoTiles = $xandoTiles");
     setState(() {});
   }
 
@@ -289,6 +383,8 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
   }
   @override
   Widget buildBody(BuildContext context) {
+    //print("gameDetails = $gameDetails");
+
     return Stack(
       children: [
         Center(
@@ -343,5 +439,12 @@ class _XandOGamePageState extends BaseGamePageState<XandOGamePage> {
   @override
   void onInitState() {
     // TODO: implement onInitState
+  }
+  @override
+  bool onShowRightClick(int index) => false;
+
+  @override
+  void onRightClick(int index) {
+    // TODO: implement onRightClick
   }
 }

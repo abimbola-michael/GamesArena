@@ -15,6 +15,8 @@ class MatchRound {
   Map<String, dynamic> scores;
   int detailsLength;
   double duration;
+  String? difficultyLevel;
+  String? exemptedRules;
   MatchRound({
     required this.id,
     required this.game,
@@ -26,6 +28,8 @@ class MatchRound {
     required this.scores,
     required this.detailsLength,
     required this.duration,
+    this.difficultyLevel,
+    this.exemptedRules,
   });
 
   MatchRound copyWith({
@@ -39,6 +43,8 @@ class MatchRound {
     Map<String, dynamic>? scores,
     int? detailsLength,
     double? duration,
+    String? difficultyLevel,
+    String? exemptedRules,
   }) {
     return MatchRound(
       id: id ?? this.id,
@@ -51,6 +57,8 @@ class MatchRound {
       scores: scores ?? this.scores,
       detailsLength: detailsLength ?? this.detailsLength,
       duration: duration ?? this.duration,
+      difficultyLevel: difficultyLevel ?? this.difficultyLevel,
+      exemptedRules: exemptedRules ?? this.exemptedRules,
     );
   }
 
@@ -66,6 +74,8 @@ class MatchRound {
       'scores': scores,
       'detailsLength': detailsLength,
       'duration': duration,
+      'difficultyLevel': difficultyLevel,
+      'exemptedRules': exemptedRules,
     };
   }
 
@@ -85,7 +95,14 @@ class MatchRound {
       scores:
           Map<String, dynamic>.from((map['scores'] as Map<String, dynamic>)),
       detailsLength: map['detailsLength'] as int,
-      duration: map['duration'] as double,
+      duration: map['duration'] is int
+          ? (map['duration'] as int).toDouble()
+          : map['duration'] as double,
+      difficultyLevel: map['difficultyLevel'] != null
+          ? map['difficultyLevel'] as String
+          : null,
+      exemptedRules:
+          map['exemptedRules'] != null ? map['exemptedRules'] as String : null,
     );
   }
 
@@ -96,7 +113,7 @@ class MatchRound {
 
   @override
   String toString() {
-    return 'MatchRound(id: $id, game: $game, time_start: $time_start, time_end: $time_end, players: $players, closed_players: $closed_players, winners: $winners, scores: $scores, detailsLength: $detailsLength, duration: $duration)';
+    return 'MatchRound(id: $id, game: $game, time_start: $time_start, time_end: $time_end, players: $players, closed_players: $closed_players, winners: $winners, scores: $scores, detailsLength: $detailsLength, duration: $duration, difficultyLevel: $difficultyLevel, exemptedRules: $exemptedRules)';
   }
 
   @override
@@ -112,7 +129,9 @@ class MatchRound {
         listEquals(other.winners, winners) &&
         mapEquals(other.scores, scores) &&
         other.detailsLength == detailsLength &&
-        other.duration == duration;
+        other.duration == duration &&
+        other.difficultyLevel == difficultyLevel &&
+        other.exemptedRules == exemptedRules;
   }
 
   @override
@@ -126,6 +145,8 @@ class MatchRound {
         winners.hashCode ^
         scores.hashCode ^
         detailsLength.hashCode ^
-        duration.hashCode;
+        duration.hashCode ^
+        difficultyLevel.hashCode ^
+        exemptedRules.hashCode;
   }
 }

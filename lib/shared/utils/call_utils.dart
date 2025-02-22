@@ -49,10 +49,10 @@ class CallUtils {
   String _gameId = "";
   List<Player> _players = [];
 
-  CallUtils() {
-    _setStateController = StreamController.broadcast();
-    setStateStream = _setStateController?.stream;
-  }
+  // CallUtils() {
+  //   _setStateController = StreamController.broadcast();
+  //   setStateStream = _setStateController?.stream;
+  // }
 
   void setPlayers(List<Player> players) {
     _players = players;

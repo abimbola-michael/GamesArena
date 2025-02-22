@@ -99,7 +99,8 @@ dependencies:
   # youtube_player_flutter:
   # youtube_player_iframe:
   auto_size_text:
-  webview_all:
+  #webview_all:
+  flutter_inappwebview:
 
 dev_dependencies:
   flutter_test:
@@ -143,9 +144,17 @@ flutter:
   # list giving the asset and other descriptors for the font. For
   # example:
   fonts:
+    # - family: Roboto
+    #   fonts:
+    #     - asset: google_fonts/Roboto-Regular.ttf
+
+    - family: Playwrite
+      fonts:
+        - asset: assets/fonts/Playwrite.ttf
+
     - family: Roboto
       fonts:
-        - asset: google_fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto.ttf
 
   #   - family: Schyler
   #     fonts:

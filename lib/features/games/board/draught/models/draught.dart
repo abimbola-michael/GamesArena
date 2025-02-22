@@ -158,28 +158,54 @@ class DraughtTile {
 }
 
 class DraughtDetails {
-  int pos;
+  int? pos;
+  int? startPos;
+  int? endPos;
+  List<int>? poses;
+  String? move;
   DraughtDetails({
-    required this.pos,
+    this.pos,
+    this.startPos,
+    this.endPos,
+    this.poses,
+    this.move,
   });
 
   DraughtDetails copyWith({
     int? pos,
+    int? startPos,
+    int? endPos,
+    List<int>? poses,
+    String? move,
   }) {
     return DraughtDetails(
       pos: pos ?? this.pos,
+      startPos: startPos ?? this.startPos,
+      endPos: endPos ?? this.endPos,
+      poses: poses ?? this.poses,
+      move: move ?? this.move,
     );
   }
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'pos': pos,
+      'startPos': startPos,
+      'endPos': endPos,
+      'poses': poses,
+      'move': move,
     };
   }
 
   factory DraughtDetails.fromMap(Map<String, dynamic> map) {
     return DraughtDetails(
-      pos: map['pos'] as int,
+      pos: map['pos'] != null ? map['pos'] as int : null,
+      startPos: map['startPos'] != null ? map['startPos'] as int : null,
+      endPos: map['endPos'] != null ? map['endPos'] as int : null,
+      poses: map['poses'] != null
+          ? List<int>.from((map['poses'] as List<dynamic>))
+          : null,
+      move: map['move'] != null ? map['move'] as String : null,
     );
   }
 
@@ -189,15 +215,27 @@ class DraughtDetails {
       DraughtDetails.fromMap(json.decode(source) as Map<String, dynamic>);
 
   @override
-  String toString() => 'DraughtDetails(pos: $pos)';
+  String toString() {
+    return 'DraughtDetails(pos: $pos, startPos: $startPos, endPos: $endPos, poses: $poses, move: $move)';
+  }
 
   @override
   bool operator ==(covariant DraughtDetails other) {
     if (identical(this, other)) return true;
 
-    return other.pos == pos;
+    return other.pos == pos &&
+        other.startPos == startPos &&
+        other.endPos == endPos &&
+        listEquals(other.poses, poses) &&
+        other.move == move;
   }
 
   @override
-  int get hashCode => pos.hashCode;
+  int get hashCode {
+    return pos.hashCode ^
+        startPos.hashCode ^
+        endPos.hashCode ^
+        poses.hashCode ^
+        move.hashCode;
+  }
 }

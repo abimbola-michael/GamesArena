@@ -18,7 +18,10 @@ class _GameTimerState extends State<GameTimer> {
   Widget build(BuildContext context) {
     Widget buildChild(int time) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        height: 20,
+        width: 50,
+        alignment: Alignment.center,
+        //: const EdgeInsets.symmetric(horizontal: 12),
         // padding: const EdgeInsets.symmetric(vertical: 8),
         // alignment: Alignment.center,
         //width: 50,

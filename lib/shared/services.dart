@@ -91,6 +91,7 @@ void updateToken(String token) async {
   if (!kIsWeb && Platform.isWindows) return;
   if (myId.isEmpty) return;
   final prevToken = sharedPref.getString("token");
+  if (token == prevToken) return;
   final myUser = await getUser(myId);
 
   final tokens = myUser?.tokens ?? [];
@@ -101,7 +102,7 @@ void updateToken(String token) async {
   tokens.add(token);
   final value = {"tokens": tokens, "time_modified": timeNow};
 
-  await fm.updateValue(["users", myId], value: value);
+  await fm.setValue(["users", myId], value: value, merge: true);
   sharedPref.setString("token", token);
   saveUserProperty(myId, value);
 }

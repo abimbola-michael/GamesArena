@@ -156,7 +156,7 @@ class _NewOfflineGamePageState extends State<NewOfflineGamePage> {
           ),
         ),
       ),
-      bottomNavigationBar: Container(
+      bottomNavigationBar: SizedBox(
         //height: 50,
         width: double.infinity,
         //margin: const EdgeInsets.only(bottom: 10),

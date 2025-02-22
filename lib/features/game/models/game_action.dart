@@ -9,6 +9,8 @@ import 'player.dart';
 class GameAction {
   String action;
   String game;
+  String? difficulty;
+  String? exemptedRules;
   bool hasStarted;
   List<Player> players;
   List<ExemptPlayer> exemptPlayers;
@@ -17,6 +19,8 @@ class GameAction {
   GameAction({
     required this.action,
     required this.game,
+    this.difficulty,
+    this.exemptedRules,
     required this.hasStarted,
     required this.players,
     required this.exemptPlayers,
@@ -26,6 +30,8 @@ class GameAction {
   GameAction copyWith({
     String? action,
     String? game,
+    String? difficulty,
+    String? exemptedRules,
     bool? hasStarted,
     List<Player>? players,
     List<ExemptPlayer>? exemptPlayers,
@@ -34,6 +40,8 @@ class GameAction {
     return GameAction(
       action: action ?? this.action,
       game: game ?? this.game,
+      difficulty: difficulty ?? this.difficulty,
+      exemptedRules: exemptedRules ?? this.exemptedRules,
       hasStarted: hasStarted ?? this.hasStarted,
       players: players ?? this.players,
       exemptPlayers: exemptPlayers ?? this.exemptPlayers,
@@ -45,6 +53,8 @@ class GameAction {
     return <String, dynamic>{
       'action': action,
       'game': game,
+      'difficulty': difficulty,
+      'exemptedRules': exemptedRules,
       'hasStarted': hasStarted,
       'players': players.map((x) => x.toMap()).toList(),
       'exemptPlayers': exemptPlayers.map((x) => x.toMap()).toList(),
@@ -56,9 +66,13 @@ class GameAction {
     return GameAction(
       action: map['action'] as String,
       game: map['game'] as String,
+      difficulty:
+          map['difficulty'] != null ? map['difficulty'] as String : null,
+      exemptedRules:
+          map['exemptedRules'] != null ? map['exemptedRules'] as String : null,
       hasStarted: map['hasStarted'] as bool,
       players: List<Player>.from(
-        (map['players'] as List<int>).map<Player>(
+        (map['players'] as List<dynamic>).map<Player>(
           (x) => Player.fromMap(x as Map<String, dynamic>),
         ),
       ),
@@ -78,7 +92,7 @@ class GameAction {
 
   @override
   String toString() {
-    return 'GameAction(action: $action, game: $game, hasStarted: $hasStarted, players: $players, exemptPlayers: $exemptPlayers, args: $args)';
+    return 'GameAction(action: $action, game: $game, difficulty: $difficulty, exemptedRules: $exemptedRules, hasStarted: $hasStarted, players: $players, exemptPlayers: $exemptPlayers, args: $args)';
   }
 
   @override
@@ -87,6 +101,8 @@ class GameAction {
 
     return other.action == action &&
         other.game == game &&
+        other.difficulty == difficulty &&
+        other.exemptedRules == exemptedRules &&
         other.hasStarted == hasStarted &&
         listEquals(other.players, players) &&
         listEquals(other.exemptPlayers, exemptPlayers) &&
@@ -97,6 +113,8 @@ class GameAction {
   int get hashCode {
     return action.hashCode ^
         game.hashCode ^
+        difficulty.hashCode ^
+        exemptedRules.hashCode ^
         hasStarted.hashCode ^
         players.hashCode ^
         exemptPlayers.hashCode ^

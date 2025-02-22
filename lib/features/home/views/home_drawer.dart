@@ -45,15 +45,13 @@ class _HomeDrawerState extends ConsumerState<HomeDrawer> {
   }
 
   void gotoLoginPage() {
-    //context.pop();
+    context.pop();
     context.pushTo(const AuthPage());
   }
 
   void gotoSignUpPage() {
-    //context.pop();
-    context.pushTo(const AuthPage(
-      mode: AuthMode.signUp,
-    ));
+    context.pop();
+    context.pushTo(const AuthPage(mode: AuthMode.signUp));
   }
 
   void gotoAppInfoPage(String type) {

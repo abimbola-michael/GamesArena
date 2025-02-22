@@ -236,7 +236,19 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
   }
 
   void initGrids({String? wordsJson, String? puzzlesJson}) async {
-    showMessage = false;
+    if (difficultyLevel == "Easy") {
+      gridSize = 10;
+      wordsLength = 10;
+    } else if (difficultyLevel == "Medium") {
+      gridSize = 13;
+      wordsLength = 15;
+    } else {
+      gridSize = 16;
+      wordsLength = 20;
+    }
+    hideAllPlayerTimes();
+    message = "Play";
+    //showMessage = false;
     playersWordPuzzles.clear();
     playersMatchLines.clear();
     playersWords.clear();
@@ -265,9 +277,12 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
 
     for (int i = 0; i < playersSize; i++) {
       playersWordPuzzles.add([...wordPuzzles]);
-      playersWords.add([...words]);
+      playersWords.add([]);
+
       updateCount(i, words.length);
     }
+
+    // print("words = $words\nwordPuzzles = $wordPuzzles");
 
     if (!mounted) return;
     setState(() {});
@@ -281,7 +296,9 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
   Future updateDetails(int playPos) async {
     final details = WordPuzzleDetails(
         startPos: playersSelectedPos[currentPlayer], endPos: playPos);
-    await setDetail(details.toMap(), add: false);
+    await setDetail(details.toMap());
+
+    // await setDetail(details.toMap(), add: false);
   }
 
   String getWord(Offset start, Offset end) {
@@ -523,11 +540,17 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
                 line.end == offset);
             if (matchLineIndex != -1) {
               if (!dragging) {
-                showPlayerToast(player, "Word already found! Try another");
+                showPlayerToast(player,
+                    "${getWord(selectedOffset, offset)} already found! Try another");
               }
             } else {
               final word = getWord(selectedOffset, offset);
-              final words = playersWords[player];
+              final foundWords = playersWords[player];
+              if (foundWords.contains(word)) {
+                showPlayerToast(player, "$word already found! Try another");
+
+                return;
+              }
 
               if (words.contains(word)) {
                 if (isClick) {
@@ -542,11 +565,16 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
                     wordIndex: words.indexOf(word),
                   ),
                 );
-                words.remove(word);
-                updateCount(player, words.length);
-                if (words.isEmpty) {
+                // words.remove(word);
+                foundWords.add(word);
+                decrementCount(player);
+                if (foundWords.length == words.length) {
                   updateWin(player);
                 }
+                // updateCount(player, words.length);
+                // if (words.isEmpty) {
+                //   updateWin(player);
+                // }
                 showPlayerToast(player, "$word found");
               } else {
                 if (!dragging) {
@@ -577,23 +605,6 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
     }
     setState(() {});
   }
-
-  // void checkWinner() {
-  //   if (player1Words.length > player2Words.length) {
-  //     updateWin(0);
-  //   } else if (player2Words.length > player1Words.length) {
-  //     updateWin(1);
-  //   } else {
-  //     updateDraw();
-  //   }
-  //   // if (player1Words.isEmpty) {
-  //   //   updateWin(0);
-  //   // } else if (player2Words.isEmpty) {
-  //   //   updateWin(1);
-  //   // } else {
-  //   //   updateDraw();
-  //   // }
-  // }
 
   void getHintMessage() {
     if (!firstTime) return;
@@ -649,7 +660,7 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
   }
 
   @override
-  int? maxGameTime;
+  int? maxGameTime = 20.minToSec;
 
   @override
   int? maxPlayerTime;
@@ -669,6 +680,7 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
         initGrids(wordsJson: words, puzzlesJson: puzzles);
       } else if (startPos != null && endPos != null) {
         playChar(startPos, player, false, false, time);
+        if (!seeking) await Future.delayed(const Duration(milliseconds: 500));
         playChar(endPos, player, false, false, time);
       }
     }
@@ -716,7 +728,13 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
   void onPlayerTimeEnd() {}
 
   @override
-  void onTimeEnd() {}
+  void onTimeEnd() {
+    if (playersSize == 1) {
+      updateLost(reason: "You didn't finish the puzzle at times outs");
+    } else {
+      updateDraw(reason: "Nobody finished the puzzle");
+    }
+  }
 
   @override
   Widget buildBody(BuildContext context) {
@@ -780,9 +798,10 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
   @override
   Widget buildBottomOrLeftChild(int index) {
     // if (index != currentPlayer || playersWords.isEmpty) return Container();
-    if (playersWords.isEmpty) return Container();
+    // if (playersWords.isEmpty) return Container();
+    if (words.isEmpty || playersWords.isEmpty) return Container();
 
-    final words = playersWords[index];
+    final foundWords = playersWords[index];
     return RotatedBox(
       quarterTurns: getStraightTurn(index),
       child: SingleChildScrollView(
@@ -797,7 +816,7 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
                 margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 borderRadius: BorderRadius.circular(10),
-                color: lightestTint,
+                color: foundWords.contains(word) ? primaryColor : lightestTint,
                 child: Text(word, style: context.bodyMedium),
               );
             },
@@ -814,6 +833,14 @@ class WordPuzzleGamePageState extends BaseGamePageState<WordPuzzleGamePage> {
 
   @override
   void onInitState() {
-    // TODO: implement onInitState
+    difficultyLevel ??= "Medium";
+  }
+
+  @override
+  bool onShowRightClick(int index) => false;
+
+  @override
+  void onRightClick(int index) {
+    // TODO: implement onRightClick
   }
 }

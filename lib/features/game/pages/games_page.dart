@@ -1,11 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamesarena/features/game/utils.dart';
+import 'package:gamesarena/features/game/widgets/game_mode_item.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/features/game/pages/new_offline_game_page.dart';
 import 'package:flutter/material.dart';
 import 'package:gamesarena/shared/extensions/special_context_extensions.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:icons_plus/icons_plus.dart';
+import 'package:rxdart/rxdart.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/widgets/app_appbar.dart';
 import '../../../shared/widgets/game_card.dart';
@@ -21,6 +23,7 @@ import '../../onboarding/pages/auth_page.dart';
 import '../../user/models/user.dart';
 import '../../user/services.dart';
 import '../models/match.dart';
+import 'new_computer_or_alone_game_page.dart';
 
 class GamesPage extends ConsumerStatefulWidget {
   final bool isTab;
@@ -56,6 +59,11 @@ class GamesPageState extends ConsumerState<GamesPage>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   String game = "";
   String current = "game";
+  String difficultyLevel = "Medium";
+  List<String> difficultyLevels = ["Easy", "Medium", "Hard"];
+  String gameMode = "";
+  List<String> gameModes = [];
+
   List<String>? players;
   bool creating = false;
   int playersSize = 2;
@@ -94,11 +102,12 @@ class GamesPageState extends ConsumerState<GamesPage>
           boardGames.addAll(allBoardGames);
           cardGames.addAll(allCardGames);
         }
-        puzzleGames.addAll(allPuzzleGames);
-        quizGames.addAll(allQuizGames);
-        // if ((widget.gameId ?? "").isNotEmpty) {
 
-        // }
+        if ((widget.players ?? []).isNotEmpty ||
+            (widget.gameId ?? "").isNotEmpty) {
+          puzzleGames.addAll(allPuzzleGames);
+          quizGames.addAll(allQuizGames);
+        }
       }
     } else {
       cardGames.addAll(allCardGames);
@@ -208,15 +217,39 @@ class GamesPageState extends ConsumerState<GamesPage>
     ref.read(matchProvider.notifier).updateMatch(match);
   }
 
+  void gotoComputerOrAloneGame() async {
+    bool isComputer = gameMode.endsWith("Computer");
+    if (!widget.isTab) {
+      context.pushReplacement(
+          NewComputerOrAloneGamePage(
+              game: game,
+              difficultyLevel: difficultyLevel,
+              isComputer: isComputer),
+          true);
+    } else {
+      final result = await context.pushTo(NewComputerOrAloneGamePage(
+          game: game,
+          difficultyLevel: difficultyLevel,
+          isComputer: isComputer));
+      if (!mounted) return;
+      if (result == true) {
+        goBackToGames();
+      }
+    }
+  }
+
   void gotoOfflineGame() async {
     if (!widget.isTab) {
-      await Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-              builder: (context) => NewOfflineGamePage(game: game)),
-          result: true);
+      context.pushReplacement(NewOfflineGamePage(game: game), true);
+      // await Navigator.of(context).pushReplacement(
+      //     MaterialPageRoute(
+      //         builder: (context) => NewOfflineGamePage(game: game)),
+      //     result: true);
     } else {
-      final result = await Navigator.of(context).push(MaterialPageRoute(
-          builder: (context) => NewOfflineGamePage(game: game)));
+      final result = await context.pushTo(NewOfflineGamePage(game: game));
+
+      // final result = await Navigator.of(context).push(MaterialPageRoute(
+      //     builder: (context) => NewOfflineGamePage(game: game)));
       if (!mounted) return;
       if (result == true) {
         goBackToGames();
@@ -284,9 +317,18 @@ class GamesPageState extends ConsumerState<GamesPage>
       Navigator.of(context).pop(game);
     } else {
       if (widget.isTab) {
-        setState(() {
-          current = "mode";
-        });
+        if (game.isQuiz || game.isPuzzle) {
+          gameModes = ["Online", "Alone"];
+        } else {
+          gameModes = [
+            "Online",
+            "Offline",
+            // "Computer",
+          ];
+        }
+        current = "mode";
+
+        setState(() {});
       } else {
         if (players != null && players!.isNotEmpty) {
           createNewMatch();
@@ -297,6 +339,31 @@ class GamesPageState extends ConsumerState<GamesPage>
         } else {
           gotoOfflineGame();
         }
+      }
+    }
+  }
+
+  void executeBackPressed() {
+    if (creating) return;
+
+    if (current == "mode") {
+      current = "game";
+      game = "";
+      gameMode = "";
+      if (gameCallback != null) {
+        gameCallback!("");
+      }
+      setState(() {});
+    } else if (current == "difficulty") {
+      current = "mode";
+      gameMode = "";
+      setState(() {});
+    } else {
+      if (widget.onBackPressed != null) {
+        widget.onBackPressed!();
+      } else {
+        if (!mounted) return;
+        context.pop();
       }
     }
   }
@@ -314,20 +381,13 @@ class GamesPageState extends ConsumerState<GamesPage>
           goBackToGames();
         }
       },
-      // onWillPop: () async {
-      //   if (current == "game") {
-      //     return true;
-      //   } else {
-      //     goBackToGames();
-      //     return false;
-      //   }
-      // },
       child: Scaffold(
         appBar: widget.isTab
             ? null
             : AppAppBar(
                 leading: IconButton(
-                  onPressed: widget.onBackPressed ?? () => context.pop(),
+                  onPressed: executeBackPressed,
+                  // onPressed: widget.onBackPressed ?? () => context.pop(),
                   icon: const Icon(
                     EvaIcons.arrow_back,
                     color: Colors.white,
@@ -407,6 +467,7 @@ class GamesPageState extends ConsumerState<GamesPage>
                                   games.length,
                                   (index) {
                                     String game = games[index];
+
                                     return GameItemWidget(
                                       width:
                                           (context.screenWidth - 32) / gridSize,
@@ -435,38 +496,102 @@ class GamesPageState extends ConsumerState<GamesPage>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (game.isNotEmpty) ...[
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text(
-                              game,
+                          Text(
+                            "$game game",
+                            style: const TextStyle(
+                                fontSize: 24, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 6),
+                          if (current == "difficulty") ...[
+                            Text(
+                              gameMode,
                               style: const TextStyle(
-                                  fontSize: 24, fontWeight: FontWeight.bold),
+                                  fontSize: 18, fontWeight: FontWeight.w700),
                               textAlign: TextAlign.center,
                             ),
+                            const SizedBox(height: 6),
+                          ],
+                          Text(
+                            current == "mode"
+                                ? "How would you like to play?"
+                                : "How difficult should it be?",
+                            style: const TextStyle(fontSize: 16),
+                            textAlign: TextAlign.center,
                           ),
                         ],
-                        Wrap(
-                          direction: Axis.horizontal,
-                          children: List.generate(
-                            modes.length,
-                            (index) {
-                              String mode = modes[index];
-                              return SizedBox(
-                                width: (context.screenWidth - 32) / gridSize,
-                                child: GameCard(
-                                    text: mode,
-                                    icon: Icons.gamepad_rounded,
-                                    onPressed: () {
-                                      if (index == 1) {
-                                        gotoOfflineGame();
-                                      } else {
-                                        gotoSelectPlayers();
-                                      }
-                                    }),
+                        const SizedBox(height: 16),
+                        if (current == "mode")
+                          Row(
+                            children: List.generate(gameModes.length, (index) {
+                              final mode = gameModes[index];
+                              return Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                      right: index == gameModes.length - 1
+                                          ? 0
+                                          : 8),
+                                  child: GameModeItemWidget(
+                                      mode: mode,
+                                      onPressed: () {
+                                        if (mode == "Online") {
+                                          gotoSelectPlayers();
+                                        } else if (mode == "Offline") {
+                                          gotoOfflineGame();
+                                        } else {
+                                          gameMode = mode;
+                                          current = "difficulty";
+                                          setState(() {});
+                                        }
+                                      }),
+                                ),
                               );
-                            },
-                          ),
-                        ),
+                            }),
+                          )
+                        else if (current == "difficulty")
+                          Row(
+                            children:
+                                List.generate(difficultyLevels.length, (index) {
+                              final difficultyLevel = difficultyLevels[index];
+                              return Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                      right:
+                                          index == difficultyLevels.length - 1
+                                              ? 0
+                                              : 8),
+                                  child: GameModeItemWidget(
+                                      mode: difficultyLevel,
+                                      onPressed: () {
+                                        this.difficultyLevel = difficultyLevel;
+                                        gotoComputerOrAloneGame();
+                                      }),
+                                ),
+                              );
+                            }),
+                          )
+                        // Wrap(
+                        //   direction: Axis.horizontal,
+                        //   children: List.generate(
+                        //     modes.length,
+                        //     (index) {
+                        //       String mode = modes[index];
+                        //       return SizedBox(
+                        //         width: (context.screenWidth - 32) / gridSize,
+                        //         child: GameCard(
+                        //             text: mode,
+                        //             icon: Icons.gamepad_rounded,
+                        //             onPressed: () {
+                        //               if (index == 1) {
+                        //                 gotoOfflineGame();
+                        //               } else {
+                        //                 gotoSelectPlayers();
+                        //               }
+                        //             }),
+                        //       );
+                        //     },
+                        //   ),
+                        // ),
                       ],
                     ),
                   ),

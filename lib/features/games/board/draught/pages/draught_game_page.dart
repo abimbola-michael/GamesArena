@@ -32,12 +32,10 @@ class DraughtGamePage extends BaseGamePage {
 }
 
 class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
-  bool played = false;
-  // DraughtDetails? prevDetails;
+  List<String> moves = [];
   bool? iWin;
   int gridSize = 10;
   double size = 0;
-  //double messagePadding = 0, wonDraughtsPadding = 60;
   DraughtTile? selectedDraughtTile;
   List<DraughtTile> draughtTiles = [];
   List<List<Draught>> playersDraughts = [];
@@ -102,16 +100,24 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
       return DraughtTile(x, y, "$index", draught);
     });
     showPossiblePlayPositions();
+    // print(
+    //     "draughtTiles = $draughtTiles\nplayersDraughts = $playersDraughts, playersWonDraughts = $playersWonDraughts");
     setState(() {});
   }
 
   Future updateDetails(int pos) async {
-    await setDetails([
-      DraughtDetails(
-        pos: selectedDraughtTile!.id.toInt,
-      ).toMap(),
-      DraughtDetails(pos: pos).toMap()
-    ]);
+    setDetail(DraughtDetails(
+            startPos: selectedDraughtTile!.id.toInt,
+            endPos: pos,
+            move: moves.join(", "))
+        .toMap());
+    moves = [];
+    // await setDetails([
+    //   DraughtDetails(
+    //     pos: selectedDraughtTile!.id.toInt,
+    //   ).toMap(),
+    //   DraughtDetails(pos: pos).toMap()
+    // ]);
   }
 
   int convertPos(int pos, String userId) {
@@ -330,97 +336,6 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
     }
   }
 
-  // void playDraught(int pos, [bool isClick = true]) async {
-  //   if (awaiting) return;
-  //   if (isClick && gameId.isNotEmpty && currentPlayerId != myId) {
-  //     showPlayerToast(myPlayer, "Its ${getUsername(currentPlayerId)}'s turn");
-  //     return;
-  //   }
-  //   final draughtTile = draughtTiles[pos];
-  //   final coordinates = convertToGrid(pos, gridSize);
-  //   final x = coordinates[0];
-  //   final y = coordinates[1];
-
-  //   if (draughtTile.draught != null) {
-  //     if (draughtTile.draught!.player != currentPlayer) {
-  //       final color = currentPlayer == 0 ? "Brown" : "Yellow";
-  //       showPlayerToast(currentPlayer,
-  //           "This is not your draught piece. Your draught piece color is $color");
-  //       return;
-  //     }
-  //     if (selectedDraughtTile != null && selectedDraughtTile == draughtTile) {
-  //       if (playPositions.isNotEmpty) {
-  //         multiSelect = false;
-  //         playPositions.clear();
-  //       }
-  //       hintPositions.clear();
-  //       selectedDraughtTile = null;
-  //       showPossiblePlayPositions();
-  //     } else {
-  //       if (mustcapture && !canCapture(x, y)) {
-  //         showPlayerToast(currentPlayer, "You must capture your opponent");
-  //         return;
-  //       }
-  //       selectedDraughtTile = draughtTile;
-  //       getHintPositions(pos);
-  //     }
-  //     setState(() {});
-  //   } else {
-  //     if (selectedDraughtTile != null) {
-  //       if (mustcapture) {
-  //         DraughtDirection? direction;
-  //         if (playPositions.isEmpty) {
-  //           final selPos = convertToPosition(
-  //               [selectedDraughtTile!.x, selectedDraughtTile!.y], gridSize);
-  //           direction = getDirection(selPos, pos);
-  //         } else {
-  //           direction = getDirection(playPositions.last, pos);
-  //         }
-  //         final can =
-  //             checkSelection(x, y, direction, selectedDraughtTile!.draught);
-  //         if (can || playPositions.contains(pos)) {
-  //           selectDraught(pos);
-  //         } else {
-  //           awaiting = true;
-
-  //           if (playPositions.isNotEmpty) {
-  //             playPositions.add(pos);
-
-  //             moveMultipleDraughts(isClick);
-  //           } else {
-  //             moveDraught(pos, isClick);
-  //           }
-  //           awaiting = false;
-  //         }
-  //       } else {
-  //         moveDraught(pos, isClick);
-  //       }
-  //     }
-  //   }
-  // }
-
-  // void moveMultipleDraughts([bool isClick = true]) async {
-  //   if (isClick) {
-  //     await updateDetails(playPositions);
-  //   }
-
-  //   for (int i = 0; i < playPositions.length; i++) {
-  //     final index = playPositions[i];
-  //     moveDraught(index, false);
-  //     if (i != playPositions.length - 1) {
-  //       await Future.delayed(const Duration(milliseconds: 500));
-  //     }
-  //   }
-  //   awaiting = false;
-  //   multiSelect = false;
-  //   playPositions.clear();
-  //   hintPositions.clear();
-  //   changePlayer();
-  //   selectedDraughtTile = null;
-  //   showPossiblePlayPositions();
-  //   setState(() {});
-  // }
-
   DraughtDirection getDirection(int lastPos, int newPos) {
     final lastCoordinates = convertToGrid(lastPos, gridSize);
     final lastX = lastCoordinates[0];
@@ -432,6 +347,10 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
   }
 
   void moveDraught(int pos, [bool isClick = true]) async {
+    moves = [];
+    if (selectedDraughtTile != null) {
+      moves.add("played ${selectedDraughtTile!.id}");
+    }
     int endPos = pos;
     if (selectedDraughtTile == null) {
       return;
@@ -462,6 +381,9 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
       final foundPositions = getPositions(selPos, pos);
 
       if (foundPositions.isNotEmpty) {
+        moves.add(
+            " ${foundPositions.length == 1 ? "Single" : "Multiple"} capture");
+
         for (int i = 0; i < foundPositions.length; i++) {
           final foundPos = foundPositions[i];
           final foundDraughtTile = draughtTiles[foundPos];
@@ -471,6 +393,7 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
           final playerDraughts = playersDraughts[opponentIndex];
           final playerWonDraughts = playersWonDraughts[playerIndex];
           playerWonDraughts.add(foundDraught);
+          moves.add("Captured ${foundDraught.id}");
           updateCount(playerIndex, playerWonDraughts.length);
 
           playerDraughts
@@ -502,6 +425,7 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
       if ((y == 0 && currentPlayer == 1) ||
           (y == gridSize - 1 && currentPlayer == 0)) {
         selectedDraughtTile!.draught!.king = true;
+        moves.add("${selectedDraughtTile!.draught!.id} is now a king");
       }
       selectedDraughtTile!.draught!.x = x;
       selectedDraughtTile!.draught!.y = y;
@@ -529,81 +453,6 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
     //   updateDetails(selectedPos, pos);
     // }
   }
-
-  // void moveDraught(int pos, [bool isClick = true]) async {
-  //   if (isClick) {
-  //     await updateDetails([pos]);
-  //   }
-
-  //   final draughtTile = draughtTiles[pos];
-  //   final coordinates = convertToGrid(pos, gridSize);
-  //   final x = coordinates[0];
-  //   final y = coordinates[1];
-  //   final selX = selectedDraughtTile!.x;
-  //   final selY = selectedDraughtTile!.y;
-  //   final selPos = convertToPosition([selX, selY], gridSize);
-  //   final xDiff = (x - selX).abs();
-  //   final yDiff = (y - selY).abs();
-  //   final selectedDraught = selectedDraughtTile!.draught!;
-  //   if (xDiff != yDiff) return;
-
-  //   final foundPositions = getPositions(selPos, pos);
-  //   if (foundPositions.isNotEmpty) {
-  //     for (int i = 0; i < foundPositions.length; i++) {
-  //       final foundPos = foundPositions[i];
-  //       final foundDraughtTile = draughtTiles[foundPos];
-  //       final foundDraught = foundDraughtTile.draught!;
-  //       final opponentIndex = foundDraught.player;
-  //       final playerIndex = selectedDraught.player;
-  //       final playerDraughts = playersDraughts[opponentIndex];
-  //       final playerWonDraughts = playersWonDraughts[playerIndex];
-  //       playerWonDraughts.add(foundDraught);
-  //       updateCount(playerIndex, playerWonDraughts.length);
-
-  //       playerDraughts.removeWhere((element) => element.id == foundDraught.id);
-  //       foundDraughtTile.draught = null;
-  //     }
-  //     drawMoveCount = 0;
-  //     clearPattern();
-  //   } else {
-  //     if (!isValidMovement(selPos, pos)) return;
-
-  //     if (!selectedDraught.king &&
-  //         ((yDiff > 1 || !(y - selY).isNegative && currentPlayer == 1) ||
-  //             ((y - selY).isNegative && currentPlayer == 0))) {
-  //       return;
-  //     }
-  //     if (mustcapture) {
-  //       showPlayerToast(currentPlayer, "You must capture your opponent");
-  //       return;
-  //     }
-  //     savePattern();
-  //     if (selectedDraught.king) {
-  //       drawMoveCount++;
-  //     } else {
-  //       drawMoveCount = 0;
-  //     }
-  //   }
-  //   if ((y == 0 && currentPlayer == 1) ||
-  //       (y == gridSize - 1 && currentPlayer == 0)) {
-  //     selectedDraughtTile!.draught!.king = true;
-  //   }
-  //   selectedDraughtTile!.draught!.x = x;
-  //   selectedDraughtTile!.draught!.y = y;
-  //   draughtTile.draught = selectedDraughtTile!.draught;
-  //   selectedDraughtTile!.draught = null;
-  //   checkWingame();
-  //   if (multiSelect) {
-  //     selectedDraughtTile = draughtTile;
-  //   } else {
-  //     selectedDraughtTile = null;
-  //     changePlayer();
-  //     hintPositions.clear();
-  //     showPossiblePlayPositions();
-  //   }
-
-  //   setState(() {});
-  // }
 
   List<DraughtDirection> getCaptureDirections(
       int x, int y, DraughtDirection capDirection, Draught capdraught) {
@@ -1158,6 +1007,7 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
           if (patternsMap[pattern]! == 3) {
             reason = "3 same game pattern";
             updateDraw();
+            moves.add("draw with same pattern");
           }
         } else {
           patternsMap[pattern] = 1;
@@ -1200,16 +1050,13 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
     }
   }
 
-  void updateWingame(bool isTimer) {
-    updateWin(currentPlayer);
-  }
-
   void checkWingame() {
     final playerDraughts = playersDraughts[nextIndex(2, currentPlayer)];
     if (playerDraughts.isEmpty) {
       reason = "capturing all pieces";
+      moves.add("win game, $reason");
+
       updateWin(currentPlayer);
-      //updateWingame(false);
     }
   }
 
@@ -1273,23 +1120,21 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
     if (map != null) {
       final details = DraughtDetails.fromMap(map);
       final pos = details.pos;
+      final startPos = details.startPos;
+      final endPos = details.endPos;
 
-      if (pos != -1) {
+      if (pos != null) {
         playDraught(pos, false);
-      } else {
-        changePlayer();
+      } else if (startPos != null && endPos != null) {
+        playDraught(startPos, false);
+        // awaiting = true;
+        if (!seeking) await Future.delayed(const Duration(milliseconds: 500));
+        // awaiting = false;
+        playDraught(endPos, false);
       }
-      // final startPos = details.startPos;
-      // final endPos = details.endPos;
-
-      // if (endPos != -1) {
-      //   playDraught(startPos, false);
-
-      //   playDraught(endPos, false);
-      // } else {
+      //  else {
       //   changePlayer();
       // }
-
       setState(() {});
     }
   }
@@ -1384,6 +1229,8 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
 
   @override
   Widget buildBody(BuildContext context) {
+    // print("gameDetails = $gameDetails");
+
     return Center(
       child: AspectRatio(
         aspectRatio: 1 / 1,
@@ -1436,5 +1283,12 @@ class _DraughtGamePageState extends BaseGamePageState<DraughtGamePage> {
   @override
   void onInitState() {
     // TODO: implement onInitState
+  }
+  @override
+  bool onShowRightClick(int index) => false;
+
+  @override
+  void onRightClick(int index) {
+    // TODO: implement onRightClick
   }
 }

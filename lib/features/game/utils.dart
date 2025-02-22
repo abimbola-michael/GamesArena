@@ -13,12 +13,38 @@ import '../user/models/user.dart';
 import 'models/player.dart';
 import 'models/match.dart';
 
+List<int> stringOptionsToListIndex(
+    List<String> gameRules, String? optionsString) {
+  if ((optionsString ?? "").isEmpty) return [];
+  final indices =
+      optionsString!.contains(",") ? optionsString.split(",") : [optionsString];
+  return indices.map((index) => int.parse(index)).toList();
+}
+
+List<String> stringOptionsToListValue(
+    List<String> gameRules, String? optionsString) {
+  if ((optionsString ?? "").isEmpty) return [];
+  final indices =
+      optionsString!.contains(",") ? optionsString.split(",") : [optionsString];
+  return indices.map((index) => gameRules[int.parse(index)]).toList();
+}
+
+String listOptionsToString(
+    List<String> gameRules, List<String> selectedOptions) {
+  List<int> optionsIndices =
+      selectedOptions.map((option) => gameRules.indexOf(option)).toList();
+  optionsIndices.sortList((p0) => p0, false);
+  return optionsIndices.join(",");
+}
+
 Future<dynamic> gotoGamePage(
     BuildContext context, String? game, String gameId, String matchId,
     {Match? match,
     List<User?>? users,
     List<Player>? players,
     int playersSize = 2,
+    bool isComputer = false,
+    String? difficultyLevel,
     bool isWatch = false,
     int? recordId,
     int? roundId,
@@ -49,6 +75,8 @@ Future<dynamic> gotoGamePage(
     "recordId": recordId,
     "roundId": roundId,
     "isWatch": isWatch,
+    "isComputer": isComputer,
+    "difficultyLevel": difficultyLevel,
   };
   if (!context.mounted) return;
 
@@ -138,13 +166,15 @@ Future<dynamic> gotoGamePage(
 //   }
 // }
 
-List<int> getLowestCountPlayer(List<int> playersCounts) {
+List<int> getLowestCountPlayer(List<int> playersCounts, {int? highestCount}) {
   Map<int, List<int>> map = {};
-  int lowestCount = playersCounts[0];
-  map[lowestCount] = [0];
-  for (var i = 1; i < playersCounts.length; i++) {
+  int? lowestCount;
+  for (var i = 0; i < playersCounts.length; i++) {
     final count = playersCounts[i];
-    if (count < lowestCount) {
+    if (highestCount != null && count > highestCount) {
+      continue;
+    }
+    if (lowestCount == null || count < lowestCount) {
       lowestCount = count;
     }
     if (map[count] != null) {
@@ -153,16 +183,19 @@ List<int> getLowestCountPlayer(List<int> playersCounts) {
       map[count] = [i];
     }
   }
-  return map[lowestCount]!;
+  return lowestCount != null ? map[lowestCount]! : [];
 }
 
-List<int> getHighestCountPlayer(List<int> playersCounts) {
+List<int> getHighestCountPlayer(List<int> playersCounts, {int? lowestCount}) {
   Map<int, List<int>> map = {};
-  int highestCount = playersCounts[0];
-  map[highestCount] = [0];
-  for (var i = 1; i < playersCounts.length; i++) {
+  int? highestCount;
+
+  for (var i = 0; i < playersCounts.length; i++) {
     final count = playersCounts[i];
-    if (count > highestCount) {
+    if (lowestCount != null && count < lowestCount) {
+      continue;
+    }
+    if (highestCount == null || count > highestCount) {
       highestCount = count;
     }
     if (map[count] != null) {
@@ -171,7 +204,7 @@ List<int> getHighestCountPlayer(List<int> playersCounts) {
       map[count] = [i];
     }
   }
-  return map[highestCount]!;
+  return highestCount != null ? map[highestCount]! : [];
 }
 
 String getOtherPlayersUsernames(List<User> users) {
@@ -237,7 +270,7 @@ double getMatchDuration(Match match) {
 
 double getMatchRecordDuration(MatchRecord record) {
   if (record.time_end == null) return 0;
-  double duration = 0;
+  double duration = 0.0;
   for (int i = 0; i < record.rounds.length; i++) {
     final roundMap = record.rounds["$i"];
     if (roundMap != null) {

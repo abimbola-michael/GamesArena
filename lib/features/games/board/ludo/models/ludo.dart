@@ -194,37 +194,57 @@ class LudoDetails {
   String? ludoIndices;
   int? pos;
   int? housePos;
+  int? startPos;
+  int? endPos;
+  int? startHousePos;
+  int? endHousePos;
   int? dice1;
   int? dice2;
   bool? selectedFromHouse;
   bool? enteredHouse;
+  String? move;
   LudoDetails({
     this.ludoIndices,
     this.pos,
     this.housePos,
+    this.startPos,
+    this.endPos,
+    this.startHousePos,
+    this.endHousePos,
     this.dice1,
     this.dice2,
     this.selectedFromHouse,
     this.enteredHouse,
+    this.move,
   });
 
   LudoDetails copyWith({
     String? ludoIndices,
     int? pos,
     int? housePos,
+    int? startPos,
+    int? endPos,
+    int? startHousePos,
+    int? endHousePos,
     int? dice1,
     int? dice2,
     bool? selectedFromHouse,
     bool? enteredHouse,
+    String? move,
   }) {
     return LudoDetails(
       ludoIndices: ludoIndices ?? this.ludoIndices,
       pos: pos ?? this.pos,
       housePos: housePos ?? this.housePos,
+      startPos: startPos ?? this.startPos,
+      endPos: endPos ?? this.endPos,
+      startHousePos: startHousePos ?? this.startHousePos,
+      endHousePos: endHousePos ?? this.endHousePos,
       dice1: dice1 ?? this.dice1,
       dice2: dice2 ?? this.dice2,
       selectedFromHouse: selectedFromHouse ?? this.selectedFromHouse,
       enteredHouse: enteredHouse ?? this.enteredHouse,
+      move: move ?? this.move,
     );
   }
 
@@ -233,10 +253,15 @@ class LudoDetails {
       'ludoIndices': ludoIndices,
       'pos': pos,
       'housePos': housePos,
+      'startPos': startPos,
+      'endPos': endPos,
+      'startHousePos': startHousePos,
+      'endHousePos': endHousePos,
       'dice1': dice1,
       'dice2': dice2,
       'selectedFromHouse': selectedFromHouse,
       'enteredHouse': enteredHouse,
+      'move': move,
     };
   }
 
@@ -246,6 +271,12 @@ class LudoDetails {
           map['ludoIndices'] != null ? map['ludoIndices'] as String : null,
       pos: map['pos'] != null ? map['pos'] as int : null,
       housePos: map['housePos'] != null ? map['housePos'] as int : null,
+      startPos: map['startPos'] != null ? map['startPos'] as int : null,
+      endPos: map['endPos'] != null ? map['endPos'] as int : null,
+      startHousePos:
+          map['startHousePos'] != null ? map['startHousePos'] as int : null,
+      endHousePos:
+          map['endHousePos'] != null ? map['endHousePos'] as int : null,
       dice1: map['dice1'] != null ? map['dice1'] as int : null,
       dice2: map['dice2'] != null ? map['dice2'] as int : null,
       selectedFromHouse: map['selectedFromHouse'] != null
@@ -253,6 +284,7 @@ class LudoDetails {
           : null,
       enteredHouse:
           map['enteredHouse'] != null ? map['enteredHouse'] as bool : null,
+      move: map['move'] != null ? map['move'] as String : null,
     );
   }
 
@@ -263,7 +295,7 @@ class LudoDetails {
 
   @override
   String toString() {
-    return 'LudoDetails(ludoIndices: $ludoIndices, pos: $pos, housePos: $housePos, dice1: $dice1, dice2: $dice2, selectedFromHouse: $selectedFromHouse, enteredHouse: $enteredHouse)';
+    return 'LudoDetails(ludoIndices: $ludoIndices, pos: $pos, housePos: $housePos, startPos: $startPos, endPos: $endPos, startHousePos: $startHousePos, endHousePos: $endHousePos, dice1: $dice1, dice2: $dice2, selectedFromHouse: $selectedFromHouse, enteredHouse: $enteredHouse, move: $move)';
   }
 
   @override
@@ -273,10 +305,15 @@ class LudoDetails {
     return other.ludoIndices == ludoIndices &&
         other.pos == pos &&
         other.housePos == housePos &&
+        other.startPos == startPos &&
+        other.endPos == endPos &&
+        other.startHousePos == startHousePos &&
+        other.endHousePos == endHousePos &&
         other.dice1 == dice1 &&
         other.dice2 == dice2 &&
         other.selectedFromHouse == selectedFromHouse &&
-        other.enteredHouse == enteredHouse;
+        other.enteredHouse == enteredHouse &&
+        other.move == move;
   }
 
   @override
@@ -284,9 +321,14 @@ class LudoDetails {
     return ludoIndices.hashCode ^
         pos.hashCode ^
         housePos.hashCode ^
+        startPos.hashCode ^
+        endPos.hashCode ^
+        startHousePos.hashCode ^
+        endHousePos.hashCode ^
         dice1.hashCode ^
         dice2.hashCode ^
         selectedFromHouse.hashCode ^
-        enteredHouse.hashCode;
+        enteredHouse.hashCode ^
+        move.hashCode;
   }
 }

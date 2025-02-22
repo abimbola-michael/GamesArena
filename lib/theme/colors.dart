@@ -5,6 +5,7 @@ const boardColor = Colors.white;
 const ballColor = Colors.yellow;
 const batColor = Colors.blue;
 const primaryColor = Colors.blue;
+const gameHintColor = Colors.blueAccent;
 
 const white = Colors.white;
 const black = Colors.black;

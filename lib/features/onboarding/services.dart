@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gamesarena/core/firebase/extensions/firebase_extensions.dart';
 import 'package:gamesarena/core/firebase/firestore_methods.dart';
 import 'package:gamesarena/features/user/services.dart';
 import 'package:gamesarena/main.dart';
 import 'package:gamesarena/shared/utils/utils.dart';
 
+import '../user/models/user.dart';
 import '../user/models/username.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
 
@@ -15,6 +15,32 @@ Future<bool> usernameExists(String username) async {
   final name = await fm
       .getValue((map) => Username.fromMap(map), ["usernames", username]);
   return name != null;
+}
+
+Future<User> createUserFromAuthUser(auth.User authUser) async {
+  final time = timeNow;
+  final newUser = User(
+    email: authUser.email ?? "",
+    user_id: authUser.uid,
+    username: "",
+    phone: "",
+    time_modified: time,
+    time: time,
+    last_seen: time,
+    tokens: [],
+    profile_photo: authUser.photoURL,
+  );
+  await fm
+      .setValue(["users", authUser.uid], value: newUser.toMap().removeNull());
+  return newUser;
+}
+
+Future<Map<String, dynamic>> updateUser(
+    String userId, Map<String, dynamic> value) async {
+  final time = timeNow;
+  final newValue = {...value, "time_modified": time, "last_seen": time};
+  await fm.updateValue(["users", userId], value: newValue);
+  return newValue;
 }
 
 Future createOrUpdateUser(Map<String, dynamic> userMap,
@@ -67,5 +93,5 @@ Future logoutUser() async {
 }
 
 String getCurrentUserId() {
-  return FirebaseAuth.instance.currentUser?.uid ?? "";
+  return auth.FirebaseAuth.instance.currentUser?.uid ?? "";
 }

@@ -23,6 +23,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import './features/user/models/user.dart';
 import 'features/game/pages/game_page.dart';
 import 'features/home/pages/main_page.dart';
+import 'features/home/pages/splash_screen_page.dart';
 import 'features/tutorials/models/tutorial.dart';
 import 'shared/utils/ads_utils.dart';
 import 'theme/theme.dart';

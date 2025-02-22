@@ -62,7 +62,7 @@ class WhotCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(radiusSize),
               color: isBackCard ? cardColor : Colors.white,
               border: Border.all(
-                  color: highlight ? primaryColor : cardColor,
+                  color: highlight ? gameHintColor : cardColor,
                   width: highlight ? 3 : 1)),
           child: Stack(
             children: [

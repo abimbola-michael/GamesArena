@@ -97,7 +97,7 @@ class ChessTileWidget extends StatelessWidget {
         width: size,
         alignment: Alignment.center,
         color: chessTile != null && highLight
-            ? primaryColor
+            ? gameHintColor
             : (x + y).isOdd
                 ? tileDarkColor
                 : tileLightColor,

@@ -55,6 +55,7 @@ class InfosDialog extends StatelessWidget {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 4.0),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           "${index + 1}. ",

@@ -61,6 +61,7 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
   bool isSearch = false;
 
   TextEditingController searchController = TextEditingController();
+  ScrollController scrollController = ScrollController();
   List<User> prevUsers = [], users = [], selectedUsers = [];
   int maxPlayers = 0;
   int minPlayers = 0;
@@ -92,7 +93,18 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
   @override
   void dispose() {
     searchController.dispose();
+    scrollController.dispose();
     super.dispose();
+  }
+
+  void scrollToLast() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      scrollController.animateTo(
+        scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   Future<List<User>> playersToUsers(List<Player> players) async {
@@ -418,6 +430,7 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
         selectedUsers.removeAt(selIndex);
         user.checked = false;
       }
+      scrollToLast();
     }
     setState(() {});
   }
@@ -534,8 +547,9 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
                     height: 80,
                     child: ListView.builder(
                         // primary: true,
+                        controller: scrollController,
                         padding: const EdgeInsets.symmetric(horizontal: 10),
-                        shrinkWrap: true,
+                        //shrinkWrap: true,
                         scrollDirection: Axis.horizontal,
                         itemCount: selectedUsers.length,
                         itemBuilder: (context, index) {
@@ -552,9 +566,9 @@ class _PlayersSelectionPageState extends ConsumerState<PlayersSelectionPage> {
                                 final user = users[i];
                                 user.checked = false;
                               }
-                              setState(() {
-                                selectedUsers.removeAt(index);
-                              });
+                              selectedUsers.removeAt(index);
+
+                              setState(() {});
                             },
                           );
                         }),

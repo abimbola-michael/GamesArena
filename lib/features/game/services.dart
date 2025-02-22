@@ -471,7 +471,7 @@ Future<Match> leaveMatch(Match match, List<Player> players,
 }
 
 Future updatePlayerAction(String gameId, String matchId, String action,
-    [String? game]) async {
+    {String? game, String? difficulty, String? exemptedRules}) async {
   return fm.updateValue([
     "games",
     gameId,
@@ -482,8 +482,16 @@ Future updatePlayerAction(String gameId, String matchId, String action,
     "matchId": matchId,
     "gameId": gameId,
     if (game != null) ...{"game": game},
+    if (difficulty != null) ...{"difficulty": difficulty},
+    if (exemptedRules != null) ...{"exemptedRules": exemptedRules},
     "time_modified": timeNow,
-    if (action.isEmpty) ...{"matchId": "", "gameId": "", "game": null}
+    if (action.isEmpty) ...{
+      "matchId": "",
+      "gameId": "",
+      "game": null,
+      "difficulty": null,
+      "exemptedRules": exemptedRules,
+    }
   });
 }
 

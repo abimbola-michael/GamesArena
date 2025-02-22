@@ -30,7 +30,7 @@ class BlinkingBorderContainer extends StatefulWidget {
     this.child,
     this.color,
     this.alignment,
-    this.blinkBorderColor = primaryColor,
+    this.blinkBorderColor = gameHintColor,
     this.blink = false,
     this.circular = false,
   });

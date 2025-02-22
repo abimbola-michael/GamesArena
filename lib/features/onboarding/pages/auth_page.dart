@@ -19,6 +19,7 @@ import '../../../main.dart';
 import '../../../shared/utils/utils.dart';
 import '../../../shared/widgets/app_appbar.dart';
 import '../../app_info/pages/app_info_page.dart';
+import '../../contact/services/services.dart';
 import '../../home/pages/home_page.dart';
 import '../../user/models/user.dart';
 import '../../user/services.dart';
@@ -53,9 +54,6 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
       emailController,
       passwordController,
       phoneController;
-
-  // String countryDialCode = "";
-  // String countryCode = "";
   String fullNumber = "";
   String selectedCountryCode = "";
 
@@ -65,10 +63,9 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
   int emailExpiryDuration = 2 * 60;
 
   User? user;
+  auth.User? authUser;
   bool savedUsernameOrPhone = false;
   bool verifiedEmail = false;
-  auth.AuthCredential? prevCredential;
-  String? prevCredentialEmail;
 
   @override
   void initState() {
@@ -80,9 +77,9 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     passwordController = TextEditingController();
     WidgetsBinding.instance.addObserver(this);
 
-    if (mode == AuthMode.verifyEmail) {
-      checkEmailVerification();
-    }
+    // if (mode == AuthMode.verifyEmail) {
+    //   checkEmailVerification();
+    // }
   }
 
   @override
@@ -93,10 +90,7 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     phoneController.dispose();
     passwordController.dispose();
     WidgetsBinding.instance.removeObserver(this);
-    if (prevCredential != null) {
-      authMethods.logOut();
-      prevCredential = null;
-    }
+
     super.dispose();
   }
 
@@ -104,9 +98,9 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      if (mode == AuthMode.verifyEmail) {
-        checkEmailVerification();
-      }
+      // if (mode == AuthMode.verifyEmail) {
+      //   checkEmailVerification();
+      // }
     }
   }
 
@@ -127,61 +121,41 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     return false;
   }
 
-  Future<User> createUser(auth.User authUser) async {
-    final userId = authUser.uid;
-    final time = timeNow;
+  // void gotoNext(User? user, [auth.User? authUser]) async {
+  //   hideDialog();
+  //   clearControllers();
+  //   //user ??= await getUser(myId, useCache: false);
+  //   if (user == null) {
+  //     if (!mounted) return;
+  //     context.pop();
+  //     return;
+  //   }
 
-    final phone = authUser.phoneNumber?.toValidNumber() ?? "";
-
-    final newUser = User(
-      email: authUser.email ?? "",
-      user_id: userId,
-      username: "",
-      phone: phone,
-      time_modified: time,
-      time: time,
-      last_seen: time,
-      tokens: [],
-      profile_photo: authUser.photoURL,
-    );
-    await createOrUpdateUser(newUser.toMap(), authUser);
-    saveUserProperty(userId, newUser.toMap().removeNull(), prevUser: newUser);
-    return newUser;
-  }
-
-  void gotoNext(User? user) async {
-    hideDialog();
-    clearControllers();
-    user ??= await getUser(myId, useCache: false);
-    if (user == null) {
-      if (!mounted) return;
-      context.pop();
-      return;
-    }
-
-    if (!authMethods.emailVerified) {
-      mode = AuthMode.verifyEmail;
-      startEmailVerifcationTimer();
-      setState(() {});
-    } else if (user.username.isEmpty && user.phone.isEmpty) {
-      mode = AuthMode.usernameAndPhoneNumber;
-      setState(() {});
-    } else if (user.username.isEmpty) {
-      mode = AuthMode.username;
-      setState(() {});
-    } else if (user.phone.isEmpty) {
-      mode = AuthMode.phone;
-      setState(() {});
-    } else {
-      gotoHomePage();
-    }
-  }
+  //   // if (!(authUser?.emailVerified ??
+  //   //     auth.FirebaseAuth.instance.currentUser?.emailVerified ??
+  //   //     true)) {
+  //   //   mode = AuthMode.verifyEmail;
+  //   //   startEmailVerifcationTimer();
+  //   //   setState(() {});
+  //   // } else
+  //   if (user.username.isEmpty && user.phone.isEmpty) {
+  //     mode = AuthMode.usernameAndPhoneNumber;
+  //     setState(() {});
+  //   } else if (user.username.isEmpty) {
+  //     mode = AuthMode.username;
+  //     setState(() {});
+  //   } else if (user.phone.isEmpty) {
+  //     mode = AuthMode.phone;
+  //     setState(() {});
+  //   } else {
+  //     gotoHomePage();
+  //   }
+  // }
 
   void updateAccountExist(
       auth.AuthCredential? credential, String? email) async {
     if (credential == null) return;
-    prevCredential = credential;
-    prevCredentialEmail = email;
+
     await Future.delayed(const Duration(seconds: 1));
     showErrorToast("Email already exist with ${credential.providerId} sign in");
 
@@ -195,30 +169,6 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     setState(() {});
   }
 
-  void googleSignIn() async {
-    showLoading(message: "Signin in...");
-
-    authMethods
-        .signInWithGoogle(onAccountExist: updateAccountExist)
-        .then((authUser) async {
-      if (authUser == null) {
-        showErrorToast("Google Sign in Failed");
-        return;
-      }
-      final userId = authUser.uid;
-      User? user = await getUser(userId, useCache: false);
-      user ??= await createUser(authUser);
-      showSuccessToast("Sign in Successfully");
-      if (isAndroidAndIos || kIsWeb) {
-        analytics.logLogin(loginMethod: 'google');
-      }
-      gotoNext(user);
-    }).onError((error, stackTrace) {
-      showErrorSnackbar(error.toString().onlyErrorMessage,
-          onPressed: googleSignIn);
-    }).whenComplete(() => context.hideDialog);
-  }
-
   Future createAccount() async {
     if (!acceptTerms) {
       showErrorToast("Read and Accept Terms and Conditions First");
@@ -229,25 +179,36 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
-    if (prevCredential != null) {
-      await authMethods.logOut();
-      prevCredential = null;
-      prevCredentialEmail = null;
-    }
-
     authMethods.createAccount(email, password).then((userCred) async {
-      await authMethods.sendEmailVerification();
+      if (userCred?.user == null) {
+        showErrorToast("Account creation failed");
 
-      if (userCred?.user == null) return;
+        return;
+      }
 
-      final user = await createUser(userCred!.user!);
+      authMethods.sendEmailVerification();
+      if (isAndroidAndIos || kIsWeb) {
+        analytics.logEvent(
+          name: 'new_account',
+          parameters: {
+            'id': userCred!.user!.uid,
+            "datetime": DateTime.now().datetime,
+          },
+        );
+      }
       showSuccessToast("Account created Successfully");
+      authUser = userCred!.user;
 
-      gotoNext(user);
+      context.pop();
+
+      // await createUser(userCred.user!);
+      // if (!mounted) return;
+      // mode = AuthMode.verifyEmail;
+      // setState(() {});
     }).onError((error, stackTrace) {
       showErrorSnackbar(error.toString().onlyErrorMessage,
           onPressed: createAccount);
-    }).whenComplete(() => context.hideDialog);
+    }).whenComplete(hideDialog);
   }
 
   Future login() async {
@@ -255,35 +216,56 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
-    if (prevCredential != null) {
-      if (email != prevCredentialEmail) {
-        await authMethods.logOut();
-        prevCredential = null;
-        prevCredentialEmail = null;
-      }
-    }
-    authMethods
-        .login(email, password, credential: prevCredential)
-        .then((userCred) async {
-      if (prevCredential != null) {
-        showToast("Your accounts are now linked");
-      }
-      User? user = await getUser(myId, useCache: false);
-      if (user?.time_deleted != null) {
-        showErrorToast("Account deleted");
-        authMethods.logOut();
+    authMethods.login(email, password).then((userCred) async {
+      if (userCred?.user == null) {
+        showErrorToast("Logging in failed");
+
         return;
       }
-      if (userCred?.user == null) return;
-      user ??= await createUser(userCred!.user!);
-      gotoNext(user);
       showSuccessToast("Login Successfully");
       if (isAndroidAndIos || kIsWeb) {
         analytics.logLogin(loginMethod: 'password');
       }
+
+      if (!mounted) return;
+      authUser = userCred!.user;
+      context.pop();
+      // user = await getUser(userCred.user!.uid, useCache: false);
+      // if (user == null) {
+      //   await createUser(userCred.user!);
+      // }
+      // goNext();
     }).onError((error, stackTrace) {
       showErrorSnackbar(error.toString().onlyErrorMessage, onPressed: login);
-    }).whenComplete(() => context.hideDialog);
+    }).whenComplete(hideDialog);
+  }
+
+  void googleSignIn() async {
+    showLoading(message: "Signing in...");
+
+    authMethods
+        .signInWithGoogle(onAccountExist: updateAccountExist)
+        .then((authUser) async {
+      if (authUser == null) {
+        showErrorToast("Google Sign in failed");
+        return;
+      }
+      showSuccessToast("Sign in Successfully");
+      if (isAndroidAndIos || kIsWeb) {
+        analytics.logLogin(loginMethod: 'google');
+      }
+      if (!mounted) return;
+      this.authUser = authUser;
+      context.pop();
+      // user = await getUser(authUser.uid, useCache: false);
+      // if (user == null) {
+      //   await createUser(authUser);
+      // }
+      // goNext();
+    }).onError((error, stackTrace) {
+      showErrorSnackbar(error.toString().onlyErrorMessage,
+          onPressed: googleSignIn);
+    }).whenComplete(hideDialog);
   }
 
   void resetPassword() {
@@ -291,7 +273,7 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     showLoading(message: "Sending Password Reset Email...");
 
     authMethods.sendPasswordResetEmail(email).then((value) {
-      hideDialog();
+      // hideDialog();
       clearControllers();
       mode = AuthMode.login;
       showToast(
@@ -300,7 +282,7 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     }).onError((error, stackTrace) {
       showErrorSnackbar(error.toString().onlyErrorMessage,
           onPressed: resetPassword);
-    }).whenComplete(() => context.hideDialog());
+    }).whenComplete(hideDialog);
   }
 
   void startEmailVerifcationTimer() {
@@ -323,9 +305,14 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
       timer?.cancel();
       timer = null;
       emailExpiryTime = null;
+      //hideDialog();
+
       showSuccessToast("Email Verified successfully");
       verifiedEmail = true;
-      gotoNext(user);
+      if (!mounted) return;
+      context.pop(true);
+
+      // goNext();
     } else {
       if (isClick) {
         showErrorToast("Email not yet verified. Check mail for link or resend");
@@ -337,18 +324,18 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     showLoading(message: "Sending verification email...");
 
     authMethods.sendEmailVerification().then((value) {
-      hideDialog();
-      //mode = AuthMode.login;
       showToast("A verification email has been sent to you.\nCheck your mail");
       startEmailVerifcationTimer();
+      mode = AuthMode.verifyEmail;
       setState(() {});
     }).onError((error, stackTrace) {
       showErrorSnackbar(error.toString().onlyErrorMessage,
           onPressed: resendVerificationEmail);
-    }).whenComplete(() => context.hideDialog());
+    }).whenComplete(hideDialog);
   }
 
   Future createUsernameOrPhone() async {
+    // if (user == null) return;
     final username =
         usernameController.text.toLowerCase().replaceAll(" ", "").trim();
     if (username.isNotEmpty) {
@@ -363,20 +350,23 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     final phone = fullNumber;
 
     final value = {
-      if (username.isNotEmpty) ...{"username": username},
+      if (username.isNotEmpty) "username": username,
       if (phone.isNotEmpty) ...{
         "phone": phone,
         "country_code": selectedCountryCode
       }
     };
-    showLoading(message: "Saving...");
+    if (!mounted) return;
+    context.pop(value);
 
-    if (username.isNotEmpty || phone.isNotEmpty) {
-      await createOrUpdateUser(value);
-    }
-    savedUsernameOrPhone = true;
+    // context.showLoading(message: "Saving...");
 
-    gotoHomePage();
+    // final newValue = await updateUser(user!.user_id, value);
+    // if (!mounted) return;
+
+    // context.showSuccessToast("Details saved successfully");
+    // saveUserProperty(user!.user_id, newValue, prevUser: user!);
+    // gotoHomePage();
   }
 
   String getTitle() {
@@ -441,7 +431,7 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
 
   void toggleLoginAndSignUp() {
     formStateKey.currentState?.reset();
-    clearControllers();
+    // clearControllers();
     if (mode == AuthMode.login) {
       mode = AuthMode.signUp;
     } else {
@@ -451,19 +441,61 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
     setState(() {});
   }
 
-  void gotoHomePage() {
-    firebaseNotification.updateFirebaseToken();
+  Future createUser(auth.User authUser) async {
+    if (!mounted) return;
+    context.showLoading(message: "Creating user...");
+
+    user = await createUserFromAuthUser(authUser);
+    if (!mounted) return;
+    context.pop();
+    context.showSuccessToast("User created successfully");
+    saveUserProperty(authUser.uid, user!.toMap().removeNull());
+  }
+
+  void goNext() async {
+    if (this.user == null) {
+      return;
+    }
+    final user = this.user!;
+
+    if (user.answeredRequests != true && user.phone.isNotEmpty) {
+      acceptPlayersRequests(user.phone);
+    }
     if (!mounted) return;
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: ((context) => const HomePage())),
-      (Route<dynamic> route) => false, // Remove all routes
-    );
+    if (user.username.isEmpty && user.phone.isEmpty) {
+      mode = AuthMode.usernameAndPhoneNumber;
+      setState(() {});
+    } else if (user.username.isEmpty) {
+      mode = AuthMode.username;
+      setState(() {});
+    } else if (user.phone.isEmpty) {
+      mode = AuthMode.phone;
+      setState(() {});
+    } else {
+      if (user.time_deleted != null) {
+        showToast("Account Deleted");
+        await logout();
+      }
+      gotoHomePage();
+    }
+  }
+
+  void gotoHomePage() {
+    if (!mounted) return;
+    firebaseNotification.updateFirebaseToken();
+    context.pop();
+    context.pushReplacement(const HomePage());
+
+    // Navigator.of(context).pushAndRemoveUntil(
+    //   MaterialPageRoute(builder: ((context) => const HomePage())),
+    //   (Route<dynamic> route) => false, // Remove all routes
+    // );
   }
 
   Future logout() async {
     try {
-      await logoutUser();
+      if (user != null) await logoutUser();
       authMethods.logOut();
     } catch (e) {}
   }
@@ -482,23 +514,25 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // || mode == AuthMode.signUp
     return PopScope(
-      canPop: mode == AuthMode.login || mode == AuthMode.signUp,
+      canPop: mode == AuthMode.login,
       onPopInvoked: (pop) {
         if (pop) {
           return;
         }
-        if (mode != AuthMode.login) {
-          setState(() {
-            mode = AuthMode.login;
-          });
-        }
+
         if ((mode == AuthMode.verifyEmail && !verifiedEmail) ||
             ((mode == AuthMode.username ||
                     mode == AuthMode.phone ||
                     mode == AuthMode.usernameAndPhoneNumber) &&
                 !savedUsernameOrPhone)) {
           logout();
+        }
+        if (mode != AuthMode.login) {
+          setState(() {
+            mode = AuthMode.login;
+          });
         }
       },
       child: KeyboardListener(
@@ -629,8 +663,8 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
                         ],
                       ),
 
-                      if (canGoogleSignIn &&
-                          (mode == AuthMode.login || mode == AuthMode.signUp))
+                      //canGoogleSignIn &&
+                      if ((mode == AuthMode.login || mode == AuthMode.signUp))
                         AppButton(
                           height: 40,
                           title:

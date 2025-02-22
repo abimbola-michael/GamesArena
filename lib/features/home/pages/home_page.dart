@@ -32,6 +32,7 @@ import '../../../shared/models/app_message.dart';
 import '../../../shared/models/models.dart';
 
 import '../../../shared/utils/utils.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_search_bar.dart';
 import '../../../shared/widgets/hinting_widget.dart';
 import '../../../theme/colors.dart';
@@ -57,6 +58,7 @@ class _HomePageState extends ConsumerState<HomePage>
   String name = "";
   int currentIndex = 0;
   User? user;
+  auth.User? authUser;
   StreamSubscription? subscription, authSub;
   List<String> actions = ["Profile, Settings, About Games"];
   List<String> tabs = ["Games", "Matches"];
@@ -191,12 +193,10 @@ class _HomePageState extends ConsumerState<HomePage>
 
   void readAuthUserChange() {
     authSub = auth.FirebaseAuth.instance.authStateChanges().listen((authUser) {
-      // print("authUser = $authUser");
+      this.authUser = authUser;
       if (authUser != null) {
         currentUserId = authUser.uid;
         readUser(authUser);
-        authSub?.cancel();
-        authSub = null;
       } else {
         currentUserId = "";
         userSub?.cancel();
@@ -227,24 +227,37 @@ class _HomePageState extends ConsumerState<HomePage>
         sharedPref.remove(TAPPED_SEARCH_MATCHES);
         sharedPref.remove(TAPPED_MATCHES_MORE);
         sharedPref.remove(TAPPED_GAME_PROFILE_MORE);
+        sharedPref.remove("token");
       }
       sharedPref.setString("currentUserId", currentUserId);
       if (!mounted) return;
       setState(() {});
+      // Future.delayed(const Duration(seconds: 3)).then((value) {
+      //   authSub?.cancel();
+      //   authSub = null;
+      // });
     });
   }
 
   void readUser(auth.User authUser) async {
-    if (myId.isEmpty) return;
-    var user = this.user;
+    String userId = authUser.uid;
+    // || loading
+    if (userId.isEmpty) return;
     loading = true;
 
-    user ??= await getUser(myId, useCache: false);
-    subscribeForGamesArenaNotification();
+    if (this.user != null) return;
+
+    var user = await getUser(userId, useCache: false);
+    if (this.authUser == null) return;
 
     if (user == null) {
-      am.logOut();
-      return;
+      if (!mounted) return;
+      context.showLoading(message: "Creating user...");
+
+      user = await createUserFromAuthUser(authUser);
+      if (!mounted) return;
+      context.pop();
+      context.showSuccessToast("User created successfully");
     }
 
     if (user.answeredRequests != true && user.phone.isNotEmpty) {
@@ -257,13 +270,22 @@ class _HomePageState extends ConsumerState<HomePage>
     if (!authUser.emailVerified) {
       mode = AuthMode.verifyEmail;
       result = await context.pushTo(AuthPage(mode: mode));
-    } else if (user.username.isEmpty && user.phone.isEmpty) {
+      if (result == null) {
+        logout();
+        loading = false;
+        setState(() {});
+        return;
+      }
+    }
+    if (!mounted) return;
+    if (user.username.isEmpty && user.phone.isEmpty) {
       mode = AuthMode.usernameAndPhoneNumber;
       result = await context.pushTo(AuthPage(mode: mode));
 
       if (result is Map<String, dynamic>) {
         user.username = result["username"];
         user.phone = result["phone"];
+        user.country_code = result["country_code"];
       }
     } else if (user.username.isEmpty) {
       mode = AuthMode.username;
@@ -278,22 +300,38 @@ class _HomePageState extends ConsumerState<HomePage>
 
       if (result is Map<String, dynamic>) {
         user.phone = result["phone"];
+        user.country_code = result["country_code"];
       }
     }
     if (mode != null) {
       if (result == null) {
         logout();
+        loading = false;
+        setState(() {});
       } else {
-        saveUserProperty(myId, user.toMap().removeNull());
+        if (!mounted) return;
+
+        context.showLoading(message: "Saving...");
+
+        await updateUser(userId, result);
+        if (!mounted) return;
+
+        context.pop();
+        context.showSuccessToast("Details saved successfully");
+        saveUserProperty(userId, user.toMap().removeNull());
       }
+    }
+
+    if (user.time_deleted != null) {
+      showToast("Account Deleted");
+
+      logout();
+      loading = false;
+      setState(() {});
 
       return;
     }
-    if (user.time_deleted != null) {
-      showToast("Account Deleted");
-      logout();
-      return;
-    }
+
     if (isAndroidAndIos || kIsWeb) {
       analytics.logEvent(
         name: 'active',
@@ -309,6 +347,8 @@ class _HomePageState extends ConsumerState<HomePage>
     this.user = user;
     loading = false;
 
+    firebaseNotification.updateFirebaseToken();
+    subscribeForGamesArenaNotification();
     readPlayingRequest();
     setState(() {});
   }
@@ -322,8 +362,6 @@ class _HomePageState extends ConsumerState<HomePage>
 
   void readPlayingRequest() {
     subscription = getPlayerRequestStream().listen((playerChanges) async {
-      //print("playerChanges = $playerChanges");
-      // for (int i = 0; i < playerChanges.length; i++) {}
       final playerChange = playerChanges.lastOrNull;
       if (playerChange != null) {
         final player = playerChange.value;
@@ -454,7 +492,7 @@ class _HomePageState extends ConsumerState<HomePage>
         if (isSearch) {
           stopSearch();
         } else if (selectedGame && currentIndex == 0) {
-          gamesPageKey.currentState?.goBackToGames();
+          gamesPageKey.currentState?.executeBackPressed();
         }
       },
       child: Scaffold(
@@ -476,7 +514,7 @@ class _HomePageState extends ConsumerState<HomePage>
                   child: IconButton(
                     onPressed: () {
                       if (selectedGame && currentIndex == 0) {
-                        gamesPageKey.currentState?.goBackToGames();
+                        gamesPageKey.currentState?.executeBackPressed();
                       } else {
                         if (sharedPref.getBool(TAPPED_LOGIN) != true) {
                           sharedPref.setBool(TAPPED_LOGIN, true).then((value) {
@@ -519,10 +557,42 @@ class _HomePageState extends ConsumerState<HomePage>
                 setState(() {});
               },
             ),
-            const MatchesPage()
+            user == null
+                ? SizedBox(
+                    width: double.infinity,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text("Login to Play Online Match"),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            AppButton(
+                              title: "Sign Up",
+                              onPressed: () {
+                                context.pushTo(
+                                    const AuthPage(mode: AuthMode.signUp));
+                              },
+                              wrapped: true,
+                              bgColor: lightestTint,
+                              color: tint,
+                            ),
+                            AppButton(
+                              title: "Login",
+                              onPressed: () {
+                                context.pushTo(const AuthPage());
+                              },
+                              wrapped: true,
+                            ),
+                          ],
+                        )
+                      ],
+                    ),
+                  )
+                : const MatchesPage(),
           ],
         ),
-        floatingActionButton: myId.isEmpty
+        floatingActionButton: user == null
             ? null
             : HintingWidget(
                 showHint: sharedPref.getBool(TAPPED_PLAY) == null,
@@ -561,23 +631,6 @@ class _HomePageState extends ConsumerState<HomePage>
             }),
           ),
         ),
-        // bottomNavigationBar: BottomNavigationBar(
-        //     selectedItemColor: Colors.blue,
-        //     currentIndex: currentIndex,
-        //     onTap: (index) {
-        //       if (currentIndex == index) return;
-        //       setState(() {
-        //         currentIndex = index;
-        //       });
-        //     },
-        //     items: const [
-        //       BottomNavigationBarItem(
-        //         icon: Icon(Icons.gamepad),
-        //         label: "Games",
-        //       ),
-        //       BottomNavigationBarItem(
-        //           icon: Icon(Icons.play_arrow), label: "Matches"),
-        //     ]),
       ),
     );
   }

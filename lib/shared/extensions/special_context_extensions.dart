@@ -118,7 +118,12 @@ Future? showSuccessSnackbar(String message,
 }
 
 Future? hideDialog() {
-  return navigatorKey.currentContext?.hideDialog();
+  if (loading) {
+    navigatorKey.currentContext?.pop();
+    loading = false;
+  }
+
+  // return navigatorKey.currentContext?.hideDialog();
 }
 
 extension SpecialContextExtensions on BuildContext {
@@ -161,8 +166,6 @@ extension SpecialContextExtensions on BuildContext {
       DurationLength durationLength = DurationLength.short}) async {
     if (!mounted) return;
 
-    loading = true;
-
     if (duration != null &&
         (displayType == DisplayType.dialog ||
             displayType == DisplayType.bottomsheet)) {
@@ -173,10 +176,11 @@ extension SpecialContextExtensions on BuildContext {
             displayType == DisplayType.snackbar)) {
       duration = getDuration(durationLength);
     }
-    await hideDialog();
+    //await hideDialog();
 
     dynamic result;
     if (displayType == DisplayType.dialog) {
+      loading = true;
       result = await showDialog(
         context: this,
         builder: (context) {
@@ -184,7 +188,9 @@ extension SpecialContextExtensions on BuildContext {
           return LoadingView(transparent: transparent, message: message);
         },
       );
+      loading = false;
     } else if (displayType == DisplayType.bottomsheet) {
+      loading = true;
       result = await showModalBottomSheet(
         backgroundColor: bgColor,
         clipBehavior: Clip.antiAliasWithSaveLayer,
@@ -196,6 +202,7 @@ extension SpecialContextExtensions on BuildContext {
           return LoadingView(transparent: transparent, message: message);
         },
       );
+      loading = false;
     } else if (displayType == DisplayType.snackbar) {
       result = ScaffoldMessenger.of(this).showSnackBar(
         SnackBar(
@@ -250,7 +257,6 @@ extension SpecialContextExtensions on BuildContext {
         ),
       );
     }
-    loading = false;
     dialogContext = null;
 
     return result;
@@ -280,10 +286,11 @@ extension SpecialContextExtensions on BuildContext {
     if (loading && duration == null) {
       duration = const Duration(seconds: 3);
     }
-    await hideDialog();
+    //await hideDialog();
 
     dynamic result;
     if (displayType == DisplayType.dialog) {
+      loading = true;
       result = await showDialog(
         context: this,
         builder: (context) {
@@ -296,7 +303,9 @@ extension SpecialContextExtensions on BuildContext {
           );
         },
       );
+      loading = false;
     } else if (displayType == DisplayType.bottomsheet) {
+      loading = true;
       result = await showModalBottomSheet(
         backgroundColor: bgColor,
         clipBehavior: Clip.antiAliasWithSaveLayer,
@@ -313,6 +322,7 @@ extension SpecialContextExtensions on BuildContext {
           );
         },
       );
+      loading = false;
     } else if (displayType == DisplayType.snackbar) {
       result = ScaffoldMessenger.of(this).showSnackBar(
         SnackBar(
@@ -454,9 +464,14 @@ extension SpecialContextExtensions on BuildContext {
   }
 
   Future hideDialog() async {
-    if (dialogContext != null && dialogContext!.mounted) {
-      dialogContext!.pop();
-      dialogContext = null;
+    if (loading) {
+      pop();
+      loading = false;
     }
+
+    // if (dialogContext != null && dialogContext!.mounted) {
+    //   dialogContext!.pop();
+    //   dialogContext = null;
+    // }
   }
 }

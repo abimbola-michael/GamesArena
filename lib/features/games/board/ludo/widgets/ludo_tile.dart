@@ -37,11 +37,14 @@ class LudoTileWidget extends StatelessWidget {
           blink: blink,
           height: size,
           width: size,
+          blinkBorderColor:
+              useColor(pos) && color == LudoColor.blue ? tint : gameHintColor,
           decoration: BoxDecoration(
-            border: Border.all(
-                color: darkMode ? Colors.white : Colors.black, width: 1),
+            border: Border.all(color: tint, width: 1),
             color: ludoTile != null && highLight
-                ? primaryColor
+                ? useColor(pos) && color == LudoColor.blue
+                    ? tint
+                    : gameHintColor
                 : useColor(pos)
                     ? convertToColor(color)
                     : null,

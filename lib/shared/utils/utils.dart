@@ -16,12 +16,14 @@ import '../../features/game/models/match_outcome.dart';
 import '../../features/game/models/player.dart';
 import '../../features/game/services.dart';
 
-import '../../features/game/utils.dart';
 import '../../features/user/models/user.dart';
 import '../extensions/special_context_extensions.dart';
 
 // String get myId => currentUserId;
 String get myId => auth.FirebaseAuth.instance.currentUser?.uid ?? "";
+
+bool get isDesktop =>
+    !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
 bool get isAndroidAndIos => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 bool get isWindows => !kIsWeb && Platform.isWindows;
@@ -168,7 +170,7 @@ List<String> getPlayersNames(List<Player> players,
 
 String getMatchOutcomeMessageFromScores(
     List<int> playersScores, List<String> players,
-    {List<User?>? users}) {
+    {List<User?>? users, int? playersSize}) {
   final playerIds = (users ?? []).isNotEmpty && players.isNotEmpty
       ? players
       : List.generate(playersScores.length, (index) => "$index");
@@ -195,9 +197,9 @@ String getMatchOutcomeMessageFromScores(
 
 String getMatchOutcomeMessageFromWinners(
     List<int>? winners, List<String> players,
-    {List<User?>? users}) {
+    {List<User?>? users, int? playersSize}) {
   if (winners == null) return "Incomplete Round";
-  if (winners.isEmpty) return "It's a draw";
+  if (winners.isEmpty) return playersSize == 1 ? "You lost" : "It's a draw";
 
   final winnersUsernames = (users ?? []).isNotEmpty
       ? winners
@@ -361,18 +363,46 @@ String? getCallMode(List<Player> players) {
 }
 
 String getChangedGame(List<Player> players) {
-  String game = "";
-  for (int i = 0; i < players.length; i++) {
+  if (players.isEmpty) return "";
+
+  String game = players.first.game ?? "";
+  for (int i = 1; i < players.length; i++) {
     final player = players[i];
-    if (game == "") {
-      game = player.game ?? "";
-    } else {
-      if (game != player.game) {
-        return "";
-      }
+    final playerGame = player.game ?? "";
+    if (game != playerGame) {
+      return "";
     }
   }
   return game;
+}
+
+String getChangedDifficulty(List<Player> players) {
+  if (players.isEmpty) return "";
+  String difficulty = players.first.difficulty ?? "";
+  for (int i = 1; i < players.length; i++) {
+    final player = players[i];
+    final playerDifficulty = player.difficulty ?? "";
+
+    if (difficulty != playerDifficulty) {
+      return "";
+    }
+  }
+  return difficulty;
+}
+
+String getExemptedRules(List<Player> players) {
+  if (players.isEmpty) return "";
+
+  String rules = players.first.exemptedRules ?? "";
+  for (int i = 1; i < players.length; i++) {
+    final player = players[i];
+    final playerRules = player.exemptedRules ?? "";
+
+    if (rules != playerRules) {
+      return "";
+    }
+  }
+  return rules;
 }
 
 String getActionString(String? action) {

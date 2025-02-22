@@ -35,6 +35,7 @@ class ChessGamePage extends BaseGamePage {
 }
 
 class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
+  List<String> moves = [];
   bool played = false;
   int gridSize = 8;
   double size = 0;
@@ -54,7 +55,6 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
   int player1Time = 0, player2Time = 0, roundsCount = 0;
 
   String opponentId = "";
-  List<User?> notReadyUsers = [];
   List<int> hintPositions = [];
 
   String updatePlayerId = "";
@@ -183,15 +183,25 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
   }
 
   Future updateDetails(int pos) async {
-    await setDetails([
-      ChessDetails(pos: selectedChessTile!.id.toInt).toMap(),
-      ChessDetails(pos: pos).toMap()
-    ]);
+    setDetail(
+      ChessDetails(
+              startPos: selectedChessTile!.id.toInt,
+              endPos: pos,
+              move: moves.join(", "))
+          .toMap(),
+    );
+    moves = [];
+    // await setDetails([
+    //   ChessDetails(pos: selectedChessTile!.id.toInt).toMap(),
+    //   ChessDetails(pos: pos).toMap()
+    // ]);
   }
 
   Future updatePawnPromotionDetails(int pawnPromotionIndex) async {
-    final details = ChessDetails(pos: pawnPromotionIndex);
-    await setDetail(details.toMap());
+    final details =
+        ChessDetails(startPos: pawnPromotionIndex, move: moves.join(", "));
+    setDetail(details.toMap());
+    moves = [];
   }
 
   int convertPos(int pos, String userId) {
@@ -205,11 +215,15 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
   void updateChessPromotion(int index, [bool isClick = true]) async {
     if (!itsMyTurnToPlay(isClick)) return;
 
-    if (isClick) {
-      updatePawnPromotionDetails(index);
-    }
     final selectedChessShape = chessPromotionShapes[index];
+    moves = [
+      "selected ${selectedChessShape.name} from list $chessPromotionShapes"
+    ];
+
     choosePawnPromotion = false;
+    moves.add(
+        "${pawnPositionChessTile!.chess!.id} is now ${selectedChessShape.name}");
+
     selectedChessTile!.chess!.shape = selectedChessShape;
     pawnPositionChessTile!.chess = selectedChessTile!.chess;
     selectedChessTile!.chess = null;
@@ -223,6 +237,7 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
         message = "CheckMate";
         reason = "Checkmate";
         setState(() {});
+        moves.add("win game");
         updateWin(currentPlayer);
         //updateWingame(false);
       } else {
@@ -231,7 +246,11 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
     } else {
       message = "Play";
     }
+    moves.add(message);
     hintPositions.clear();
+    if (isClick) {
+      updatePawnPromotionDetails(index);
+    }
     changePlayer();
     setState(() {});
   }
@@ -248,23 +267,6 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
     //getHintMessage(true);
     setState(() {});
   }
-
-  // void clickChessTile(int index, bool longPressed) {
-  //   // if (gameId != "" && currentPlayerId != myId) {
-  //   //   showPlayerToast(1, "Its ${getUsername(currentPlayerId)}'s turn");
-  //   //   return;
-  //   // }
-  //   // if (choosePawnPromotion) {
-  //   //   showPlayerToast(currentPlayer, "Select piece");
-  //   //   return;
-  //   // }
-  //   // if (gameId != "") {
-  //   //   updateDetails(index);
-  //   // } else {
-  //   //   playChess(index);
-  //   // }
-  //   playChess(index);
-  // }
 
   void playChess(int pos, [bool isClick = true]) async {
     if (!itsMyTurnToPlay(isClick)) return;
@@ -313,7 +315,7 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
     }
   }
 
-  bool checkIfcanCastletle(ChessDirection direction) {
+  bool checkIfcanCastle(ChessDirection direction) {
     if (direction != ChessDirection.right && direction != ChessDirection.left) {
       return false;
     }
@@ -351,6 +353,10 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
   }
 
   void moveChess(int pos, [bool isClick = true]) async {
+    moves = [];
+    if (selectedChessTile != null) {
+      moves.add("played ${selectedChessTile!.id}");
+    }
     final chessTile = chessTiles[pos];
     final coordinates = convertToGrid(pos, gridSize);
     final x = coordinates[0];
@@ -366,7 +372,7 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
         getChessDirection(x - selX, y - selY, selectedChess.shape);
     bool canCastle = false;
     if (selectedChess.shape == ChessShape.king) {
-      canCastle = checkIfcanCastletle(direction);
+      canCastle = checkIfcanCastle(direction);
     }
     final pawnCond = ((yDiff <= 2 && xDiff == 0) ||
         (xDiff == yDiff && xDiff == 1 && yDiff == 1));
@@ -470,6 +476,7 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
                         pawnChess.player == 1 && pawnChess.y == 4)) {
                   foundChessPositions.add(pawnPos);
                   hasEnpassant = true;
+                  moves.add("enpassant");
                   enpassantPos = -1;
                 }
               }
@@ -527,6 +534,7 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
         final playerChesses = playersChesses[playerIndex];
         final playerWonChesses = playersWonChesses[currentPlayerIndex];
         playerWonChesses.add(chessTile.chess!);
+        moves.add("captured ${chessTile.chess!.id}");
         playerChesses
             .removeWhere((element) => element.id == chessTile.chess!.id);
         updateCount(currentPlayerIndex, playerWonChesses.length);
@@ -542,6 +550,7 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
           pawnPositionChessTile = chessTile;
           choosePawnPromotion = true;
         });
+        moves.add("To choose pawn promotion");
         return;
       }
 
@@ -569,13 +578,15 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
         }
       }
 
-      if (isClick) {
-        updateDetails(pos);
-      }
-      selectedChessTile!.chess = null;
-      selectedChessTile = null;
+      // if (isClick) {
+      //   updateDetails(pos);
+      // }
+      // selectedChessTile!.chess = null;
+      // selectedChessTile = null;
 
       if (canCastle && xDiff == 2 && yDiff == 0) {
+        final piece = direction == ChessDirection.right ? "King" : "Queen";
+
         final rookX = direction == ChessDirection.right ? 7 : 0;
         final rookPos = convertToPosition([rookX, y], gridSize);
         final rookChess = chessTiles[rookPos].chess;
@@ -586,6 +597,7 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
           chessTiles[newRookPos].chess = rookChess;
           chessTiles[rookPos].chess = null;
         }
+        moves.add("$piece side castling");
       }
 
       final check = checkForCheck();
@@ -595,7 +607,7 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
           message = "Checkmate";
           reason = "Checkmate";
           setState(() {});
-          //updateWingame(false);
+          moves.add("win game");
           updateWin(currentPlayer);
         } else {
           message = "Check";
@@ -603,11 +615,21 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
       } else {
         message = "Play";
       }
+      moves.add(message);
+
       if (foundChessPositions.isEmpty) {
         drawMoveCount++;
       }
+
       savePattern();
       checkWingame();
+
+      if (isClick) {
+        updateDetails(pos);
+      }
+      selectedChessTile!.chess = null;
+      selectedChessTile = null;
+
       changePlayer();
       hintPositions.clear();
       showPossiblePlayPositions();
@@ -722,14 +744,6 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
     }
     if (direction == ChessDirection.noDirection) return false;
 
-    // final count = (checkingChess.shape == ChessShape.pawn ||
-    //         checkingChess.shape == ChessShape.knight ||
-    //         checkingChess.shape == ChessShape.king)
-    //     ? 1
-    //     : xDiff > yDiff
-    //         ? xDiff
-    //         : yDiff;
-
     List<int> kingPositions = [];
     List<int> otherPiecesPositions = [];
     bool found = false;
@@ -816,63 +830,6 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
     }
     return -1;
   }
-
-  // bool canEscapeCapturing(int x, int y) {
-  //   int captureCount = 0;
-  //   final nextPlayer = nextIndex(2, currentPlayer);
-  //   for (int i = 0; i < allDirections.length; i++) {
-  //     final direction = allDirections[i];
-  //     final count = isKnightDirection(direction) ? 2 : 8;
-  //     int searchCount = 0;
-  //     for (int j = 1; j < count; j++) {
-  //       if (exceedRange(
-  //           getChessX(direction, x, j), getChessY(direction, y, j))) {
-  //         break;
-  //       }
-  //       int pointX = getChessX(direction, x, j);
-  //       int pointY = getChessY(direction, y, j);
-  //       final pointChessPos = convertToPosition([pointX, pointY], gridSize);
-  //       final pointChessTile = chessTiles[pointChessPos];
-  //       if (pointChessTile.chess != null) {
-  //         final pointChess = pointChessTile.chess!;
-  //         final player = pointChess.player;
-  //         final shape = pointChess.shape;
-  //         if (player == nextPlayer) {
-  //           break;
-  //         }
-  //         if ((edgeDirections.contains(direction) &&
-  //                 ((shape == ChessShape.king && searchCount == 0) ||
-  //                     shape == ChessShape.queen ||
-  //                     shape == ChessShape.rook)) ||
-  //             (diagonalDirections.contains(direction) &&
-  //                 (((shape == ChessShape.king ||
-  //                             (shape == ChessShape.pawn &&
-  //                                 ((player == 1 &&
-  //                                         (direction ==
-  //                                                 ChessDirection.bottomRight ||
-  //                                             direction ==
-  //                                                 ChessDirection.bottomLeft) ||
-  //                                     (player == 0 &&
-  //                                         (direction ==
-  //                                                 ChessDirection.topRight ||
-  //                                             direction ==
-  //                                                 ChessDirection
-  //                                                     .topLeft)))))) &&
-  //                         searchCount == 0) ||
-  //                     shape == ChessShape.queen ||
-  //                     shape == ChessShape.bishop)) ||
-  //             (knightDirections.contains(direction) &&
-  //                 shape == ChessShape.knight)) {
-  //           captureCount++;
-  //         }
-  //         break;
-  //       } else {
-  //         searchCount++;
-  //       }
-  //     }
-  //   }
-  //   return captureCount == 0;
-  // }
 
   bool checkForPossibleCheckForKing(int pos) {
     final coordinates = convertToGrid(pos, gridSize);
@@ -1015,7 +972,7 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
       final direction = directions[i];
       bool canCastle = false;
       if (chess.shape == ChessShape.king) {
-        canCastle = checkIfcanCastletle(direction);
+        canCastle = checkIfcanCastle(direction);
       }
       int count = canCastle ? end + 1 : end;
       int emptySpacesCount = 0;
@@ -1215,6 +1172,7 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
           patternsMap[pattern] = patternsMap[pattern]! + 1;
           if (patternsMap[pattern]! == 3) {
             reason = "3 same game pattern";
+            moves.add("draw with same pattern");
             updateDraw();
           }
         } else {
@@ -1595,16 +1553,23 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
     if (map != null) {
       final details = ChessDetails.fromMap(map);
       final pos = details.pos;
+      final startPos = details.startPos;
+      final endPos = details.endPos;
 
-      if (pos != -1) {
+      if (pos != null) {
         if (choosePawnPromotion) {
           updateChessPromotion(pos, false);
         } else {
           playChess(pos, false);
         }
-      } else {
-        changePlayer();
+      } else if (startPos != null && endPos != null) {
+        playChess(startPos, false);
+        if (!seeking) await Future.delayed(const Duration(milliseconds: 500));
+        playChess(endPos, false);
       }
+      // else {
+      //   changePlayer();
+      // }
 
       setState(() {});
     }
@@ -1693,7 +1658,6 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
                               onPressed: () {
                                 playChess(index);
                               },
-                              // onPressed: () => clickChessTile(index, false),
                               size: size);
                         })),
                   ),
@@ -1800,5 +1764,13 @@ class _ChessGamePageState extends BaseGamePageState<ChessGamePage> {
   @override
   void onInitState() {
     // TODO: implement onInitState
+  }
+
+  @override
+  bool onShowRightClick(int index) => false;
+
+  @override
+  void onRightClick(int index) {
+    // TODO: implement onRightClick
   }
 }

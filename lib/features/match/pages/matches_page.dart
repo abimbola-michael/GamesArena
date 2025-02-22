@@ -112,6 +112,7 @@ class _MatchesPageState extends ConsumerState<MatchesPage>
         context.pushTo(const TutorialsPage());
       });
     }
+    if (!mounted) return;
 
     loading = false;
     setState(() {});
@@ -391,40 +392,40 @@ class _MatchesPageState extends ConsumerState<MatchesPage>
     }
     isConnected = connected;
 
-    if (myId.isEmpty) {
-      return SizedBox(
-        width: double.infinity,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text("Login to Play Online Games"),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                AppButton(
-                  title: "Sign Up",
-                  onPressed: () {
-                    context.pushTo(const AuthPage(
-                      mode: AuthMode.signUp,
-                    ));
-                  },
-                  wrapped: true,
-                  bgColor: lightestTint,
-                  color: tint,
-                ),
-                AppButton(
-                  title: "Login",
-                  onPressed: () {
-                    context.pushTo(const AuthPage());
-                  },
-                  wrapped: true,
-                ),
-              ],
-            )
-          ],
-        ),
-      );
-    }
+    // if (myId.isEmpty) {
+    //   return SizedBox(
+    //     width: double.infinity,
+    //     child: Column(
+    //       mainAxisAlignment: MainAxisAlignment.center,
+    //       children: [
+    //         const Text("Login to Play Online Games"),
+    //         Row(
+    //           mainAxisAlignment: MainAxisAlignment.center,
+    //           children: [
+    //             AppButton(
+    //               title: "Sign Up",
+    //               onPressed: () {
+    //                 context.pushTo(const AuthPage(
+    //                   mode: AuthMode.signUp,
+    //                 ));
+    //               },
+    //               wrapped: true,
+    //               bgColor: lightestTint,
+    //               color: tint,
+    //             ),
+    //             AppButton(
+    //               title: "Login",
+    //               onPressed: () {
+    //                 context.pushTo(const AuthPage());
+    //               },
+    //               wrapped: true,
+    //             ),
+    //           ],
+    //         )
+    //       ],
+    //     ),
+    //   );
+    // }
 
     final searchString = ref.watch(searchMatchesProvider);
 

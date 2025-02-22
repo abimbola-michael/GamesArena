@@ -6,7 +6,7 @@ import 'package:gamesarena/features/user/services.dart';
 import 'package:gamesarena/shared/extensions/extensions.dart';
 import 'package:gamesarena/shared/utils/utils.dart';
 
-import '../../../shared/dialogs/option_selection_dialog.dart';
+import '../../../shared/dialogs/action_selection_dialog.dart';
 import '../../../shared/views/empty_listview.dart';
 import '../../../shared/views/loading_view.dart';
 import '../../game/models/game.dart';
@@ -158,7 +158,7 @@ class _PlayersListViewState extends State<PlayersListView>
     showDialog(
         context: context,
         builder: (context) {
-          return OptionSelectionDialog(
+          return ActionSelectionDialog(
             options: options,
             onPressed: (index, option) async {
               executePlayerOption(player, option);

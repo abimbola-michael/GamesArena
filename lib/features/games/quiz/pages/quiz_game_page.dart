@@ -41,7 +41,7 @@ class QuizGamePage extends BaseGamePage {
 }
 
 class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
-  bool loadingQuizzes = true;
+  //bool loadingQuizzes = false;
   List<List<Quiz>> playersQuizzes = [];
 
   int? selectedAnswer;
@@ -113,8 +113,9 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
 
 // NB: Keep the questions brief and go straight to the point.
   String getPrompt() {
-    return """Generate $questionsLength $gameName questions and answers that can be answered within 60 seconds to at most 5 mins with 4 options and give me the duration that fits the question based on the difficulty level.
-    Generate these questions from reliable quiz sites and make sure that answers are very correct. If not sure of the answer get another question instead. I want 100% accurate answers
+    //
+    return """Generate $questionsLength matured and not too easy and different with difficulty level $difficultyLevel $gameName questions and answers that can be answered within 60 seconds to at most 5 mins with 4 options and give me the duration that fits the question based on the difficulty level.
+    Generate these questions from reliable quiz websites and make sure that answers are very correct. If not sure of the answer get another question instead. I want 100% accurate answers
         I want the quizzes as a list of objects that be converted to json directly from the result using the model class.
         Take note my result should be a json string that once i do a fromJson(result from prompt) i get a List<Quiz> result without any errors
         class Quiz {
@@ -138,7 +139,7 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
 
     stopPlayerTime = true;
 
-    loadingQuizzes = true;
+    // loadingQuizzes = true;
     setState(() {});
     if (quizzesJson != null) {
       quizzes = (jsonDecode(quizzesJson) as List)
@@ -154,7 +155,8 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
 
       updateGridDetails(jsonEncode(quizzes));
     }
-    loadingQuizzes = false;
+    loadingDetails = false;
+    // loadingQuizzes = false;
 
     for (int i = 0; i < playersSize; i++) {
       playersQuizzes.add(quizzes.map((quiz) => quiz.copyWith()).toList());
@@ -163,6 +165,8 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
     if (quizzes.isNotEmpty) {
       resetPlayerTime(quizzes.first.durationInSecs);
       stopPlayerTime = false;
+    } else {
+      awaiting = true;
     }
 
     if (!mounted) return;
@@ -262,7 +266,7 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
     if (currentQuestion == quizzes.length - 1) {
       currentQuestion = 0;
       scrollToPage();
-      updateWinForPlayerWithHighestCount();
+      updateWinForPlayerWithHighestCount(lowestCount: 5);
     } else {
       showPlayerToast(currentPlayer, "Next Question");
       resetPlayerTime();
@@ -469,9 +473,11 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
               decoration: BoxDecoration(border: Border.all(color: tint)),
               height: double.infinity,
               width: double.infinity,
-              child: loadingQuizzes
-                  ? const LoadingView()
-                  : error.isNotEmpty
+              child:
+                  // loadingQuizzes
+                  //     ? const LoadingView()
+                  //     :
+                  error.isNotEmpty
                       ? ErrorOrSuccessView(
                           message: error, onPressed: initQuizzes)
                       : playersQuizzes.isEmpty
@@ -662,77 +668,60 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
                     ),
                     child: SizedBox(
                       height: 16,
-                      child: quiz.selectedAnswer == null ||
-                              index > answeredQuestion
-                          ? null
-                          : Icon(
-                              quiz.selectedAnswer == quiz.answerIndex
-                                  ? EvaIcons.checkmark
-                                  : EvaIcons.close,
-                              color: quiz.selectedAnswer == quiz.answerIndex
-                                  ? Colors.green
-                                  : Colors.red,
-                              size: 16,
-                            ),
+                      child:
+                          // quiz.selectedAnswer == null
+                          index > answeredQuestion
+                              ? null
+                              : Icon(
+                                  quiz.selectedAnswer == quiz.answerIndex
+                                      ? EvaIcons.checkmark
+                                      : EvaIcons.close,
+                                  color: quiz.selectedAnswer == quiz.answerIndex
+                                      ? Colors.green
+                                      : Colors.red,
+                                  size: 16,
+                                ),
                     ),
                   );
                 },
               ),
             );
           }),
-          if (finishedAnsweringQuestions)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (currentQuestion > 0) ...[
-                  QuizActionButton(
-                      icon: EvaIcons.arrowhead_left,
-                      onPressed: gotoFirstQuestion),
-                  QuizActionButton(
-                      icon: OctIcons.arrow_left,
-                      onPressed: gotoPreviousQuestion),
-                ],
-                if (currentQuestion < quizzes.length - 1) ...[
-                  QuizActionButton(
-                      icon: OctIcons.arrow_right, onPressed: gotoNextQuestion),
-                  QuizActionButton(
-                      icon: EvaIcons.arrowhead_right,
-                      onPressed: gotoLastQuestion),
-                ]
-              ],
-            ),
-          // if (quizzes.isNotEmpty)
-          //   quizzes[currentQuestion].selectedAnswer == null ||
-          //           index > answeredQuestion ||
-          //           getUnSubmittedPlayers().isNotEmpty
-          //       ? const SizedBox()
-          //       : Container(
-          //           padding: const EdgeInsets.symmetric(
-          //               horizontal: 20, vertical: 10),
-          //           decoration: BoxDecoration(
-          //               color: lightestTint,
-          //               borderRadius: BorderRadius.circular(20)),
-          //           child: Text(
-          //             quizzes[currentQuestion]
-          //                 .options[quizzes[currentQuestion].selectedAnswer!],
-          //             style: context.bodyMedium?.copyWith(color: tint),
-          //             maxLines: 1,
-          //             overflow: TextOverflow.ellipsis,
-          //           ),
-          //         ),
-          if (index == myPlayer &&
-              !finishedAnsweringQuestions &&
-              selectedAnswer != null &&
-              playersQuizzes[currentPlayer][currentQuestion].selectedAnswer ==
-                  null)
-            AppButton(
-                title: "Submit",
-                height: 40,
-                wrapped: true,
-                bgColor: primaryColor,
-                onPressed: () {
-                  submitAnswer(selectedAnswer!, currentPlayer);
-                })
+          // if (finishedAnsweringQuestions)
+          //   Row(
+          //     mainAxisAlignment: MainAxisAlignment.center,
+          //     children: [
+          //       if (currentQuestion > 0) ...[
+          //         QuizActionButton(
+          //             icon: EvaIcons.arrowhead_left,
+          //             onPressed: gotoFirstQuestion),
+          //         QuizActionButton(
+          //             icon: OctIcons.arrow_left,
+          //             onPressed: gotoPreviousQuestion),
+          //       ],
+          //       if (currentQuestion < quizzes.length - 1) ...[
+          //         QuizActionButton(
+          //             icon: OctIcons.arrow_right, onPressed: gotoNextQuestion),
+          //         QuizActionButton(
+          //             icon: EvaIcons.arrowhead_right,
+          //             onPressed: gotoLastQuestion),
+          //       ]
+          //     ],
+          //   ),
+
+          // if (index == myPlayer &&
+          //     !finishedAnsweringQuestions &&
+          //     selectedAnswer != null &&
+          //     playersQuizzes[currentPlayer][currentQuestion].selectedAnswer ==
+          //         null)
+          //   AppButton(
+          //       title: "Submit",
+          //       height: 30,
+          //       wrapped: true,
+          //       bgColor: primaryColor,
+          //       onPressed: () {
+          //         submitAnswer(selectedAnswer!, currentPlayer);
+          //       })
           // else if (!finishedAnsweringQuestions)
           //   const SizedBox(height: 70),
         ],
@@ -747,6 +736,20 @@ class QuizGamePageState extends BaseGamePageState<QuizGamePage> {
 
   @override
   void onInitState() {
+    difficultyLevel ??= "Medium";
+
     quizPageController = PageController();
+  }
+
+  @override
+  bool onShowRightClick(int index) =>
+      index == myPlayer &&
+      !finishedAnsweringQuestions &&
+      selectedAnswer != null &&
+      playersQuizzes[currentPlayer][currentQuestion].selectedAnswer == null;
+
+  @override
+  void onRightClick(int index) {
+    submitAnswer(selectedAnswer!, currentPlayer);
   }
 }
